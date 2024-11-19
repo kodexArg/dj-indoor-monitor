@@ -29,25 +29,18 @@ class DevelopmentView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['minutes'] = LATEST_DATA_MINUTES
-        time_threshold = datetime.now(tz=timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
+        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
         context['data'] = SensorData.objects.filter(
             timestamp__gte=time_threshold
         ).order_by('-timestamp')
         return context
-
-def latest_data_table(request):
-    time_threshold = datetime.now(tz=timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
-    data = SensorData.objects.filter(
-        timestamp__gte=time_threshold
-    ).order_by('-timestamp')
-    return render(request, 'partials/latest-data-table-rows.html', {'data': data})
 
 class SensorDataAPIView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             raspberry_pi_id = kwargs.get('raspberry_pi_id')
             seconds = kwargs.get('seconds', LATEST_DATA_MINUTES * 60)
-            time_threshold = datetime.now(tz=timezone.utc) - timedelta(seconds=seconds)
+            time_threshold = datetime.now(timezone.utc) - timedelta(seconds=seconds)
 
             qs = SensorData.objects.filter(timestamp__gte=time_threshold)
 
@@ -89,4 +82,8 @@ class SensorDataAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+def latest_data_table(request):
+    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
+    data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
+    return render(request, 'partials/latest-data-table-rows.html', {'data': data})
 
