@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
 from django.utils.timezone import localtime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from django.core.exceptions import ValidationError
 from loguru import logger
 import json
@@ -29,14 +29,14 @@ class DevelopmentView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['minutes'] = LATEST_DATA_MINUTES
-        time_threshold = datetime.utcnow() - timedelta(minutes=LATEST_DATA_MINUTES)
+        time_threshold = datetime.now(tz=timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
         context['data'] = SensorData.objects.filter(
             timestamp__gte=time_threshold
         ).order_by('-timestamp')
         return context
 
 def latest_data_table(request):
-    time_threshold = datetime.utcnow() - timedelta(minutes=LATEST_DATA_MINUTES)
+    time_threshold = datetime.now(tz=timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
     data = SensorData.objects.filter(
         timestamp__gte=time_threshold
     ).order_by('-timestamp')
@@ -47,7 +47,7 @@ class SensorDataAPIView(APIView):
         try:
             raspberry_pi_id = kwargs.get('raspberry_pi_id')
             seconds = kwargs.get('seconds', LATEST_DATA_MINUTES * 60)
-            time_threshold = datetime.utcnow() - timedelta(seconds=seconds)
+            time_threshold = datetime.now(tz=timezone.utc) - timedelta(seconds=seconds)
 
             qs = SensorData.objects.filter(timestamp__gte=time_threshold)
 

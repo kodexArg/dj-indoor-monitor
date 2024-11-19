@@ -15,6 +15,11 @@ class SensorDataSerializer(serializers.ModelSerializer):
         ]
     )
 
+    def validate_timestamp(self, value):
+        if value.tzinfo is None:
+            value = make_aware(value)
+        return value
+
     class Meta:
         model = SensorData
         fields = ['timestamp', 'rpi', 't', 'h']
