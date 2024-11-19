@@ -13,7 +13,7 @@ from .models import SensorData
 from .serializers import SensorDataSerializer
 
 
-LATEST_DATA_MINUTES = 60 
+LATEST_DATA_MINUTES = 600 
 
 class HomeView(TemplateView):
     template_name = 'home.html'
