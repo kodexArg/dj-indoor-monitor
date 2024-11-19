@@ -1,0 +1,18 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container" style="text-align: center; margin-top: 50px;">
+    <h2 style="color: #ff6347;">Página en desarrollo</h2>
+    <p style="color: #555;">Estamos trabajando en esta página. Por favor, vuelva más tarde.</p>
+    <p style="font-size: 12px; color: #aaa;">
+        La página futura está siendo desarrollada en <a href="/development" style="color: #aaa; text-decoration: none;">/development</a>
+    </p>
+</div>
+
+<h3 style="margin-top: 50px;">DEBUG</h3>
+<pre style="text-align: left; background: #f5f5f5; padding: 15px; border-radius: 5px;">
+Context:
+minutes = {{ minutes }}
+now = {% now "Y-m-d H:i:s" %}
+</pre>
+{% endblock %}

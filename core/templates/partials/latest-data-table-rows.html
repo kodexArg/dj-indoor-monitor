@@ -1,0 +1,9 @@
+
+{% for record in data %}
+    <tr>
+        <td>{{ record.timestamp|date:"H:i:s" }}</td>
+        <td>{{ record.rpi }}</td>
+        <td>{{ record.t }}°C</td>
+        <td>{{ record.h }}%</td>
+    </tr>
+{% endfor %}

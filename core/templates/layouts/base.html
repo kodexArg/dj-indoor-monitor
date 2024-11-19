@@ -1,0 +1,53 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+  <meta charset="UTF-8">
+  <title>{% block title %}KCBD{% endblock %}</title>
+  <meta name="description" content="">
+  <meta name="author" content="Kodex">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <link rel="stylesheet" href="{% static 'css/normalize.css' %}">
+  <link rel="stylesheet" href="{% static 'css/skeleton.css' %}">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/plotly-2.35.2.min.js' %}" defer></script>
+
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <script>
+      document.body.addEventListener('htmx:configRequest', (event) => {
+          event.detail.headers['X-CSRFToken'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+      });
+  </script>
+
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1 class="header-title">{% block header %}<a href="{% url 'home' %}" style="text-decoration: none; color: inherit;">KCBD</a><span class="header-subtitle"> - MONITOR</span>{% endblock %}</h1>
+    </header>
+
+    <main>
+      <div class="row">
+        <div class="twelve columns">
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>&copy; 2024 - Kodex</p>
+    </footer>
+  </div>
+
+</body>
+</html>
