@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'django.contrib.staticfiles',  # Ensure this is included
     'rest_framework',
     'core'
 ]
@@ -84,6 +84,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.getenv('DJANGO_STATIC_ROOT')
+STATICFILES_DIRS = [
+    BASE_DIR / 'core' / 'static',
+]
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.getenv('DJANGO_MEDIA_ROOT')
 

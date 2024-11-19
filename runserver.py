@@ -32,6 +32,7 @@ def start_uvicorn(host, port):
     """Start Uvicorn with the specified host and port."""
     command = ["uvicorn", "project.asgi:application", "--reload", "--host", host, "--port", str(port)]
     try:
+        print(f"Starting Uvicorn server at {host}:{port}")
         process = subprocess.Popen(command)
         return process
     except FileNotFoundError:
@@ -51,13 +52,14 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    print(f"Attempting to kill any process using port {args.port}")
     kill_process_using_port(args.port)
     process = start_uvicorn(args.host, args.port)
     
     try:
         process.wait()
     except KeyboardInterrupt:
-        # process.terminate()
+        process.terminate()
         process.wait()
         print("\nServer stopped.")
 

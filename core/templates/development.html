@@ -4,9 +4,9 @@
 
 {% block content %}
 <pre style="text-align: left; background: #f5f5f5; padding: 15px; border-radius: 5px;">
-Context:
-minutes = {{ minutes }}
-now = {% now "Y-m-d H:i:s" %}
+    Context:
+    minutes = {{ minutes }}
+    now = {% now "Y-m-d H:i:s" %}
 </pre>
 
 {% include "partials/latest-data-table.html" %}

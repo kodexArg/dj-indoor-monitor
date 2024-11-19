@@ -1,0 +1,67 @@
+/* Anchos fijos para las columnas de la tabla */
+.fixed-width {
+  table-layout: fixed;
+}
+.fixed-width th:nth-child(1),
+.fixed-width td:nth-child(1) {
+  width: 200px; /* Timestamp */
+}
+.fixed-width th:nth-child(2),
+.fixed-width td:nth-child(2) {
+  width: 100px; /* RPi */
+}
+.fixed-width th:nth-child(3),
+.fixed-width td:nth-child(3) {
+  width: 60px; /* Temp. */
+}
+.fixed-width th:nth-child(4),
+.fixed-width td:nth-child(4) {
+  width: 60px; /* Hum. */
+}
+
+/* footer */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #d4edda; 
+  color: white;
+  text-align: center;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 1.1em;
+  font-weight: bold;
+  line-height: 2em;
+  height: 1.8em;
+}
+
+/* header */
+.header-title {
+  border-bottom: 3px solid #d4edda;
+}
+
+.header-subtitle {
+  font-size: 0.6em; /* Más pequeño */
+  color: #555; /* Gris oscuro */
+  vertical-align: middle; /* Centrado verticalmente */
+}
+
+/* Custom scrollbar */
+body {
+  overflow-y: scroll; /* Always show scrollbar to prevent content shift */
+}
+
+body::-webkit-scrollbar {
+  width: 12px; /* Width of the scrollbar */
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: #6fbf73; /* Darker green for the scrollbar thumb */
+  border-radius: 10px; /* Rounded corners */
+}
+
+body::-webkit-scrollbar-track {
+  background-color: #d4edda; /* Light green background for the scrollbar track */
+}
