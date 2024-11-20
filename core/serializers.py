@@ -3,7 +3,10 @@ from .models import SensorData
 from django.utils.timezone import localtime
 
 class SensorDataSerializer(serializers.ModelSerializer):
-    timestamp = serializers.SerializerMethodField() # timestamp = serializers.DateTimeField(format='%Y-%m-%dT%H:%M:%S%z')
+    """
+    Serializer for SensorData model.
+    """
+    timestamp = serializers.SerializerMethodField()
 
     class Meta:
         model = SensorData
