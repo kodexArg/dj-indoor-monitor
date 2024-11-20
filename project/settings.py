@@ -13,7 +13,6 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
 logger.debug(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 logger.debug(f"DEBUG: {DEBUG}")
 
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -22,7 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'django_filters',  # Añadir esta línea
+    'django_filters',
     'core',
     'plotly',
 ]
@@ -94,43 +93,40 @@ MEDIA_ROOT = os.getenv('DJANGO_MEDIA_ROOT')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuración de LOGGING
 LOGGING = {
-    'version': 1,  # Versión del esquema de configuración de logging
-    'disable_existing_loggers': False,  # No deshabilitar los loggers existentes
+    'version': 1,
+    'disable_existing_loggers': False,
     'filters': {
-        'require_debug_false': {  # Filtro para requerir que DEBUG sea False
+        'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse',
         },
-        'require_debug_true': {  # Filtro para requerir que DEBUG sea True
+        'require_debug_true': {
             '()': 'django.utils.log.RequireDebugTrue',
         },
     },
     'handlers': {
-        'console': {  # Handler que envía los logs a la consola
-            'level': 'DEBUG',  # Nivel de log mínimo para este handler
-            'class': 'logging.StreamHandler',  # Clase de handler que envía logs a streams (como la consola)
-            'filters': ['require_debug_false'],  # Aplicar el filtro require_debug_false a este handler
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'filters': ['require_debug_false'],
         },
     },
     'loggers': {
-        'django': {  # Logger para mensajes de Django
-            'handlers': ['console'],  # Usar el handler de consola para este logger
-            'level': 'INFO',  # Nivel de log mínimo para este logger
-            'propagate': True,  # Permitir que los logs se propaguen a otros loggers
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
         },
-        'django.server': {  # Logger para mensajes del servidor de Django
-            'handlers': ['console'],  # Usar el handler de consola para este logger
-            'level': 'DEBUG',  # Cambiado de INFO a DEBUG
-            'propagate': False,  # No permitir que los logs se propaguen a otros loggers
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
 }
 
-# Agregar antes de REST_FRAMEWORK
 MAX_DATA_MINUTES = int(os.getenv('MAX_DATA_MINUTES', 5))
 
-# Agregar al final del archivo
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',

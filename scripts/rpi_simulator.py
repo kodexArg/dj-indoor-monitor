@@ -14,7 +14,7 @@ logger.add(
 )
 
 # Configuración
-endpoint = "http://127.0.0.1:8000/api/sensor-data/create/"
+endpoint = "http://127.0.0.1:8000/api/sensor-data/"
 interval = 30  # Intervalo en segundos
 RPIS = ["simu-pi-04", "simu-pi-05"]
 

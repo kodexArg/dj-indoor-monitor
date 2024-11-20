@@ -1,23 +1,28 @@
+# Django and DRF
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.routers import DefaultRouter
+
+# Local
 from .views import (
-    SensorDataListView,
-    SensorDataCreateAPIView,
+    SensorDataViewSet,
     HomeView,
     DevelopmentView,
     latest_data_table,
     latest_data_chart
 )
 
+router = DefaultRouter()
+router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
+
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('development/', DevelopmentView.as_view(), name='development'),
-    path('api/sensor-data/', SensorDataListView.as_view(), name='sensor-data-list'),
-    path('api/sensor-data/create/', SensorDataCreateAPIView.as_view(), name='sensor-data-create'),
     path('latest-data-table/', latest_data_table, name='latest-data-table'),
     path('latest-data-chart/', latest_data_chart, name='latest-data-chart'),
+    path('', include(router.urls)),
 ]
 
 if settings.DEBUG:
