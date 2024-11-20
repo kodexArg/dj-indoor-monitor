@@ -6,8 +6,8 @@ import threading
 
 # Configuración
 endpoint = "http://127.0.0.1:8000/api/sensor-data/"
-interval = 10  # Intervalo en segundos
-RPIS = ["simu_pi_01", "simu_pi_02", "simu_pi_03"]
+interval = 30  # Intervalo en segundos
+RPIS = ["simu-pi-01", "simu-pi-02", "simu-pi-03"]
 
 class RpiSimulator(threading.Thread):
     def __init__(self, rpi_name):
@@ -56,8 +56,8 @@ class RpiSimulator(threading.Thread):
             self.send_data()
             latency = self.get_latency()
             print(f"{self.rpi_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
-                  f"T: {self.prev_temperature:.1f}° -> {self.temperature:.1f}° | "
-                  f"H: {self.prev_humidity:.1f}% -> {self.humidity:.1f}%")
+                  f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
+                  f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
             time.sleep(interval + latency)
 
 if __name__ == "__main__":

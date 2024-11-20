@@ -8,6 +8,8 @@ from django.utils.timezone import localtime
 from datetime import datetime, timedelta, timezone
 from django.core.exceptions import ValidationError
 from loguru import logger
+from django.urls import reverse
+import requests
 import json
 from .models import SensorData
 from .serializers import SensorDataSerializer
@@ -18,7 +20,7 @@ from django.http import HttpResponse
 from django.template import loader
 
 
-LATEST_DATA_MINUTES = 3 
+MAX_DATA_MINUTES = 5
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -28,8 +30,8 @@ class DevelopmentView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['minutes'] = LATEST_DATA_MINUTES
-        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
+        context['minutes'] = MAX_DATA_MINUTES
+        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
         context['data'] = SensorData.objects.filter(
             timestamp__gte=time_threshold
         ).order_by('-timestamp')
@@ -38,14 +40,17 @@ class DevelopmentView(TemplateView):
 class SensorDataAPIView(APIView):
     def get(self, request, *args, **kwargs):
         try:
-            raspberry_pi_id = kwargs.get('raspberry_pi_id')
-            seconds = kwargs.get('seconds', LATEST_DATA_MINUTES * 60)
-            time_threshold = datetime.now(timezone.utc) - timedelta(seconds=seconds)
+            rpi = request.GET.get('rpi')
+            timestamp = request.GET.get('timestamp')
+            
+            if timestamp:
+                time_threshold = datetime.fromisoformat(timestamp)
+            else:
+                time_threshold = datetime.now(timezone.utc) - timedelta(seconds=MAX_DATA_MINUTES * 60)
 
             qs = SensorData.objects.filter(timestamp__gte=time_threshold)
-
-            if raspberry_pi_id:
-                qs = qs.filter(rpi=raspberry_pi_id)
+            if rpi:
+                qs = qs.filter(rpi=rpi)
 
             serializer = SensorDataSerializer(qs, many=True)
             return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
@@ -82,13 +87,36 @@ class SensorDataAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+def fetch_data(request, rpi=None, seconds=None):
+    """Fetch sensor data from the API using the current request context."""
+    api_url = request.build_absolute_uri(reverse('sensor-data'))
+    
+    if seconds:
+        seconds = min(seconds, MAX_DATA_MINUTES * 60)
+        timestamp = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
+    else:
+        timestamp = (datetime.now(timezone.utc) - timedelta(seconds=MAX_DATA_MINUTES * 60)).isoformat()
+    
+    params = {
+        'timestamp': timestamp
+    }
+    if rpi:
+        params['rpi'] = rpi
+    
+    response = requests.get(api_url, params=params)
+    data = response.json()
+    
+    for item in data:
+        item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+    
+    return data
+
 def latest_data_table(request):
-    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
-    data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
+    data = fetch_data(request)
     return render(request, 'partials/latest-data-table-rows.html', {'data': data})
 
 def latest_data_chart(request):
-    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
+    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
     logger.debug(f"Time threshold: {time_threshold}")
     data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
     logger.debug(f"Data: {data}")

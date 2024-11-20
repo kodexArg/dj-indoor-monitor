@@ -2,7 +2,7 @@
     <table id="data-table" class="u-full-width fixed-width">
         <thead>
             <tr>
-                <th>Timestamp</th>
+                <th>Time</th>
                 <th>RPi</th>
                 <th>Temp.</th>
                 <th>Hum.</th>
@@ -10,7 +10,7 @@
         </thead>
         <tbody 
             hx-get="{% url 'latest-data-table' %}" 
-            hx-trigger="load, every 5s" 
+            hx-trigger="load, every 2s" 
             hx-target="this"
         >
         </tbody>
