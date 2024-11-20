@@ -1,9 +1,6 @@
 {% load static %}
 <article>
-        time:<pre id="timestamps">{{ timestamp }}</pre>
-        temp:<pre id="temperatures">{{ temperatures }}</pre>
         data:<pre id="data">{{ data }}</pre>
-        data_json:<pre id="data_json">{{ data_json }}</pre>
     <div id="chart"></div>
     <script src="{% static 'js/plotly-2.35.2.min.js' %}"></script>
     <script>
