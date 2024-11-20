@@ -127,6 +127,9 @@ LOGGING = {
     },
 }
 
+# Agregar antes de REST_FRAMEWORK
+MAX_DATA_MINUTES = int(os.getenv('MAX_DATA_MINUTES', 5))
+
 # Agregar al final del archivo
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [

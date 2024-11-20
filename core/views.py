@@ -27,8 +27,6 @@ from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
 
-MAX_DATA_MINUTES = int(getattr(settings, 'MAX_DATA_MINUTES', 5))
-
 class HomeView(TemplateView):
     template_name = 'home.html'
     
@@ -37,8 +35,8 @@ class DevelopmentView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['minutes'] = MAX_DATA_MINUTES
-        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
+        context['minutes'] = settings.MAX_DATA_MINUTES
+        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
         context['data'] = SensorData.objects.filter(
             timestamp__gte=time_threshold
         ).order_by('-timestamp')
@@ -47,13 +45,13 @@ class DevelopmentView(TemplateView):
 class SensorDataListView(ListAPIView):
     """
     List view for SensorData with comprehensive filtering capabilities.
-    Data is always limited to the last MAX_DATA_MINUTES, regardless of filters.
+    Data is always limited to the last settings.MAX_DATA_MINUTES, regardless of filters.
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
 
     def get_queryset(self): # Override to apply the security time threshold to all queries
-        max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
+        max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
         
         queryset = super().filter_queryset(
             SensorData.objects.filter(timestamp__gte=max_time_threshold)
@@ -115,7 +113,7 @@ def latest_data_table(request):
     return render(request, 'partials/latest-data-table-rows.html', {'data': data})
 
 def latest_data_chart(request):
-    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
+    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
     logger.debug(f"Time threshold: {time_threshold}")
     data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
     logger.debug(f"Data: {data}")
