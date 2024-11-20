@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_filters',  # Añadir esta línea
     'core',
     'plotly',
 ]
@@ -124,4 +125,13 @@ LOGGING = {
             'propagate': False,  # No permitir que los logs se propaguen a otros loggers
         },
     },
+}
+
+# Agregar al final del archivo
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
 }

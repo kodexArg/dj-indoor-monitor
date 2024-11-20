@@ -1,4 +1,5 @@
-# Django and DRF 
+# Django and DRF
+from django.conf import settings
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from django.http import JsonResponse, HttpResponse
@@ -7,10 +8,12 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.template import loader
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
+from django_filters import rest_framework as filters
 
-# Python 
+# Python
 from datetime import datetime, timedelta, timezone
 import json
 import requests
@@ -22,9 +25,9 @@ import plotly.express as px
 import pandas as pd
 from .models import SensorData
 from .serializers import SensorDataSerializer
+from .filters import SensorDataFilter
 
-
-MAX_DATA_MINUTES = 5
+MAX_DATA_MINUTES = int(getattr(settings, 'MAX_DATA_MINUTES', 5))
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -41,36 +44,25 @@ class DevelopmentView(TemplateView):
         ).order_by('-timestamp')
         return context
 
-class SensorDataAPIView(APIView):
-    def get(self, request, *args, **kwargs):
-        try:
-            rpi = request.GET.get('rpi')
-            since = request.GET.get('since')
-            seconds = request.GET.get('seconds')
-            
-            if since:
-                time_threshold = datetime.fromisoformat(since)
-            elif seconds:
-                seconds = min(int(seconds), MAX_DATA_MINUTES * 60)
-                time_threshold = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-            else:
-                time_threshold = datetime.now(timezone.utc) - timedelta(seconds=MAX_DATA_MINUTES * 60)
+class SensorDataListView(ListAPIView):
+    """
+    List view for SensorData with comprehensive filtering capabilities.
+    Data is always limited to the last MAX_DATA_MINUTES, regardless of filters.
+    """
+    serializer_class = SensorDataSerializer
+    filterset_class = SensorDataFilter
 
-            qs = SensorData.objects.filter(timestamp__gte=time_threshold)
-            if rpi:
-                qs = qs.filter(rpi=rpi)
-            
-            qs = qs.order_by('-timestamp')  # Asegurar orden descendente
+    def get_queryset(self): # Override to apply the security time threshold to all queries
+        max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=MAX_DATA_MINUTES)
+        
+        queryset = super().filter_queryset(
+            SensorData.objects.filter(timestamp__gte=max_time_threshold)
+        )
+        
+        return queryset.order_by('-timestamp')
 
-            serializer = SensorDataSerializer(qs, many=True)
-            return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Error processing GET request: {str(e)}")
-            return JsonResponse(
-                {"error": "Error processing request", "detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
+class SensorDataCreateAPIView(APIView):
+    """API endpoint for creating new sensor data entries."""
     def post(self, request, *args, **kwargs):
         try:
             serializer = SensorDataSerializer(data=request.data)
@@ -78,7 +70,10 @@ class SensorDataAPIView(APIView):
                 serializer.save()
                 timestamp = localtime(serializer.instance.timestamp).strftime('%H:%M:%S')
                 logger.debug(f"S: {timestamp} ✅")
-                return JsonResponse({"message": "Data received"}, status=status.HTTP_201_CREATED)
+                return JsonResponse(
+                    {"message": "Data received"},
+                    status=status.HTTP_201_CREATED
+                )
             
             logger.error(f"Validation error: {serializer.errors}")
             return JsonResponse(
@@ -99,7 +94,7 @@ class SensorDataAPIView(APIView):
 
 def fetch_data(request, rpi=None, seconds=None):
     """Fetch sensor data from the API using the current request context."""
-    api_url = request.build_absolute_uri(reverse('sensor-data'))
+    api_url = request.build_absolute_uri(reverse('sensor-data-list'))
     
     params = {}
     if seconds:
@@ -124,11 +119,14 @@ def latest_data_chart(request):
     logger.debug(f"Time threshold: {time_threshold}")
     data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
     logger.debug(f"Data: {data}")
-    df = pd.DataFrame(list(data.values('timestamp', 'temperature', 'rpi')))
+    df = pd.DataFrame(list(data.values('timestamp', 't', 'rpi')))
     data_json = df.to_json(orient='records', date_format='iso')
 
-    context = {
-        'data_json': data_json
-    }
-    return HttpResponse(request, 'partials/latest-data-chart.html')
+    return HttpResponse(
+        loader.render_to_string(
+            'partials/latest-data-chart.html',
+            {'data_json': data_json},
+            request
+        )
+    )
 

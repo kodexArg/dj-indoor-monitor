@@ -3,11 +3,20 @@ import time
 import random
 from datetime import datetime
 import threading
+from loguru import logger
+
+# Configure logger format
+logger.remove()  # Remove default handler
+logger.add(
+    lambda msg: print(msg, end=""),  # Use print to avoid double line breaks
+    format="{time:HH:mm:ss} | {message}",
+    level="INFO"
+)
 
 # Configuración
-endpoint = "http://127.0.0.1:8000/api/sensor-data/"
+endpoint = "http://127.0.0.1:8000/api/sensor-data/create/"
 interval = 30  # Intervalo en segundos
-RPIS = ["simu-pi-01", "simu-pi-02", "simu-pi-03"]
+RPIS = ["simu-pi-04", "simu-pi-05"]
 
 class RpiSimulator(threading.Thread):
     def __init__(self, rpi_name):
@@ -41,23 +50,29 @@ class RpiSimulator(threading.Thread):
             "h": self.humidity
         }
         response = requests.post(endpoint, json=data)
+        if response.status_code != 201:
+            logger.error(f"{self.rpi_name}: Error en la respuesta del servidor: {response.status_code}")
+            self.running = False
+            return False
+        return True
 
     def get_latency(self):
         return random.randint(1, 1000) / 1000  # Convertir a segundos
 
     def run(self):
         initial_delay = random.uniform(0, interval)
-        print(f"{self.rpi_name}: Inicio retrasado {initial_delay:.1f}s")
+        logger.info(f"{self.rpi_name}: Inicio retrasado {initial_delay:.1f}s")
         time.sleep(initial_delay)
         
         while self.running:
             self.update_temperature()
             self.update_humidity()
-            self.send_data()
+            if not self.send_data():
+                break
             latency = self.get_latency()
-            print(f"{self.rpi_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
-                  f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
-                  f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
+            logger.info(f"{self.rpi_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
+                     f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
+                     f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
             time.sleep(interval + latency)
 
 if __name__ == "__main__":
@@ -71,8 +86,8 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nDeteniendo simuladores...")
+        logger.warning("\nDeteniendo simuladores...")
         for simulator in simulators:
             simulator.running = False
             simulator.join()
-        print("Simuladores detenidos")
+        logger.info("Simuladores detenidos")
