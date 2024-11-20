@@ -1,23 +1,27 @@
+# Django and DRF 
 from django.shortcuts import render
 from django.views.generic import TemplateView
+from django.http import JsonResponse, HttpResponse
+from django.utils.timezone import localtime
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from django.template import loader
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.http import JsonResponse
-from django.utils.timezone import localtime
+
+# Python 
 from datetime import datetime, timedelta, timezone
-from django.core.exceptions import ValidationError
-from loguru import logger
-from django.urls import reverse
-import requests
 import json
-from .models import SensorData
-from .serializers import SensorDataSerializer
+import requests
+
+# Third-party and local imports
+from loguru import logger
 import plotly.graph_objs as go
 import plotly.express as px
 import pandas as pd
-from django.http import HttpResponse
-from django.template import loader
+from .models import SensorData
+from .serializers import SensorDataSerializer
 
 
 MAX_DATA_MINUTES = 5
@@ -41,16 +45,22 @@ class SensorDataAPIView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             rpi = request.GET.get('rpi')
-            timestamp = request.GET.get('timestamp')
+            since = request.GET.get('since')
+            seconds = request.GET.get('seconds')
             
-            if timestamp:
-                time_threshold = datetime.fromisoformat(timestamp)
+            if since:
+                time_threshold = datetime.fromisoformat(since)
+            elif seconds:
+                seconds = min(int(seconds), MAX_DATA_MINUTES * 60)
+                time_threshold = datetime.now(timezone.utc) - timedelta(seconds=seconds)
             else:
                 time_threshold = datetime.now(timezone.utc) - timedelta(seconds=MAX_DATA_MINUTES * 60)
 
             qs = SensorData.objects.filter(timestamp__gte=time_threshold)
             if rpi:
                 qs = qs.filter(rpi=rpi)
+            
+            qs = qs.order_by('-timestamp')  # Asegurar orden descendente
 
             serializer = SensorDataSerializer(qs, many=True)
             return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
@@ -91,15 +101,9 @@ def fetch_data(request, rpi=None, seconds=None):
     """Fetch sensor data from the API using the current request context."""
     api_url = request.build_absolute_uri(reverse('sensor-data'))
     
+    params = {}
     if seconds:
-        seconds = min(seconds, MAX_DATA_MINUTES * 60)
-        timestamp = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
-    else:
-        timestamp = (datetime.now(timezone.utc) - timedelta(seconds=MAX_DATA_MINUTES * 60)).isoformat()
-    
-    params = {
-        'timestamp': timestamp
-    }
+        params['seconds'] = seconds
     if rpi:
         params['rpi'] = rpi
     
