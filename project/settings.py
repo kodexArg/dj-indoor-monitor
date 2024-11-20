@@ -1,5 +1,5 @@
 from pathlib import Path
-import os, sys
+import os
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -20,9 +20,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',  # Ensure this is included
+    'django.contrib.staticfiles',
     'rest_framework',
-    'core'
+    'core',
+    'plotly',
 ]
 
 MIDDLEWARE = [
@@ -78,7 +79,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = os.getenv('DJANGO_DEFAULT_LANGUAGE_CODE')
-TIME_ZONE = os.getenv('DJANGO_TIMEZONE')  # Should be 'UTC' in your .env file
+TIME_ZONE = os.getenv('DJANGO_TIMEZONE') 
 USE_I18N = True
 USE_TZ = True
 
@@ -114,7 +115,7 @@ LOGGING = {
     'loggers': {
         'django': {  # Logger para mensajes de Django
             'handlers': ['console'],  # Usar el handler de consola para este logger
-            'level': 'DEBUG',  # Nivel de log mínimo para este logger
+            'level': 'INFO',  # Nivel de log mínimo para este logger
             'propagate': True,  # Permitir que los logs se propaguen a otros loggers
         },
         'django.server': {  # Logger para mensajes del servidor de Django

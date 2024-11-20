@@ -1,4 +1,35 @@
+{% load static %}
 <article>
-    <p>Visualizando los últimos {{ minutes }} minutos de la base de datos.</p>
-    {{ temperature_chart|safe }}
+        time:<pre id="timestamps">{{ timestamp }}</pre>
+        temp:<pre id="temperatures">{{ temperatures }}</pre>
+        data:<pre id="data">{{ data }}</pre>
+        data_json:<pre id="data_json">{{ data_json }}</pre>
+    <div id="chart"></div>
+    <script src="{% static 'js/plotly-2.35.2.min.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var data = JSON.parse(`{{ data_json|escapejs }}`);
+            var timestamps = data.map(row => row.timestamp);
+            var temperatures = data.map(row => row.temperature);
+
+            document.getElementById('timestamps').textContent = JSON.stringify(timestamps, null, 2);
+            document.getElementById('temperatures').textContent = JSON.stringify(temperatures, null, 2);
+
+            var traces = [{
+                x: timestamps,
+                y: temperatures,
+                mode: 'lines',
+                name: 'raspberry-pi-5555'
+            }];
+
+            var layout = {
+                title: 'Latest Temperature Data by Raspberry Pi',
+                xaxis: { title: 'Timestamp' },
+                yaxis: { title: 'Temperature' }
+            };
+
+            Plotly.newPlot('chart', traces, layout);
+        });
+    </script>
 </article>
+

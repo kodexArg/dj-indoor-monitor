@@ -11,9 +11,14 @@ from loguru import logger
 import json
 from .models import SensorData
 from .serializers import SensorDataSerializer
+import plotly.graph_objs as go
+import plotly.express as px
+import pandas as pd
+from django.http import HttpResponse
+from django.template import loader
 
 
-LATEST_DATA_MINUTES = 600 
+LATEST_DATA_MINUTES = 3 
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -86,4 +91,17 @@ def latest_data_table(request):
     time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
     data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
     return render(request, 'partials/latest-data-table-rows.html', {'data': data})
+
+def latest_data_chart(request):
+    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=LATEST_DATA_MINUTES)
+    logger.debug(f"Time threshold: {time_threshold}")
+    data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
+    logger.debug(f"Data: {data}")
+    df = pd.DataFrame(list(data.values('timestamp', 'temperature', 'rpi')))
+    data_json = df.to_json(orient='records', date_format='iso')
+
+    context = {
+        'data_json': data_json
+    }
+    return HttpResponse(request, 'partials/latest-data-chart.html')
 

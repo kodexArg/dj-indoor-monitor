@@ -1,25 +1,39 @@
+# dj-indoor-monitor
 
-# Sensor Data API
+## Propósito del Proyecto
+"dj-indoor-monitor" es un sistema de monitoreo en tiempo real para datos ambientales de temperatura y humedad, recolectados desde dispositivos Raspberry Pi. Su objetivo es proporcionar una interfaz web funcional y dinámica que permita a los usuarios visualizar estos datos de forma clara y accesible.
 
-API para gestionar datos de sensores de temperatura y humedad desde Raspberry Pi.
+## Estructura de Datos
+Los datos se almacenan en un modelo llamado `SensorData` que contiene:
+- **timestamp**: Fecha y hora del registro (e.g., `"2024-11-19T12:34:56Z"`).
+- **rpi**: Identificación única del dispositivo Raspberry Pi (e.g., `"raspberry-pi-001"`).
+- **t**: Temperatura medida en grados Celsius (e.g., `24.5`).
+- **h**: Humedad relativa en porcentaje (e.g., `60.3`).
 
-## Endpoints
+Estos datos se utilizan para gráficos interactivos y tablas dinámicas.
 
-### GET /api/sensor-data/
-### GET /api/sensor-data/<raspberry_pi_id>/
+## Tecnologías Utilizadas
+El proyecto emplea una combinación de tecnologías modernas para asegurar robustez, escalabilidad e interactividad:
+- **Django** como framework principal para el backend y manejo de vistas.
+- **Django REST Framework (DRF)** para exponer una API que permite consultas y envío de datos desde sensores.
+- **Plotly** para la visualización de datos en gráficos interactivos.
+- **HTMX** para actualizar componentes del frontend dinámicamente sin necesidad de recargar la página.
+- **Loguru** para un registro detallado de eventos y errores, lo que facilita el monitoreo y depuración.
 
-Obtiene datos de sensores filtrados por tiempo y opcionalmente por ID de Raspberry Pi.
+## Interactividad y Actualización
+La interfaz está diseñada para reflejar cambios en los datos automáticamente, proporcionando tablas y gráficos que presentan información en tiempo real basada en la actividad de los sensores.
 
-**Parámetros URL:**
-- `raspberry_pi_id` (opcional): Identificador del Raspberry Pi
-- `seconds` (opcional): Ventana de tiempo en segundos (default: 3600)
+## Configuración Modular y Seguridad
+La configuración del proyecto está centralizada en un archivo `.env`, donde se especifican variables sensibles como la clave secreta de Django (`SECRET_KEY`), las credenciales de la base de datos y las configuraciones de entorno. Esto permite una transición fluida entre entornos de desarrollo y producción.
 
-**Respuestas:**
-- `200 OK`: Lista de lecturas de sensores
-- `500 Error`: Error del servidor con detalles
+## API para Sensores
+El sistema permite que los dispositivos Raspberry Pi envíen datos mediante una API RESTful implementada con DRF. Los datos enviados son validados y almacenados en la base de datos para su análisis posterior.
 
-### POST /api/sensor-data/
+## Almacenamiento de Datos
+Por defecto, se utiliza SQLite para almacenamiento local, pero el proyecto está preparado para PostgreSQL según las configuraciones definidas en `.env`. Esto asegura que el sistema pueda escalar con facilidad en entornos productivos.
 
-Almacena nuevas lecturas de sensores.
+## Visualización de Datos
+Las visualizaciones incluyen gráficos dinámicos de temperatura y tablas actualizadas automáticamente. Estas herramientas permiten a los usuarios identificar patrones y tendencias en los datos recopilados.
 
-**Formato JSON esperado:**
+## Futuro y Escalabilidad
+El proyecto está diseñado con una arquitectura modular y un enfoque en la extensibilidad, facilitando la incorporación de nuevos tipos de sensores, integraciones con sistemas externos o ajustes en las visualizaciones según las necesidades del usuario.
