@@ -10,7 +10,7 @@ class SensorDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SensorData
-        fields = ['timestamp', 'rpi', 't', 'h']
+        fields = ['timestamp', 'sensor', 't', 'h']
 
     def get_timestamp(self, obj):
         return localtime(obj.timestamp).isoformat()

@@ -20,20 +20,20 @@ logger.add(
 )
 
 # Parse arguments
-parser = argparse.ArgumentParser(description="Simulador de RPi")
+parser = argparse.ArgumentParser(description="Simulador de Sensores")
 parser.add_argument("--seconds", type=int, default=30, help="Intervalo de actualización en segundos")
-parser.add_argument("--rpis", type=int, default=3, help="Número de Raspberry Pis simuladas")
+parser.add_argument("--sensors", type=int, default=3, help="Número de sensores simulados")
 args = parser.parse_args()
 
 # Constants
 endpoint = "http://127.0.0.1:8000/api/sensor-data/"
 interval = args.seconds
-RPIS = [f"simu-pi-{i:02d}" for i in range(1, args.rpis + 1)]
+SENSORS = [f"simu-sensor-{i:02d}" for i in range(1, args.sensors + 1)]
 
-class RpiSimulator(threading.Thread):
-    def __init__(self, rpi_name):
+class SensorSimulator(threading.Thread):
+    def __init__(self, sensor_name):
         threading.Thread.__init__(self)
-        self.rpi_name = rpi_name
+        self.sensor_name = sensor_name
         self.running = True
         self.temperature = 22.0
         self.humidity = 60.0
@@ -58,7 +58,7 @@ class RpiSimulator(threading.Thread):
     def send_data(self):
         data = {
             "timestamp": datetime.now().isoformat(),
-            "rpi": self.rpi_name,
+            "sensor": self.sensor_name,
             "t": self.temperature,
             "h": self.humidity
         }
@@ -75,7 +75,7 @@ class RpiSimulator(threading.Thread):
 
     def run(self):
         initial_delay = random.uniform(0, interval)
-        logger.info(f"{self.rpi_name}: Inicio retrasado {initial_delay:.1f}s")
+        logger.info(f"{self.sensor_name}: Inicio retrasado {initial_delay:.1f}s")
         time.sleep(initial_delay)
         
         while self.running:
@@ -83,17 +83,17 @@ class RpiSimulator(threading.Thread):
             self.update_humidity()
             if not self.send_data():
                 if not self.error_shown:
-                    logger.error(f"{self.rpi_name}: API no accesible, intentando reconexión cada {interval} segundos...")
+                    logger.error(f"{self.sensor_name}: API no accesible, intentando reconexión cada {interval} segundos...")
                     self.error_shown = True
                 time.sleep(interval)
                 continue
             
             if self.error_shown:
-                logger.info(f"{self.rpi_name}: API accesible nuevamente")
+                logger.info(f"{self.sensor_name}: API accesible nuevamente")
                 self.error_shown = False
                 
             latency = self.get_latency()
-            logger.info(f"{self.rpi_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
+            logger.info(f"{self.sensor_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
                      f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
                      f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
             time.sleep(interval + latency)
@@ -102,15 +102,15 @@ if __name__ == "__main__":
     simulators = []
     
     # Start simulator threads
-    for rpi in RPIS:
-        simulator = RpiSimulator(rpi)
+    for sensor in SENSORS:
+        simulator = SensorSimulator(sensor)
         simulator.daemon = True
         simulator.start()
         simulators.append(simulator)
 
     # Show initial configuration
     logger.info(f"Intervalo de actualización configurado a {interval} segundos")
-    logger.info(f"Simulando {len(RPIS)} Raspberry Pis")
+    logger.info(f"Simulando {len(SENSORS)} sensores")
 
     # Main loop
     try:

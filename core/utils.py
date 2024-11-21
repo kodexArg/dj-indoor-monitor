@@ -1,17 +1,16 @@
 import pandas as pd
 
+
+def parse_time_string(time_str):
+    """Convert time strings like '30s' or '1m' to seconds."""
+    try:
+        return int(pd.Timedelta(time_str).total_seconds())
+    except (ValueError, AttributeError):
+        return 30  # default fallback
+
+
 def process_chart_data(data: list, metric: str, freq: str = '3s') -> dict:
-    """Process sensor data grouped by RPI with customizable intervals.
-    
-    Args:
-        data (list): List of sensor data records containing timestamps and measurements
-        metric (str): Metric to process, either 't' (temperature) or 'h' (humidity)
-        freq (str, optional): Pandas time frequency string for grouping. Defaults to '30s'
-    
-    Returns:
-        dict: Processed data with the structure {'data': [...]} where each item contains
-              timestamp, rpi, and the averaged metric value for the specified interval
-    """
+    """Process sensor data grouped by sensor with customizable intervals."""
     if metric not in ['t', 'h']:
         raise ValueError("metric must be either 't' for temperature or 'h' for humidity")
 
@@ -22,8 +21,8 @@ def process_chart_data(data: list, metric: str, freq: str = '3s') -> dict:
     # Convert timestamp and set as index
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     
-    # Group by RPI and time intervals
-    grouped = df.groupby(['rpi', pd.Grouper(key='timestamp', freq=freq)]).agg({
+    # Group by sensor and time intervals
+    grouped = df.groupby(['sensor', pd.Grouper(key='timestamp', freq=freq)]).agg({
         metric: 'mean'
     }).reset_index()
     

@@ -14,8 +14,10 @@ from .views import (
     ChartView
 )
 
+
 router = DefaultRouter()
 router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
+
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
@@ -24,6 +26,7 @@ urlpatterns = [
     path('chart/', ChartView.as_view(), name='chart'),
     path('', include(router.urls)),
 ]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

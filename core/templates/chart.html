@@ -10,52 +10,68 @@
 <script src="{% static 'js/plotly-2.36.2.min.js' %}"></script>
 <script>
     var traces = [];
-    const MAX_POINTS = 1000;
-    const POLLING_INTERVAL = 1000; // 5 seconds
+    const MAX_POINTS = 500;
+    const POLLING_INTERVAL = 1000;
 
     // Initial data fetch
-    fetch('/api/sensor-data/')
+    fetch('/api/sensor-data/chart/')
         .then(response => response.json())
         .then(response => {
-            var rpiGroups = {};
+            var sensorGroups = {};
 
             response.data.forEach(item => {
-                if (!rpiGroups[item.rpi]) {
-                    rpiGroups[item.rpi] = { x: [], y: [] };
+                if (!sensorGroups[item.sensor]) {
+                    sensorGroups[item.sensor] = { x: [], y: [] };
                 }
-                rpiGroups[item.rpi].x.push(item.timestamp);
-                rpiGroups[item.rpi].y.push(item.t);
+                sensorGroups[item.sensor].x.push(item.timestamp);
+                sensorGroups[item.sensor].y.push(item.t);
             });
 
-            for (var rpi in rpiGroups) {
+            for (var sensor in sensorGroups) {
                 traces.push({
-                    x: rpiGroups[rpi].x,
-                    y: rpiGroups[rpi].y,
+                    x: sensorGroups[sensor].x,
+                    y: sensorGroups[sensor].y,
                     mode: 'lines',
-                    name: rpi
+                    name: sensor
                 });
             }
 
-            Plotly.newPlot('chart', traces);
+            const layout = {
+                yaxis: {
+                    range: [0, 100]
+                },
+                legend: {
+                    orientation: 'h',
+                    yanchor: 'bottom',
+                    y: -0.2,
+                    xanchor: 'center',
+                    x: 0.5
+                },
+                margin: {
+                    b: 100  // Aumentar margen inferior para la leyenda
+                }
+            };
+
+            Plotly.newPlot('chart', traces, layout);
         });
 
     function updateChart(data) {
         var update = { x: [], y: [] };
-        var rpiGroups = {};
+        var sensorGroups = {};
 
         data.forEach(item => {
-            if (!rpiGroups[item.rpi]) {
-                rpiGroups[item.rpi] = { x: [], y: [] };
+            if (!sensorGroups[item.sensor]) {
+                sensorGroups[item.sensor] = { x: [], y: [] };
             }
-            rpiGroups[item.rpi].x.push(item.timestamp);
-            rpiGroups[item.rpi].y.push(item.t);
+            sensorGroups[item.sensor].x.push(item.timestamp);
+            sensorGroups[item.sensor].y.push(item.t);
         });
 
         traces.forEach((trace, i) => {
-            const rpi = trace.name;
-            if (rpiGroups[rpi]) {
-                update.x.push(rpiGroups[rpi].x);
-                update.y.push(rpiGroups[rpi].y);
+            const sensor = trace.name;
+            if (sensorGroups[sensor]) {
+                update.x.push(sensorGroups[sensor].x);
+                update.y.push(sensorGroups[sensor].y);
 
                 if (trace.x.length > MAX_POINTS) {
                     const excess = trace.x.length - MAX_POINTS;
@@ -72,7 +88,7 @@
 
     // Regular polling with fetch
     setInterval(() => {
-        fetch('/api/sensor-data/?recent=true')
+        fetch('/api/sensor-data/chart/?recent=true')
             .then(response => response.json())
             .then(response => updateChart(response.data))
             .catch(error => console.error('Error fetching data:', error));
