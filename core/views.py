@@ -2,7 +2,6 @@
 from datetime import datetime, timedelta, timezone
 import json
 import requests
-import pandas as pd
 
 # Django and DRF
 from django.conf import settings
@@ -24,7 +23,7 @@ from loguru import logger
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-
+from .utils import process_chart_data
 
 # Template Views
 class HomeView(TemplateView):
@@ -44,8 +43,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     
     Query Parameters:
     - `seconds`: Optional. The number of seconds to fetch data for. The data returned will not exceed the `max_time_threshold`.
-    - `override`: Optional. Boolean. If true, `max_time_threshold` will not apply.
-    - `start_date` and `end_date`: Optional. Date range to fetch data for. Requires `override=True`.
+    - `start_date` and `end_date`: Optional. Date range to fetch data for.
     
     Examples:
     - Fetch all records from the Raspberry Pi "rpi02":
@@ -54,11 +52,11 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     - Fetch all records from the Raspberry Pi "rpi05" from the last minute:
       `/api/sensor-data/?rpi=rpi05&seconds=60`
     
-    - Fetch all records from the last 30 seconds, ignoring `max_time_threshold`:
-      `/api/sensor-data/?seconds=30&override=true`
+    - Fetch all records from the last 30 seconds:
+      `/api/sensor-data/?seconds=30`
     
-    - Fetch all records from April 1st to April 4th, ignoring `max_time_threshold`:
-      `/api/sensor-data/?start_date=2023-04-01&end_date=2023-04-04&override=true`
+    - Fetch all records from April 1st to April 4th:
+      `/api/sensor-data/?start_date=2023-04-01&end_date=2023-04-04`
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
@@ -66,19 +64,15 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
         seconds = self.request.query_params.get('seconds', None)
-        override = self.request.query_params.get('override', 'false').lower() == 'true'
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         
         if seconds is not None and seconds.isdigit():
             seconds = int(seconds)
             since = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-            if not override:
-                max_time_threshold = max(max_time_threshold, since)
-            else:
-                max_time_threshold = since
+            max_time_threshold = max(max_time_threshold, since)
         
-        if start_date and end_date and override:
+        if start_date and end_date:
             start_date = datetime.fromisoformat(start_date)
             end_date = datetime.fromisoformat(end_date)
             queryset = SensorData.objects.filter(timestamp__range=(start_date, end_date))
@@ -90,49 +84,40 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save()
         timestamp = localtime(serializer.instance.timestamp).strftime('%H:%M:%S')
-        logger.debug(f"S: {timestamp} ✅")
+        # logger.debug(f"S: {timestamp} ✅")
 
 
 class ChartDataListView(ListAPIView):
-    serializer_class = SensorDataSerializer 
+    serializer_class = SensorDataSerializer
 
-    def get_queryset(self):
-        qs = SensorData.objects.all() 
-        if not self.request.query_params.get('override'):
-            self.request.query_params._mutable = True
-            self.request.query_params['override'] = 'true'
-            
-        seconds = self.request.query_params.get('seconds')
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-        
-        if seconds and seconds.isdigit():
-            since = datetime.now(timezone.utc) - timedelta(seconds=int(seconds))
-            qs = qs.filter(timestamp__gte=since)
-        elif start_date and not end_date:
-            start_date = datetime.fromisoformat(start_date)
-            qs = qs.filter(timestamp__gte=start_date)
-        elif start_date and end_date:
-            qs = qs.filter(
-                timestamp__range=(
-                    datetime.fromisoformat(start_date),
-                    datetime.fromisoformat(end_date)
-                )
-            )
-        
-        return qs.order_by('-timestamp')
+    def _fetch_from_api(self, params=None):
+        api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
+        response = requests.get(api_url, params=params)
+        if response.status_code == 200:
+            return response.json()
+        return []
 
     def list(self, request, *args, **kwargs):
-        qs = self.filter_queryset(self.get_queryset())
-        df = pd.DataFrame(self.get_serializer(qs, many=True).data)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df.set_index('timestamp').groupby('rpi').resample('5T').agg({
-            't': 'mean',
-            'h': 'mean'
-        }).reset_index()
-        df = df.rename(columns={'timestamp': 'time'})  # Renombrar campo
+        start_time = datetime.now(timezone.utc)
         
-        return Response(df.to_dict('records'))
+        # Prepare parameters
+        params = {}
+        if request.query_params.get('recent', 'false').lower() == 'true':
+            params['seconds'] = 5
+        for param in ['seconds', 'start_date', 'end_date']:
+            if value := request.query_params.get(param):
+                params[param] = value
+        
+        # Fetch and process data
+        data = self._fetch_from_api(params)
+        metric = request.query_params.get('metric', 't')  # default to temperature
+        freq = request.query_params.get('freq', '3s')    # allow custom frequency
+        result = process_chart_data(data, metric=metric, freq=freq)
+        
+        end_time = datetime.now(timezone.utc)
+        result['latency'] = (end_time - start_time).total_seconds()
+        
+        return Response(result)
 
 
 # Function-based Views

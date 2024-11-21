@@ -1,22 +1,34 @@
-import requests
+# Standard library imports
+import sys
 import time
 import random
-from datetime import datetime
 import threading
+import argparse
+from datetime import datetime
+
+# Third party imports
+import requests
 from loguru import logger
 
-# Configure logger format
+# Configure logger
 logger.remove()  # Remove default handler
 logger.add(
-    lambda msg: print(msg, end=""),  # Use print to avoid double line breaks
-    format="{time:HH:mm:ss} | {message}",
+    sys.stderr,
+    format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
+    colorize=True,
     level="INFO"
 )
 
-# Configuración
+# Parse arguments
+parser = argparse.ArgumentParser(description="Simulador de RPi")
+parser.add_argument("--seconds", type=int, default=30, help="Intervalo de actualización en segundos")
+parser.add_argument("--rpis", type=int, default=3, help="Número de Raspberry Pis simuladas")
+args = parser.parse_args()
+
+# Constants
 endpoint = "http://127.0.0.1:8000/api/sensor-data/"
-interval = 30  # Intervalo en segundos
-RPIS = ["simu-pi-04", "simu-pi-05"]
+interval = args.seconds
+RPIS = [f"simu-pi-{i:02d}" for i in range(1, args.rpis + 1)]
 
 class RpiSimulator(threading.Thread):
     def __init__(self, rpi_name):
@@ -27,6 +39,7 @@ class RpiSimulator(threading.Thread):
         self.humidity = 60.0
         self.prev_temperature = self.temperature
         self.prev_humidity = self.humidity
+        self.error_shown = False  # Nueva variable para controlar el mensaje de error
 
     def update_temperature(self):
         self.prev_temperature = self.temperature
@@ -49,10 +62,11 @@ class RpiSimulator(threading.Thread):
             "t": self.temperature,
             "h": self.humidity
         }
-        response = requests.post(endpoint, json=data)
-        if response.status_code != 201:
-            logger.error(f"{self.rpi_name}: Error en la respuesta del servidor: {response.status_code}")
-            self.running = False
+        try:
+            response = requests.post(endpoint, json=data)
+            if response.status_code != 201:
+                return False
+        except requests.exceptions.RequestException:
             return False
         return True
 
@@ -68,7 +82,16 @@ class RpiSimulator(threading.Thread):
             self.update_temperature()
             self.update_humidity()
             if not self.send_data():
-                break
+                if not self.error_shown:
+                    logger.error(f"{self.rpi_name}: API no accesible, intentando reconexión cada {interval} segundos...")
+                    self.error_shown = True
+                time.sleep(interval)
+                continue
+            
+            if self.error_shown:
+                logger.info(f"{self.rpi_name}: API accesible nuevamente")
+                self.error_shown = False
+                
             latency = self.get_latency()
             logger.info(f"{self.rpi_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
                      f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
@@ -77,17 +100,21 @@ class RpiSimulator(threading.Thread):
 
 if __name__ == "__main__":
     simulators = []
+    
+    # Start simulator threads
     for rpi in RPIS:
         simulator = RpiSimulator(rpi)
+        simulator.daemon = True
         simulator.start()
         simulators.append(simulator)
 
+    # Show initial configuration
+    logger.info(f"Intervalo de actualización configurado a {interval} segundos")
+    logger.info(f"Simulando {len(RPIS)} Raspberry Pis")
+
+    # Main loop
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.warning("\nDeteniendo simuladores...")
-        for simulator in simulators:
-            simulator.running = False
-            simulator.join()
-        logger.info("Simuladores detenidos")
+        sys.exit(0)

@@ -1,0 +1,155 @@
+[32m06:38:15[0m | [1msimu-pi-01: Inicio retrasado 1.6s[0m
+[32m06:38:15[0m | [1msimu-pi-02: Inicio retrasado 1.1s[0m
+[32m06:38:15[0m | [1msimu-pi-03: Inicio retrasado 0.6s[0m
+[32m06:38:15[0m | [1msimu-pi-04: Inicio retrasado 1.5s[0m
+[32m06:38:15[0m | [1msimu-pi-05: Inicio retrasado 1.6s[0m
+[32m06:38:15[0m | [1mIntervalo de actualización configurado a 3 segundos[0m
+[32m06:38:15[0m | [1mSimulando 5 Raspberry Pis[0m
+[32m06:38:18[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:18[0m | [31m[1msimu-pi-03: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:38:18[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:18[0m | [31m[1msimu-pi-02: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-04: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-05: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:19[0m | [31m[1msimu-pi-01: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:38:23[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:23[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:24[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:24[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:24[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:28[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:28[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:29[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:29[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:29[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:33[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:33[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:34[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:34[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:34[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:36[0m | [33m[1m
+Deteniendo simuladores...[0m
+[32m06:38:38[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:38[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:39[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:39[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:43[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:44[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:44[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:48[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:49[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:49[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:53[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:54[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:54[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:58[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:59[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:38:59[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:03[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:04[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:04[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:08[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:09[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:09[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:13[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:14[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:14[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:18[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:19[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:19[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:23[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:24[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:24[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:28[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:29[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:39:29[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:22[0m | [1msimu-pi-01: Inicio retrasado 2.5s[0m
+[32m06:40:22[0m | [1msimu-pi-02: Inicio retrasado 0.4s[0m
+[32m06:40:22[0m | [1msimu-pi-03: Inicio retrasado 1.1s[0m
+[32m06:40:22[0m | [1msimu-pi-04: Inicio retrasado 1.6s[0m
+[32m06:40:22[0m | [1msimu-pi-05: Inicio retrasado 0.9s[0m
+[32m06:40:22[0m | [1mIntervalo de actualización configurado a 3 segundos[0m
+[32m06:40:22[0m | [1mSimulando 5 Raspberry Pis[0m
+[32m06:40:25[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:25[0m | [31m[1msimu-pi-02: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:40:25[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:25[0m | [31m[1msimu-pi-05: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:40:25[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:25[0m | [31m[1msimu-pi-03: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:40:26[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:26[0m | [31m[1msimu-pi-04: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:40:27[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:27[0m | [31m[1msimu-pi-01: API no accesible, intentando reconexión cada 3 segundos...[0m
+[32m06:40:30[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:30[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:30[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:31[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:32[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:35[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:35[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:35[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:36[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:37[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:40[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:40[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:41[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:41[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:42[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:45[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:45[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:46[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:46[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:47[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:50[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:50[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:51[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:51[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:52[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:55[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:55[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:56[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:56[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:40:57[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:00[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:00[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:01[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:01[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:02[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:05[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:05[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:06[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:06[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:07[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:10[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:11[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:11[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:11[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:12[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:15[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:16[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:16[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:16[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:17[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:20[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:21[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:21[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:21[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:22[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:25[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:26[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:26[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:26[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:27[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:30[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:31[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:31[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:32[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:32[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:35[0m | [31m[1msimu-pi-02: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:36[0m | [31m[1msimu-pi-05: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:36[0m | [31m[1msimu-pi-03: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:37[0m | [31m[1msimu-pi-04: API no accesible, esperando 3 segundos antes de reintentar...[0m
+[32m06:41:37[0m | [31m[1msimu-pi-01: API no accesible, esperando 3 segundos antes de reintentar...[0m
