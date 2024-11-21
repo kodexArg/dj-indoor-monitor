@@ -13,6 +13,8 @@ from django.utils.timezone import localtime
 from django.urls import reverse
 from django.template import loader
 from rest_framework import status, viewsets
+from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
 from django_filters import rest_framework as filters
 
 # Third-party
@@ -31,6 +33,8 @@ class HomeView(TemplateView):
 class DevelopmentView(TemplateView):
     template_name = 'development.html'
 
+class ChartView(TemplateView):
+    template_name = 'chart.html'
 
 
 # ViewSets
@@ -89,6 +93,48 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         logger.debug(f"S: {timestamp} ✅")
 
 
+class ChartDataListView(ListAPIView):
+    serializer_class = SensorDataSerializer 
+
+    def get_queryset(self):
+        qs = SensorData.objects.all() 
+        if not self.request.query_params.get('override'):
+            self.request.query_params._mutable = True
+            self.request.query_params['override'] = 'true'
+            
+        seconds = self.request.query_params.get('seconds')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        
+        if seconds and seconds.isdigit():
+            since = datetime.now(timezone.utc) - timedelta(seconds=int(seconds))
+            qs = qs.filter(timestamp__gte=since)
+        elif start_date and not end_date:
+            start_date = datetime.fromisoformat(start_date)
+            qs = qs.filter(timestamp__gte=start_date)
+        elif start_date and end_date:
+            qs = qs.filter(
+                timestamp__range=(
+                    datetime.fromisoformat(start_date),
+                    datetime.fromisoformat(end_date)
+                )
+            )
+        
+        return qs.order_by('-timestamp')
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        df = pd.DataFrame(self.get_serializer(qs, many=True).data)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df = df.set_index('timestamp').groupby('rpi').resample('5T').agg({
+            't': 'mean',
+            'h': 'mean'
+        }).reset_index()
+        df = df.rename(columns={'timestamp': 'time'})  # Renombrar campo
+        
+        return Response(df.to_dict('records'))
+
+
 # Function-based Views
 def fetch_data(request, rpi=None, seconds=None):
     api_url = request.build_absolute_uri(reverse('sensor-data-list'))
@@ -106,19 +152,4 @@ def fetch_data(request, rpi=None, seconds=None):
 def latest_data_table(request):
     data = fetch_data(request)
     return render(request, 'partials/latest-data-table-rows.html', {'data': data})
-
-def latest_data_chart(request):
-    time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
-    logger.debug(f"Time threshold: {time_threshold}")
-    data = SensorData.objects.filter(timestamp__gte=time_threshold).order_by('-timestamp')
-    logger.debug(f"Data: {data}")
-    df = pd.DataFrame(list(data.values('timestamp', 't', 'rpi')))
-    data_json = df.to_json(orient='records', date_format='iso')
-    return HttpResponse(
-        loader.render_to_string(
-            'partials/latest-data-chart.html',
-            {'data_json': data_json},
-            request
-        )
-    )
 
