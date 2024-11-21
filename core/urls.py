@@ -11,7 +11,6 @@ from .views import (
     HomeView,
     DevelopmentView,
     latest_data_table,
-    ChartDataListView,
     ChartView
 )
 
@@ -22,7 +21,6 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('development/', DevelopmentView.as_view(), name='development'),
     path('latest-data-table/', latest_data_table, name='latest-data-table'),
-    path('api/chart-data/', ChartDataListView.as_view(), name='chart-data'),
     path('chart/', ChartView.as_view(), name='chart'),
     path('', include(router.urls)),
 ]

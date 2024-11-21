@@ -7,12 +7,11 @@ import requests
 from django.conf import settings
 from django.shortcuts import render
 from django.views.generic import TemplateView
-from django.http import JsonResponse, HttpResponse
 from django.utils.timezone import localtime
 from django.urls import reverse
-from django.template import loader
-from rest_framework import status, viewsets
-from rest_framework.generics import ListAPIView
+from rest_framework import viewsets
+from rest_framework.decorators import action
+
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
 
@@ -44,6 +43,8 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     Query Parameters:
     - `seconds`: Optional. The number of seconds to fetch data for. The data returned will not exceed the `max_time_threshold`.
     - `start_date` and `end_date`: Optional. Date range to fetch data for.
+    - `metric`: Optional. The metric to fetch data for (e.g., 't' for temperature). Default is 't'.
+    - `freq`: Optional. The frequency for aggregating data (e.g., '30s' for 30 seconds). Default is '30s'.
     
     Examples:
     - Fetch all records from the Raspberry Pi "rpi02":
@@ -52,11 +53,11 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     - Fetch all records from the Raspberry Pi "rpi05" from the last minute:
       `/api/sensor-data/?rpi=rpi05&seconds=60`
     
-    - Fetch all records from the last 30 seconds:
-      `/api/sensor-data/?seconds=30`
-    
     - Fetch all records from April 1st to April 4th:
       `/api/sensor-data/?start_date=2023-04-01&end_date=2023-04-04`
+    
+    - Fetch chart data for temperature with 1-minute frequency:
+      `/api/sensor-data/?metric=t&freq=1m`
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
@@ -67,57 +68,51 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         
-        if seconds is not None and seconds.isdigit():
-            seconds = int(seconds)
-            since = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-            max_time_threshold = max(max_time_threshold, since)
+        queryset = SensorData.objects.all()
         
-        if start_date and end_date:
+        if seconds:
+            seconds = int(seconds)
+            since = max(
+                max_time_threshold,
+                datetime.now(timezone.utc) - timedelta(seconds=seconds)
+            )
+            queryset = queryset.filter(timestamp__gte=since)
+        
+        if start_date:
             start_date = datetime.fromisoformat(start_date)
+            queryset = queryset.filter(timestamp__gte=start_date)
+        
+        if end_date:
             end_date = datetime.fromisoformat(end_date)
-            queryset = SensorData.objects.filter(timestamp__range=(start_date, end_date))
-        else:
-            queryset = SensorData.objects.filter(timestamp__gte=max_time_threshold)
+            queryset = queryset.filter(timestamp__lte=end_date)
         
         return queryset.order_by('-timestamp')
 
-    def perform_create(self, serializer):
-        serializer.save()
-        timestamp = localtime(serializer.instance.timestamp).strftime('%H:%M:%S')
-        # logger.debug(f"S: {timestamp} ✅")
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """
+        Custom action to fetch recent sensor data.
+        endpoint: /api/sensor-data/recent/
+        """
+        queryset = self.get_queryset().filter(timestamp__gte=datetime.now(timezone.utc) - timedelta(seconds=30))
+        metric = request.query_params.get('metric', 't')
+        freq = request.query_params.get('freq', '30s')
+        data = queryset.values('timestamp', 'rpi', metric)
+        processed_data = process_chart_data(list(data), metric=metric, freq=freq)
+        return Response(processed_data)
 
+    @action(detail=False, methods=['get'])
+    def chart_data(self, request):
+        """
+        Custom action to fetch data formatted for charts.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        metric = request.query_params.get('metric', 't')
+        freq = request.query_params.get('freq', '30s')
+        data = queryset.values('timestamp', 'rpi', metric)
+        processed_data = process_chart_data(list(data), metric=metric, freq=freq)
+        return Response(processed_data)
 
-class ChartDataListView(ListAPIView):
-    serializer_class = SensorDataSerializer
-
-    def _fetch_from_api(self, params=None):
-        api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
-        response = requests.get(api_url, params=params)
-        if response.status_code == 200:
-            return response.json()
-        return []
-
-    def list(self, request, *args, **kwargs):
-        start_time = datetime.now(timezone.utc)
-        
-        # Prepare parameters
-        params = {}
-        if request.query_params.get('recent', 'false').lower() == 'true':
-            params['seconds'] = 5
-        for param in ['seconds', 'start_date', 'end_date']:
-            if value := request.query_params.get(param):
-                params[param] = value
-        
-        # Fetch and process data
-        data = self._fetch_from_api(params)
-        metric = request.query_params.get('metric', 't')  # default to temperature
-        freq = request.query_params.get('freq', '3s')    # allow custom frequency
-        result = process_chart_data(data, metric=metric, freq=freq)
-        
-        end_time = datetime.now(timezone.utc)
-        result['latency'] = (end_time - start_time).total_seconds()
-        
-        return Response(result)
 
 
 # Function-based Views

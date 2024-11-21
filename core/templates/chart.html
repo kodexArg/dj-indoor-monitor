@@ -11,10 +11,10 @@
 <script>
     var traces = [];
     const MAX_POINTS = 1000;
-    const POLLING_INTERVAL = 5000; // 5 seconds
+    const POLLING_INTERVAL = 1000; // 5 seconds
 
     // Initial data fetch
-    fetch('/api/chart-data/')
+    fetch('/api/sensor-data/')
         .then(response => response.json())
         .then(response => {
             var rpiGroups = {};
@@ -72,7 +72,7 @@
 
     // Regular polling with fetch
     setInterval(() => {
-        fetch('/api/chart-data/?recent=true')
+        fetch('/api/sensor-data/?recent=true')
             .then(response => response.json())
             .then(response => updateChart(response.data))
             .catch(error => console.error('Error fetching data:', error));
