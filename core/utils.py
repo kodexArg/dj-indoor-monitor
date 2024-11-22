@@ -4,7 +4,13 @@ from plotly.io import to_html
 
 
 def parse_time_string(time_str):
-    """Convert time strings like '30s' or '1m' to seconds."""
+    """Convert time strings like '30S' or '1T' to seconds."""
+    # Convertir el formato antiguo al nuevo si es necesario
+    if time_str.endswith('m'):
+        time_str = time_str.replace('m', 'T')
+    elif time_str.endswith('s'):
+        time_str = time_str.upper()
+    
     try:
         return int(pd.Timedelta(time_str).total_seconds())
     except (ValueError, AttributeError):
@@ -24,9 +30,19 @@ def process_chart_data(data: list, metric: str, freq: str = '30m') -> dict:
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     
     # Group by sensor and time intervals
-    grouped = df.groupby(['sensor', pd.Grouper(key='timestamp', freq=freq)]).agg({
-        metric: 'mean'
-    }).reset_index()
+    grouped = df.groupby(
+        [
+            'sensor',
+            pd.Grouper(
+                key='timestamp',
+                freq=freq
+            )
+        ]
+    ).agg(
+        {
+            metric: 'mean'
+        }
+    ).reset_index()
     
     # Format timestamps and round values
     grouped['timestamp'] = grouped['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
@@ -66,9 +82,9 @@ def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str
             x=0.5
         ),
         margin=dict(
-            l=10,
-            r=10,
-            t=10,
+            l=0,
+            r=0,
+            t=5,
             b=10
         ),
         yaxis=dict(

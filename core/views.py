@@ -111,17 +111,17 @@ class ChartView(TemplateView):
         metric = self.request.GET.get('metric', 't')
         selected_timeframe = self.request.GET.get('timeframe', '30m')
         
-        # Map selected_timeframe to freq
+        # Actualizar mapeo usando 'T' para minutos
         timeframe_to_freq = {
-            '5s': '5s',
-            '30s': '30s',
-            '1m': '1m',
-            '10m': '10m',
-            '30m': '30m',
-            '1h': '1h',
-            '1d': '1d'
+            '5s': '5S',
+            '30s': '30S',
+            '1m': '1T',
+            '10m': '10T',
+            '30m': '30T',
+            '1h': '1H',
+            '1d': '1D'
         }
-        freq = timeframe_to_freq.get(selected_timeframe, '30m')
+        freq = timeframe_to_freq.get(selected_timeframe, '30T')
         
         # Log the selected metric and timeframe
         logger.info(f"Selected metric: {metric}")
