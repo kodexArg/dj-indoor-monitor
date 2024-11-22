@@ -37,3 +37,36 @@ Las visualizaciones incluyen gráficos dinámicos de temperatura y tablas actual
 
 ## Futuro y Escalabilidad
 El proyecto está diseñado con una arquitectura modular y un enfoque en la extensibilidad, facilitando la incorporación de nuevos tipos de sensores, integraciones con sistemas externos o ajustes en las visualizaciones según las necesidades del usuario.
+
+## Variables de Entorno
+El proyecto requiere las siguientes variables de entorno en un archivo `.env`:
+
+### Configuración Django
+- `DJANGO_SECRET_KEY`: Clave secreta para Django (string alfanumérico largo) *(requerido)
+- `DJANGO_DEBUG`: Estado de depuración (`True` o `False`) *(requerido)
+- `DJANGO_ALLOWED_HOSTS`: Hosts permitidos (e.g., `localhost,example.com`) *(requerido)
+- `DJANGO_TIMEZONE`: Zona horaria (e.g., `America/Santiago`) *(opcional, default: UTC)
+- `DJANGO_STATIC_ROOT`: Ruta para archivos estáticos *(opcional, default: ./static)
+- `DJANGO_MEDIA_ROOT`: Ruta para archivos multimedia *(opcional, default: ./media)
+- `DJANGO_LOG_LEVEL`: Nivel de logging *(opcional, default: INFO)
+- `DJANGO_ALLOWED_CORS`: Habilitar CORS *(opcional, default: false)
+- `DJANGO_DEFAULT_LANGUAGE_CODE`: Código de idioma predeterminado *(opcional, default: en-us)
+
+### Configuración Base de Datos
+- `DB_ENGINE`: Motor de base de datos *(opcional, default: django.db.backends.sqlite3)
+- `DB_NAME`: Nombre de la base de datos *(requerido)
+- `DB_USER`: Usuario de la base de datos *(requerido si no es SQLite)
+- `DB_PASSWORD`: Contraseña de la base de datos *(requerido si no es SQLite)
+- `DB_HOST`: Host de la base de datos *(requerido si no es SQLite)
+- `DB_PORT`: Puerto de la base de datos *(opcional, default: 5432 para PostgreSQL)
+
+### Configuración DRF y CORS
+- `DRF_DEFAULT_THROTTLE_RATES`: Límites de frecuencia de API *(opcional)
+- `DRF_DEFAULT_PAGE_SIZE`: Tamaño de página predeterminado *(opcional, default: 10)
+- `CORS_ALLOWED_ORIGINS`: Orígenes permitidos para CORS *(requerido si DJANGO_ALLOWED_CORS=true)
+
+### Configuración del Monitor
+- `MAX_DATA_MINUTES`: Ventana de tiempo máxima para consultas de sensores *(opcional, default: 5)
+- `MAX_PLOT_RECORDS`: Número máximo de registros para gráficos *(opcional, default: 1000)
+
+Para comenzar, copia el archivo `.env.example` a `.env` y ajusta los valores según tu entorno.

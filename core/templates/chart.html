@@ -22,7 +22,7 @@
         margin-bottom: 20px;
     }
     .button {
-        margin: 0 5px;
+        margin: 0 5px 10px 5px;  /* Added bottom margin of 10px */
         padding: 5px 20px;  /* Adjusted padding */
         border: 1px solid #ccc;
         background-color: #f9f9f9;
@@ -30,6 +30,15 @@
         text-align: center;
         font-size: 1.1em;  /* Increased font size */
         line-height: 1.5;  /* Center text vertically */
+    }
+    #toggle-buttons-timeframe .button {
+        width: 70px;  /* Fixed width for frequency buttons */
+    }
+    #toggle-buttons-metric .button {
+        width: 120px;  /* Fixed width for metric buttons */
+    }
+    .button-group {
+        margin-bottom: 2px;  /* Small bottom margin */
     }
     .button.active {
         background-color: #d4edda;
@@ -57,13 +66,13 @@
         <button class="button {% if selected_timeframe == '1m' %}active{% endif %}" onclick="setTimeframe('1m')">1'</button>
         <button class="button {% if selected_timeframe == '10m' %}active{% endif %}" onclick="setTimeframe('10m')">10'</button>
         <button class="button {% if selected_timeframe == '30m' %}active{% endif %}" onclick="setTimeframe('30m')">30'</button>
-        <button class="button {% if selected_timeframe == '1h' %}active{% endif %}" onclick="setTimeframe('1h')">1 hora</button>
-        <button class="button {% if selected_timeframe == '1d' %}active{% endif %}" onclick="setTimeframe('1d')">1 día</button>
+        <button class="button {% if selected_timeframe == '1h' %}active{% endif %}" onclick="setTimeframe('1h')">1h</button>
+        <button class="button {% if selected_timeframe == '1d' %}active{% endif %}" onclick="setTimeframe('1d')">1d</button>
     </div>
     <div class="vertical-separator"></div>
     <div id="toggle-buttons-metric">
-        <button class="button metric {% if metric == 't' %}active{% endif %}" onclick="setMetric('t')">Temperatura</button>
-        <button class="button metric {% if metric == 'h' %}active{% endif %}" onclick="setMetric('h')">Humedad</button>
+        <button class="button metric {% if metric == 't' %}active{% endif %}" onclick="setMetric('t')">Temp</button>
+        <button class="button metric {% if metric == 'h' %}active{% endif %}" onclick="setMetric('h')">Hum</button>
     </div>
 </div>
 <hr/>
