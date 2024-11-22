@@ -11,7 +11,7 @@ from .views import (
     HomeView,
     DevelopmentView,
     latest_data_table,
-    ChartView
+    ChartView,
 )
 
 

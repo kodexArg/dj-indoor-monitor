@@ -1,97 +1,94 @@
 {% extends "layouts/base.html" %}
 {% load static %}
 
-{% block header %}Chart{% endblock %}
+{% block header %}
+<h3>
+    {% if metric == 't' %}
+        Métrica: Temperatura
+    {% elif metric == 'h' %}
+        Métrica: Humedad
+    {% else %}
+        Chart
+    {% endif %}
+</h3>
+<hr style="border: 1px solid #d4edda; margin-top: -10px;">
+{% endblock %}
 
 {% block content %}
+<style>
+    #toggle-buttons {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .button {
+        margin: 0 5px;
+        padding: 5px 20px;  /* Adjusted padding */
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+        cursor: pointer;
+        text-align: center;
+        font-size: 1.1em;  /* Increased font size */
+        line-height: 1.5;  /* Center text vertically */
+    }
+    .button.active {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+    }
+    .button.metric {
+        background-color: #f9f9f9;
+    }
+    .button.metric.active {
+        background-color: #a9d5b5;
+    }
+    .vertical-separator {
+        border-left: 1px solid #ccc;
+        height: 30px;
+        margin: 0 10px;
+    }
+</style>
 <div id="chart-container">
-    <div id="chart"></div>
+    {{ chart_html|safe }}
 </div>
-<script src="{% static 'js/plotly-2.36.2.min.js' %}"></script>
+<div id="toggle-buttons" class="button-group">
+    <div id="toggle-buttons-timeframe">
+        <button class="button {% if selected_timeframe == '5s' %}active{% endif %}" onclick="setTimeframe('5s')">5''</button>
+        <button class="button {% if selected_timeframe == '30s' %}active{% endif %}" onclick="setTimeframe('30s')">30''</button>
+        <button class="button {% if selected_timeframe == '1m' %}active{% endif %}" onclick="setTimeframe('1m')">1'</button>
+        <button class="button {% if selected_timeframe == '10m' %}active{% endif %}" onclick="setTimeframe('10m')">10'</button>
+        <button class="button {% if selected_timeframe == '30m' %}active{% endif %}" onclick="setTimeframe('30m')">30'</button>
+        <button class="button {% if selected_timeframe == '1h' %}active{% endif %}" onclick="setTimeframe('1h')">1 hora</button>
+        <button class="button {% if selected_timeframe == '1d' %}active{% endif %}" onclick="setTimeframe('1d')">1 día</button>
+    </div>
+    <div class="vertical-separator"></div>
+    <div id="toggle-buttons-metric">
+        <button class="button metric {% if metric == 't' %}active{% endif %}" onclick="setMetric('t')">Temperatura</button>
+        <button class="button metric {% if metric == 'h' %}active{% endif %}" onclick="setMetric('h')">Humedad</button>
+    </div>
+</div>
+<hr/>
+<pre style="font-family: monospace; color: darkgray;">
+<strong>metric:</strong> {{ metric }}
+<strong>freq:</strong> {{ freq }}
+<strong>api_url:</strong> {{ api_url }}
+<strong>params:</strong> {{ params }}
+<strong>api_response:</strong> {{ api_response|json_script:"api-response" }}
+<strong>start_date:</strong> {{ start_date }}
+<strong>end_date:</strong> {{ end_date }}
+<strong>num_points:</strong> {{ num_points }}
+</pre>
+<hr/>
 <script>
-    var traces = [];
-    const MAX_POINTS = 500;
-    const POLLING_INTERVAL = 1000;
-
-    // Initial data fetch
-    fetch('/api/sensor-data/chart/')
-        .then(response => response.json())
-        .then(response => {
-            var sensorGroups = {};
-
-            response.data.forEach(item => {
-                if (!sensorGroups[item.sensor]) {
-                    sensorGroups[item.sensor] = { x: [], y: [] };
-                }
-                sensorGroups[item.sensor].x.push(item.timestamp);
-                sensorGroups[item.sensor].y.push(item.t);
-            });
-
-            for (var sensor in sensorGroups) {
-                traces.push({
-                    x: sensorGroups[sensor].x,
-                    y: sensorGroups[sensor].y,
-                    mode: 'lines',
-                    name: sensor
-                });
-            }
-
-            const layout = {
-                yaxis: {
-                    range: [0, 100]
-                },
-                legend: {
-                    orientation: 'h',
-                    yanchor: 'bottom',
-                    y: -0.2,
-                    xanchor: 'center',
-                    x: 0.5
-                },
-                margin: {
-                    b: 100  // Aumentar margen inferior para la leyenda
-                }
-            };
-
-            Plotly.newPlot('chart', traces, layout);
-        });
-
-    function updateChart(data) {
-        var update = { x: [], y: [] };
-        var sensorGroups = {};
-
-        data.forEach(item => {
-            if (!sensorGroups[item.sensor]) {
-                sensorGroups[item.sensor] = { x: [], y: [] };
-            }
-            sensorGroups[item.sensor].x.push(item.timestamp);
-            sensorGroups[item.sensor].y.push(item.t);
-        });
-
-        traces.forEach((trace, i) => {
-            const sensor = trace.name;
-            if (sensorGroups[sensor]) {
-                update.x.push(sensorGroups[sensor].x);
-                update.y.push(sensorGroups[sensor].y);
-
-                if (trace.x.length > MAX_POINTS) {
-                    const excess = trace.x.length - MAX_POINTS;
-                    trace.x = trace.x.slice(excess);
-                    trace.y = trace.y.slice(excess);
-                }
-            }
-        });
-
-        if (update.x.length > 0) {
-            Plotly.extendTraces('chart', update, Array.from(Array(update.x.length).keys()));
-        }
+    function setTimeframe(timeframe) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('timeframe', timeframe);
+        window.location.href = url.toString();
     }
 
-    // Regular polling with fetch
-    setInterval(() => {
-        fetch('/api/sensor-data/chart/?recent=true')
-            .then(response => response.json())
-            .then(response => updateChart(response.data))
-            .catch(error => console.error('Error fetching data:', error));
-    }, POLLING_INTERVAL);
+    function setMetric(metric) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('metric', metric);
+        window.location.href = url.toString();
+    }
 </script>
 {% endblock %}

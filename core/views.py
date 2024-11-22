@@ -7,7 +7,6 @@ import requests
 from django.conf import settings
 from django.shortcuts import render
 from django.views.generic import TemplateView
-from django.utils.timezone import localtime
 from django.urls import reverse
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -16,28 +15,16 @@ from django_filters import rest_framework as filters
 
 # Third-party
 from loguru import logger
+from plotly.io import to_html
 
 # Local
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import process_chart_data, parse_time_string
+from .utils import process_chart_data, parse_time_string, generate_plotly_chart
 
 
-# Template Views
-class HomeView(TemplateView):
-    template_name = 'home.html'
-
-
-class DevelopmentView(TemplateView):
-    template_name = 'development.html'
-
-
-class ChartView(TemplateView):
-    template_name = 'chart.html'
-
-
-# ViewSets
+# Main Project ViewSets (keep at top)
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
     A viewset that provides the standard actions for SensorData.
@@ -105,6 +92,72 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         data = queryset.values('timestamp', 'sensor', metric)
         processed_data = process_chart_data(list(data), metric=metric, freq=freq)
         return Response(processed_data)
+
+
+# Template Views
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+
+class DevelopmentView(TemplateView):
+    template_name = 'development.html'
+
+
+class ChartView(TemplateView):
+    template_name = 'chart.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        metric = self.request.GET.get('metric', 't')
+        selected_timeframe = self.request.GET.get('timeframe', '30m')
+        
+        # Map selected_timeframe to freq
+        timeframe_to_freq = {
+            '5s': '5s',
+            '30s': '30s',
+            '1m': '1m',
+            '10m': '10m',
+            '30m': '30m',
+            '1h': '1h',
+            '1d': '1d'
+        }
+        freq = timeframe_to_freq.get(selected_timeframe, '30m')
+        
+        # Log the selected metric and timeframe
+        logger.info(f"Selected metric: {metric}")
+        logger.info(f"Selected timeframe: {selected_timeframe}")
+        
+        # Construir URL de la API
+        api_url = self.request.build_absolute_uri(reverse('sensor-data-chart'))
+        params = {'metric': metric, 'freq': freq}
+        
+        # Obtener datos de la API
+        response = requests.get(api_url, params=params)
+        data = response.json()
+        
+        # Generar gráfico
+        chart_html = generate_plotly_chart(data['data'], metric)
+        context['chart_html'] = chart_html
+
+        context['metric'] = metric
+        context['freq'] = freq
+        context['api_url'] = api_url
+        context['params'] = params
+        context['api_response'] = data
+
+        if data['data']:
+            context['start_date'] = data['data'][0]['timestamp']
+            context['end_date'] = data['data'][-1]['timestamp']
+            context['num_points'] = len(data['data'])
+        else:
+            context['start_date'] = context['end_date'] = context['num_points'] = None
+
+        # Add selected_timeframe to context
+        context['selected_timeframe'] = selected_timeframe
+        
+        return context
+
+
 
 # Function-based Views
 def fetch_data(request, sensor=None, seconds=None):

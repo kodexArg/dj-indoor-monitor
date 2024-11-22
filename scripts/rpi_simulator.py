@@ -5,13 +5,14 @@ import random
 import threading
 import argparse
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Add this import
 
 # Third party imports
 import requests
 from loguru import logger
 
 # Configure logger
-logger.remove()  # Remove default handler
+logger.remove()  
 logger.add(
     sys.stderr,
     format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
@@ -29,6 +30,7 @@ args = parser.parse_args()
 endpoint = "http://127.0.0.1:8000/api/sensor-data/"
 interval = args.seconds
 SENSORS = [f"simu-sensor-{i:02d}" for i in range(1, args.sensors + 1)]
+TIMEZONE = ZoneInfo('America/Argentina/Buenos_Aires') 
 
 class SensorSimulator(threading.Thread):
     def __init__(self, sensor_name):
@@ -43,21 +45,21 @@ class SensorSimulator(threading.Thread):
 
     def update_temperature(self):
         self.prev_temperature = self.temperature
-        if random.random() < 0.1:  # 10% de probabilidad
-            variation = random.choice([-0.5, -0.4, -0.3, -0.2, -0.1, 0.1, 0.2, 0.3, 0.4, 0.5])
+        if random.random() < 0.05:  # 5% de probabilidad
+            variation = round(random.uniform(-0.5, 0.5), 1)
             self.temperature += variation
             self.temperature = round(min(35.0, max(15.0, self.temperature)), 1)
 
     def update_humidity(self):
         self.prev_humidity = self.humidity
         if random.random() < 0.05:  # 5% de probabilidad
-            variation = random.randint(-2, 2)
+            variation = round(random.uniform(-2.0, 2.0), 1)
             self.humidity += variation
             self.humidity = round(min(80.0, max(20.0, self.humidity)), 1)
 
     def send_data(self):
         data = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(TIMEZONE).isoformat(),
             "sensor": self.sensor_name,
             "t": self.temperature,
             "h": self.humidity
@@ -93,7 +95,7 @@ class SensorSimulator(threading.Thread):
                 self.error_shown = False
                 
             latency = self.get_latency()
-            logger.info(f"{self.sensor_name}: {datetime.now().strftime('%H:%M:%S')} (+{latency:.3f}s) | "
+            logger.info(f"{self.sensor_name}: {datetime.now(TIMEZONE).strftime('%H:%M:%S')} (+{latency:.3f}s) | "
                      f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
                      f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
             time.sleep(interval + latency)
