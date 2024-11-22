@@ -93,21 +93,44 @@ def get_initial_state(sensor_name):
         }
     return sensor_states[sensor_name]
 
-def generate_next_value(current_value, min_value, max_value, max_change):
-    # Generate change between -max_change and +max_change
-    change = random.uniform(-max_change, max_change)
-    new_value = current_value + change
+def generate_next_value(current_value, max_change, is_temperature=False, timestamp=None):
+    if is_temperature and timestamp:
+        hour = timestamp.hour
+        is_night = 20 <= hour or hour < 6
+        
+        # Extreme temperature cases (highest priority)
+        if current_value >= 35.0:
+            change = random.uniform(-max_change * 2, 0)  # Strong cooling
+        elif current_value <= 15.0:
+            change = random.uniform(0, max_change * 2)  # Strong warming
+        # Night temperature logic
+        elif is_night:
+            if current_value > 25.0:
+                change = random.uniform(-max_change * 1.2, 0)  # Cool down
+            elif current_value < 20.0:
+                change = random.uniform(0, max_change)  # Warm up
+            else:
+                change = random.uniform(-max_change, max_change)  # Normal range
+        # Day temperature logic
+        else:
+            if current_value > 30.0:
+                change = random.uniform(-max_change, max_change)  # Normal range
+            elif current_value < 25.0:
+                change = random.uniform(0, max_change * 1.2)  # Warm up
+            else:
+                change = random.uniform(-max_change, max_change)  # Normal range
+    else:
+        change = random.uniform(-max_change, max_change)
     
-    # Ensure value stays within bounds
-    return max(min_value, min(max_value, new_value))
+    return current_value + change
 
-def generate_temperature(sensor_name):
+def generate_temperature(sensor_name, timestamp):
     state = get_initial_state(sensor_name)
     new_temp = generate_next_value(
         state['temperature'],
-        min_value=15.0,
-        max_value=35.0,
-        max_change=0.5  # Maximum temperature change per interval
+        max_change=0.5,
+        is_temperature=True,
+        timestamp=timestamp
     )
     state['temperature'] = new_temp
     return round(new_temp, 1)
@@ -116,10 +139,10 @@ def generate_humidity(sensor_name):
     state = get_initial_state(sensor_name)
     new_humidity = generate_next_value(
         state['humidity'],
-        min_value=20.0,
-        max_value=80.0,
-        max_change=1.0  # Maximum humidity change per interval
+        max_change=1.0
     )
+    # Keep humidity within bounds
+    new_humidity = max(20.0, min(80.0, new_humidity))
     state['humidity'] = new_humidity
     return round(new_humidity, 1)
 
@@ -139,7 +162,7 @@ def main():
     with sqlite3.connect(DB_PATH) as conn:
         while current_time <= end_date:
             for sensor_name in SENSORS:
-                temperature = generate_temperature(sensor_name)
+                temperature = generate_temperature(sensor_name, current_time)
                 humidity = generate_humidity(sensor_name)
                 data_batch.append((
                     current_time.isoformat(),

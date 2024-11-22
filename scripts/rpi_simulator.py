@@ -58,8 +58,10 @@ class SensorSimulator(threading.Thread):
             self.humidity = round(min(80.0, max(20.0, self.humidity)), 1)
 
     def send_data(self):
+        # Usar UTC para el API
+        utc_now = datetime.now().astimezone()  # Esto da UTC
         data = {
-            "timestamp": datetime.now(TIMEZONE).isoformat(),
+            "timestamp": utc_now.isoformat(),
             "sensor": self.sensor_name,
             "t": self.temperature,
             "h": self.humidity
@@ -95,7 +97,9 @@ class SensorSimulator(threading.Thread):
                 self.error_shown = False
                 
             latency = self.get_latency()
-            logger.info(f"{self.sensor_name}: {datetime.now(TIMEZONE).strftime('%H:%M:%S')} (+{latency:.3f}s) | "
+            # Usar hora local para el display
+            local_now = datetime.now().astimezone(TIMEZONE)
+            logger.info(f"{self.sensor_name}: {local_now.strftime('%H:%M:%S')} (+{latency:.3f}s) | "
                      f"T:{self.prev_temperature:.1f}°->{self.temperature:.1f}° | "
                      f"H:{self.prev_humidity:.1f}%->{self.humidity:.1f}%")
             time.sleep(interval + latency)
