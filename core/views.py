@@ -113,8 +113,8 @@ class ChartView(TemplateView):
         
         # Actualizar mapeo usando 'T' para minutos
         timeframe_to_freq = {
-            '5s': '5S',
-            '30s': '30S',
+            '5s': '5s',
+            '30s': '30s',
             '1m': '1T',
             '10m': '10T',
             '30m': '30T',
@@ -156,7 +156,6 @@ class ChartView(TemplateView):
         context['selected_timeframe'] = selected_timeframe
         
         return context
-
 
 
 # Function-based Views

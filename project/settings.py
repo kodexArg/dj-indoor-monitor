@@ -10,8 +10,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
-logger.debug(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
-logger.debug(f"DEBUG: {DEBUG}")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
