@@ -2,6 +2,7 @@ from django.conf import settings
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.io import to_html
+from datetime import datetime, timedelta, timezone
 
 
 def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str:
@@ -86,60 +87,10 @@ def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str
     return chart_html
 
 
-def process_chart_data(data: list, metric: str, freq: str = '30m') -> dict:
-    """Process sensor data with time-based grouping and averaging.
-    
-    Handles data transformation for visualization including:
-    - Timestamp conversion and grouping
-    - Mean calculation per time interval
-    - Value rounding and timestamp formatting
-    - Limits the number of records according to MAX_PLOT_RECORDS setting
-    """
-    if metric not in ['t', 'h']:
-        raise ValueError("metric must be either 't' for temperature or 'h' for humidity")
-
-    df = pd.DataFrame(data)
-    if df.empty:
-        return {'data': []}
-    
-
-    """
-    Data processing pipeline:
-    1. Convert timestamps
-    2. Group by sensor and time
-    3. Calculate means
-    4. Format output
-    """
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-    grouped = df.groupby(
-        [
-            'sensor',
-            pd.Grouper(
-                key='timestamp',
-                freq=freq
-            )
-        ]
-    ).agg(
-        {
-            metric: 'mean'
-        }
-    ).reset_index()
-    
-    grouped['timestamp'] = grouped['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
-    grouped[metric] = grouped[metric].round(1)
-    
-    # Ensure data is sorted by timestamp and sensor before limiting records
-    grouped = grouped.sort_values(['timestamp', 'sensor'], ascending=[False, True])  # Modify this line to sort by timestamp descending
-    grouped = grouped.tail(settings.MAX_PLOT_RECORDS)
-    
-    return {'data': grouped.to_dict('records')}
-
-
 def parse_time_string(time_str):
-    """Convert time strings like '30s' or '1T' to seconds."""
+    """Convert time strings like '30s' or '1min' to seconds."""
     if time_str.endswith('m'):
-        time_str = time_str.replace('m', 'T')
+        time_str = time_str.replace('m', 'min')
     elif time_str.endswith('s'):
         time_str = time_str.lower()
     
@@ -147,3 +98,35 @@ def parse_time_string(time_str):
         return int(pd.Timedelta(time_str).total_seconds())
     except (ValueError, AttributeError):
         return 30
+
+
+def timeframe_to_freq(timeframe: str) -> str:
+    timeframe_to_freq = {
+        '5s': '5S',
+        '30s': '30S',
+        '1m': '1min',
+        '10m': '10min',
+        '30m': '30min',
+        '1h': '1H',
+        '1d': '1D'
+    }
+    return timeframe_to_freq.get(timeframe, '30min')
+
+
+def get_start_date(freq: str, end_date: datetime = None) -> datetime:
+    if end_date is None:
+        end_date = datetime.now(timezone.utc)
+    
+    freq = freq.replace('min', 'T').upper()
+    
+    time_delta = {
+        '30T': timedelta(minutes=30),
+        '1H': timedelta(hours=1),
+        '6H': timedelta(hours=6),
+        '12H': timedelta(hours=12),
+        '1D': timedelta(days=1),
+        '7D': timedelta(days=7),
+        '30D': timedelta(days=30),
+    }.get(freq, timedelta(minutes=30))
+    
+    return end_date - time_delta

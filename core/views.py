@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import requests
+import pandas as pd
 
 # Django and DRF
 from django.conf import settings
@@ -21,7 +22,7 @@ from plotly.io import to_html
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import process_chart_data, parse_time_string, generate_plotly_chart
+from .utils import parse_time_string, generate_plotly_chart, timeframe_to_freq, get_start_date
 
 
 # Main Project ViewSets (keep at top)
@@ -77,21 +78,52 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def chart(self, request):
-        recent = request.query_params.get('recent', 'false').lower() == 'true'
         metric = request.query_params.get('metric', 't')
-        freq = request.query_params.get('freq', '30s')
-
-        if recent:
-            seconds = parse_time_string(freq)
-            queryset = self.get_queryset().filter(
-                timestamp__gte=self.now() - timedelta(seconds=seconds)
+        timeframe = request.query_params.get('timeframe', '30m')
+        freq = timeframe_to_freq(timeframe)
+        
+        if metric not in ['t', 'h']:
+            return Response(
+                {'error': "metric must be either 't' for temperature or 'h' for humidity"},
+                status=400
             )
-        else:
-            queryset = self.filter_queryset(self.get_queryset())
 
-        data = queryset.values('timestamp', 'sensor', metric)
-        processed_data = process_chart_data(list(data), metric=metric, freq=freq)
-        return Response(processed_data)
+        # Usar get_start_date para filtrar
+        end_date = datetime.now(timezone.utc)
+        start_date = get_start_date(freq, end_date)
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                timestamp__gte=start_date,
+                timestamp__lte=end_date
+            )
+        )
+
+        # Convert to DataFrame for processing
+        df = pd.DataFrame(queryset.values('timestamp', 'sensor', metric))
+        
+        if df.empty:
+            return Response({'data': []})
+
+        # Process data
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        # Group and aggregate
+        grouped = df.groupby([
+            'sensor',
+            pd.Grouper(key='timestamp', freq=freq)
+        ]).agg({
+            metric: 'mean'
+        }).reset_index()
+        
+        # Format output
+        grouped['timestamp'] = grouped['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
+        grouped[metric] = grouped[metric].round(1)
+        
+        # Sort and limit records
+        grouped = grouped.sort_values(['timestamp', 'sensor'], ascending=[False, True])
+        grouped = grouped.tail(settings.MAX_PLOT_RECORDS)
+        
+        return Response({'data': grouped.to_dict('records')})
 
 
 # Template Views
@@ -108,53 +140,30 @@ class ChartView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Get parameters with defaults
         metric = self.request.GET.get('metric', 't')
         selected_timeframe = self.request.GET.get('timeframe', '30m')
+        freq = timeframe_to_freq(selected_timeframe)
         
-        # Actualizar mapeo usando 'T' para minutos
-        timeframe_to_freq = {
-            '5s': '5s',
-            '30s': '30s',
-            '1m': '1T',
-            '10m': '10T',
-            '30m': '30T',
-            '1h': '1H',
-            '1d': '1D'
-        }
-        freq = timeframe_to_freq.get(selected_timeframe, '30T')
-        
-        # Log the selected metric and timeframe
-        logger.info(f"Selected metric: {metric}")
-        logger.info(f"Selected timeframe: {selected_timeframe}")
-        
-        # Construir URL de la API
+        # Build API URL and get data
         api_url = self.request.build_absolute_uri(reverse('sensor-data-chart'))
-        params = {'metric': metric, 'freq': freq}
+        params = {'metric': metric, 'timeframe': selected_timeframe}
         
-        # Obtener datos de la API
         response = requests.get(api_url, params=params)
         data = response.json()
         
-        # Generar gráfico
+        # Generate chart
         chart_html = generate_plotly_chart(data['data'], metric)
-        context['chart_html'] = chart_html
-
-        context['metric'] = metric
-        context['freq'] = freq
-        context['api_url'] = api_url
-        context['params'] = params
-        context['api_response'] = data
-
-        if data['data']:
-            context['start_date'] = data['data'][0]['timestamp']
-            context['end_date'] = data['data'][-1]['timestamp']
-            context['num_points'] = len(data['data'])
-        else:
-            context['start_date'] = context['end_date'] = context['num_points'] = None
-
-        # Add selected_timeframe to context
-        context['selected_timeframe'] = selected_timeframe
         
+        context.update({
+            'chart_html': chart_html,
+            'metric': metric,
+            'selected_timeframe': selected_timeframe,
+            'api_url': api_url,
+            'data': data['data']
+        })
+            
         return context
 
 

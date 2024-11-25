@@ -57,7 +57,16 @@
     }
 </style>
 <div id="chart-container">
-    {{ chart_html|safe }}
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% else %}
+        {{ chart_html|safe }}
+        <div class="chart-info">
+            <p>Data points: {{ num_points }}</p>
+            <p>From: {{ start_date }}</p>
+            <p>To: {{ end_date }}</p>
+        </div>
+    {% endif %}
 </div>
 <div id="toggle-buttons" class="button-group">
     <div id="toggle-buttons-timeframe">
@@ -77,14 +86,15 @@
 </div>
 <hr/>
 <pre style="font-family: monospace; color: darkgray;">
-<strong>metric:</strong> {{ metric }}
-<strong>freq:</strong> {{ freq }}
-<strong>api_url:</strong> {{ api_url }}
-<strong>params:</strong> {{ params }}
-<strong>api_response:</strong> {{ api_response|json_script:"api-response" }}
-<strong>start_date:</strong> {{ start_date }}
-<strong>end_date:</strong> {{ end_date }}
-<strong>num_points:</strong> {{ num_points }}
+    <strong>metric:</strong> {{ metric }}
+    <strong>freq:</strong> {{ freq }}
+    <strong>api_url:</strong> {{ api_url }}
+    <strong>params:</strong> {{ params }}
+    <strong>api_response:</strong> {{ api_response|json_script:"api-response" }}
+    <strong>start_date:</strong> {{ start_date }}
+    <strong>end_date:</strong> {{ end_date }}
+    <strong>num_points:</strong> {{ num_points }}
+    <strong>data:</strong> <pre>{{ data|json_script:"data" }}</pre>
 </pre>
 <hr/>
 <script>
