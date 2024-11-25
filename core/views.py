@@ -150,34 +150,63 @@ class ChartView(TemplateView):
         api_url = self.request.build_absolute_uri(reverse('sensor-data-chart'))
         params = {'metric': metric, 'timeframe': selected_timeframe}
         
-        response = requests.get(api_url, params=params)
-        data = response.json()['data']
-        
-        # Generate chart
-        chart_html = generate_plotly_chart(data, metric)
-        
-        # Prepare debug info
-        debug_info = {
-            'num_points': len(data),
-            'sensors': sorted(set(item['sensor'] for item in data)),
-            'first_record': {
-                'timestamp': data[-1]['timestamp'] if data else None,
-                'sensor': data[-1]['sensor'] if data else None,
-                'value': data[-1][metric] if data else None
-            },
-            'last_record': {
-                'timestamp': data[0]['timestamp'] if data else None,
-                'sensor': data[0]['sensor'] if data else None,
-                'value': data[0][metric] if data else None
+        try:
+            response = requests.get(api_url, params=params)
+            response.raise_for_status()  # Lanzará una excepción si el status code no es 2XX
+            data = response.json()['data']
+            
+            # Generate chart
+            chart_html = generate_plotly_chart(data, metric)
+            
+            # Prepare debug info
+            debug_info = {
+                'num_points': len(data),
+                'sensors': sorted(set(item['sensor'] for item in data)),
+                'first_record': {
+                    'timestamp': data[-1]['timestamp'] if data else None,
+                    'sensor': data[-1]['sensor'] if data else None,
+                    'value': data[-1][metric] if data else None
+                },
+                'last_record': {
+                    'timestamp': data[0]['timestamp'] if data else None,
+                    'sensor': data[0]['sensor'] if data else None,
+                    'value': data[0][metric] if data else None
+                }
             }
-        }
-        
-        context.update({
-            'chart_html': chart_html,
-            'metric': metric,
-            'selected_timeframe': selected_timeframe,
-            'debug': debug_info
-        })
+            
+            context.update({
+                'chart_html': chart_html,
+                'metric': metric,
+                'selected_timeframe': selected_timeframe,
+                'debug': debug_info
+            })
+            
+        except requests.RequestException as e:
+            context.update({
+                'error': f"Error de conexión con la API: {str(e)}",
+                'metric': metric,
+                'selected_timeframe': selected_timeframe,
+                'debug': {
+                    'num_points': 0,
+                    'sensors': [],
+                    'first_record': {'timestamp': None, 'sensor': None, 'value': None},
+                    'last_record': {'timestamp': None, 'sensor': None, 'value': None}
+                }
+            })
+            logger.error(f"Error accessing API: {str(e)}")
+        except ValueError as e:
+            context.update({
+                'error': f"Error procesando respuesta de la API: {str(e)}",
+                'metric': metric,
+                'selected_timeframe': selected_timeframe,
+                'debug': {
+                    'num_points': 0,
+                    'sensors': [],
+                    'first_record': {'timestamp': None, 'sensor': None, 'value': None},
+                    'last_record': {'timestamp': None, 'sensor': None, 'value': None}
+                }
+            })
+            logger.error(f"Error processing API response: {str(e)}")
             
         return context
 

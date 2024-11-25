@@ -20,8 +20,18 @@ def delete_all_data(db_path):
 def load_data(db_path):
     try:
         conn = sqlite3.connect(db_path)
-        query = "SELECT * FROM core_sensordata"
+        query = """
+            SELECT 
+                strftime('%Y-%m-%d %H:%M:%S', timestamp) as timestamp,
+                sensor,
+                t as temperature,
+                h as humidity 
+            FROM core_sensordata
+            ORDER BY timestamp DESC
+        """
         df = pd.read_sql_query(query, conn)
+        # Convert timestamp to datetime
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
     except sqlite3.Error as e:
         logger.error(f"Error al cargar datos: {e}")
@@ -48,14 +58,14 @@ def show_info(df):
     print("\n=== Información general ===")
     print(df.info())
     
-    print("\n=== Estadísticas descriptivas ===")
-    print(df.describe())
-    
-    if 'timestamp' in df.columns:
-        print("\n=== Rango temporal de datos ===")
-        print(f"Primer registro: {df['timestamp'].min()}")
-        print(f"Último registro: {df['timestamp'].max()}")
-        print(f"Total registros: {len(df)}")
+    print("\n=== Estadísticas por sensor ===")
+    for sensor in df['sensor'].unique():
+        sensor_data = df[df['sensor'] == sensor]
+        print(f"\nSensor: {sensor}")
+        print(f"Registros: {len(sensor_data)}")
+        print(f"Rango temporal: {sensor_data['timestamp'].min()} a {sensor_data['timestamp'].max()}")
+        print("\nEstadísticas de temperatura y humedad:")
+        print(sensor_data[['temperature', 'humidity']].describe())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Utilidad para gestionar datos de sensores en SQLite')

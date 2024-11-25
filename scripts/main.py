@@ -8,9 +8,10 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 import sqlite3
-from queue import Queue
+from queue import Queue, Empty
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
+import signal
 # Third party imports
 import requests
 from loguru import logger
@@ -35,6 +36,13 @@ DEFAULT_INTERVAL = 30
 DEFAULT_SENSORS = 3
 db_queue = Queue()
 stop_event = Event()
+shutdown_event = threading.Event()
+
+def signal_handler(signum, frame):
+    """Manejador de señales para detener todos los hilos"""
+    logger.info("Señal de interrupción recibida. Iniciando apagado...")
+    shutdown_event.set()
+    stop_event.set()
 
 def db_writer():
     """
@@ -46,7 +54,10 @@ def db_writer():
             batch = db_queue.get(timeout=1.0)
             insert_batch(conn, batch)
             db_queue.task_done()
-        except Queue.Empty:
+        except Empty:
+            continue
+        except Exception as e:
+            logger.error(f"Error en db_writer: {e}")
             continue
     conn.close()
     logger.info("Database writer thread finished")
@@ -54,7 +65,6 @@ def db_writer():
 # Argumentos de línea de comandos
 parser = argparse.ArgumentParser(description="Script unificado para simular históricos y tiempo real de sensores")
 parser.add_argument("--start-date", required=True, help="Fecha de inicio en formato ISO8601")
-parser.add_argument("--end-date", help="Fecha de fin en formato ISO8601 (opcional)")
 parser.add_argument("--seconds", type=int, default=DEFAULT_INTERVAL, help="Intervalo de captura en segundos")
 parser.add_argument("--sensors", type=int, default=DEFAULT_SENSORS, help="Número de sensores simulados (mínimo 1)")
 parser.add_argument("--delete-ddbb", action="store_true", help="Eliminar datos existentes en la base de datos antes de comenzar")
@@ -68,39 +78,24 @@ if args.sensors <= 0:
 # Constantes derivadas de argumentos
 interval = args.seconds
 
-def process_dates(start_date_str, end_date_str=None):
+def process_dates(start_date_str):
     """
-    Procesa y valida las fechas de inicio y fin.
-    
-    Args:
-        start_date_str: Fecha de inicio en formato ISO8601
-        end_date_str: Fecha de fin en formato ISO8601 (opcional)
-    
-    Returns:
-        tuple: (start_date, end_date) con zonas horarias configuradas
-        
-    Raises:
-        ValueError: Si las fechas no son válidas o si end_date < start_date
+    Procesa y valida la fecha de inicio.
     """
     def ensure_timezone(dt):
-        return dt.replace(tzinfo=TIMEZONE) if dt.tzinfo is None else dt
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=TIMEZONE)
+        return dt.astimezone(TIMEZONE)
 
     try:
         start_date = ensure_timezone(date_parser.parse(start_date_str))
-        now = ensure_timezone(datetime.now() if USE_LOCAL_TIME else datetime.utcnow())
-        end_date = ensure_timezone(date_parser.parse(end_date_str) if end_date_str else now)
-
-        if end_date < start_date:
-            raise ValueError("La fecha de fin no puede ser anterior a la fecha de inicio")
-            
-        return start_date, end_date
-
+        return start_date
     except Exception as e:
-        logger.error(f"Error procesando fechas: {str(e)}")
+        logger.error(f"Error procesando fecha: {str(e)}")
         sys.exit(1)
 
-# Procesar fechas
-start_date, end_date = process_dates(args.start_date, args.end_date)
+# Procesar fecha
+start_date = process_dates(args.start_date)
 SENSORS = [f"simu-rpi-{i:02d}" for i in range(1, args.sensors + 1)]
 
 # Eliminar datos de la base de datos si se indica
@@ -210,10 +205,12 @@ def insert_batch(conn, data_batch):
     Inserta un lote de datos en la base de datos.
     """
     cursor = conn.cursor()
-    cursor.executemany(
-        "INSERT INTO core_sensordata (timestamp, sensor, t, h) VALUES (?, ?, ?, ?)",
-        data_batch
-    )
+    for record in data_batch:
+        logger.info(f"DB Insert: {record}")  # Log cada registro individual
+        cursor.execute(
+            "INSERT INTO core_sensordata (timestamp, sensor, t, h) VALUES (?, ?, ?, ?)",
+            record
+        )
     conn.commit()
 
 class HistoricalSensorSimulator(threading.Thread):
@@ -223,24 +220,51 @@ class HistoricalSensorSimulator(threading.Thread):
     def __init__(self, sensor_name):
         threading.Thread.__init__(self)
         self.sensor_name = sensor_name
-        self.current_time = start_date.astimezone(TIMEZONE) if USE_LOCAL_TIME else start_date
+        self.current_time = start_date.astimezone(TIMEZONE)
         self.running = True
         self.data_batch = []
+        self.real_time_mode = False
+        self.real_time_simulator = None
+
+    def switch_to_real_time(self):
+        """Cambia al modo tiempo real cuando alcanzamos el presente"""
+        logger.info(f"{self.sensor_name}: Cambiando a modo tiempo real")
+        self.real_time_simulator = RealTimeSensorSimulator(self.sensor_name)
+        # Transferir el último estado conocido
+        self.real_time_simulator.temperature = sensor_states[self.sensor_name]['temperature']
+        self.real_time_simulator.humidity = sensor_states[self.sensor_name]['humidity']
+        self.real_time_simulator.start()
+        self.real_time_mode = True
+        return self.real_time_simulator
+
+    def get_real_time_simulator(self):
+        return self.real_time_simulator
 
     def run(self):
-        """
-        Genera datos históricos para el sensor.
-        """
         logger.info(f"Inicio del proceso de llenado histórico para {self.sensor_name}")
-        while self.current_time <= end_date:
-            temperature = generate_temperature(self.sensor_name, self.current_time)
-            humidity = generate_humidity(self.sensor_name)
+        while self.running and not shutdown_event.is_set():
+            now = datetime.now(TIMEZONE)
+            
+            # Si alcanzamos el presente, cambiar a modo tiempo real
+            if self.current_time >= now:
+                if self.data_batch:
+                    db_queue.put(self.data_batch)
+                self.switch_to_real_time()
+                break
+
+            temperature = round(generate_temperature(self.sensor_name, self.current_time), 1)
+            humidity = round(generate_humidity(self.sensor_name), 1)
+            
+            # Garantizar formato ISO8601 con timezone
+            timestamp_iso = self.current_time.isoformat()
+            
             self.data_batch.append((
-                self.current_time.isoformat(),
+                timestamp_iso,
                 self.sensor_name,
                 temperature,
                 humidity
             ))
+            
             if len(self.data_batch) >= BATCH_SIZE:
                 db_queue.put(self.data_batch)
                 logger.info(f"Encolados {BATCH_SIZE} registros hasta {self.current_time} para {self.sensor_name}")
@@ -273,7 +297,7 @@ class RealTimeSensorSimulator(threading.Thread):
         """
         Genera y envía datos en tiempo real para el sensor.
         """
-        while self.running:
+        while self.running and not shutdown_event.is_set():
             self.update_temperature()
             self.update_humidity()
             if not self.send_data():
@@ -324,6 +348,7 @@ class RealTimeSensorSimulator(threading.Thread):
             "t": self.temperature,
             "h": self.humidity
         }
+        logger.info(f"API Send: {data}")  # Log del payload
         try:
             response = requests.post(ENDPOINT, json=data)
             if response.status_code != 201:
@@ -339,36 +364,67 @@ class RealTimeSensorSimulator(threading.Thread):
 
 # Inicio del script
 if __name__ == "__main__":
-    # Start database writer thread
-    db_writer_thread = threading.Thread(target=db_writer)
-    db_writer_thread.daemon = True
-    db_writer_thread.start()
-
-    # Start historical simulators without blocking
-    historical_simulators = []
-    for sensor in SENSORS:
-        historical_simulator = HistoricalSensorSimulator(sensor)
-        historical_simulator.daemon = True
-        historical_simulator.start()
-        historical_simulators.append(historical_simulator)
-
-    # Start real-time simulators immediately
-    simulators = []
-    for sensor in SENSORS:
-        simulator = RealTimeSensorSimulator(sensor)
-        simulator.daemon = True
-        simulator.start()
-        simulators.append(simulator)
-
-    logger.info(f"Intervalo de actualización configurado a {interval} segundos")
-    logger.info(f"Simulando {len(SENSORS)} sensores en tiempo real")
+    # Registrar el manejador de señales
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        while True:
+        # Start database writer thread
+        db_writer_thread = threading.Thread(target=db_writer)
+        db_writer_thread.start()
+
+        logger.info("Iniciando simulación histórica...")
+        historical_simulators = []
+        real_time_simulators = []
+        
+        for sensor in SENSORS:
+            simulator = HistoricalSensorSimulator(sensor)
+            simulator.start()
+            historical_simulators.append(simulator)
+
+        # Esperar a que los simuladores históricos terminen o cambien a tiempo real
+        while any(sim.is_alive() for sim in historical_simulators) and not shutdown_event.is_set():
+            for sim in historical_simulators:
+                if sim.get_real_time_simulator() and sim.get_real_time_simulator() not in real_time_simulators:
+                    real_time_simulators.append(sim.get_real_time_simulator())
             time.sleep(1)
-    except KeyboardInterrupt:
+
+        if not shutdown_event.is_set():
+            logger.info("Simulación histórica completada")
+            logger.info(f"Continuando con {len(real_time_simulators)} sensores en tiempo real")
+
+            # Main loop - mantener vivo mientras los simuladores en tiempo real estén activos
+            while any(sim.is_alive() for sim in real_time_simulators) and not shutdown_event.is_set():
+                time.sleep(1)
+
+    except Exception as e:
+        logger.error(f"Error en el script principal: {str(e)}")
+        shutdown_event.set()
         stop_event.set()
-        logger.info("Finalizando procesos...")
-        # Wait for queue to empty
-        db_queue.join()
+
+    finally:
+        logger.info("Esperando a que finalicen todos los procesos...")
+        
+        try:
+            # Esperar a que el queue se vacíe con timeout
+            db_queue.join()
+            
+            # Detener todos los simuladores
+            for sim in historical_simulators:
+                if sim.get_real_time_simulator():
+                    sim.get_real_time_simulator().running = False
+                sim.running = False
+            
+            # Esperar a que todos los hilos terminen con timeout
+            for sim in historical_simulators:
+                sim.join(timeout=5)
+                if sim.get_real_time_simulator():
+                    sim.get_real_time_simulator().join(timeout=5)
+            
+            db_writer_thread.join(timeout=5)
+            
+        except Exception as e:
+            logger.error(f"Error durante la limpieza: {e}")
+        
+        logger.info("Proceso finalizado")
         sys.exit(0)

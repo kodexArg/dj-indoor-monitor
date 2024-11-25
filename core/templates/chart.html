@@ -58,7 +58,12 @@
 </style>
 <div id="chart-container">
     {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">Error</h4>
+            <p>{{ error }}</p>
+            <hr>
+            <p class="mb-0">Por favor, verifique que el servidor de la API esté funcionando y vuelva a intentar.</p>
+        </div>
     {% else %}
         {{ chart_html|safe }}
         <div class="chart-info">
