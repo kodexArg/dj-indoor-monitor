@@ -86,15 +86,12 @@
 </div>
 <hr/>
 <pre style="font-family: monospace; color: darkgray;">
-    <strong>metric:</strong> {{ metric }}
-    <strong>freq:</strong> {{ freq }}
-    <strong>api_url:</strong> {{ api_url }}
-    <strong>params:</strong> {{ params }}
-    <strong>api_response:</strong> {{ api_response|json_script:"api-response" }}
-    <strong>start_date:</strong> {{ start_date }}
-    <strong>end_date:</strong> {{ end_date }}
-    <strong>num_points:</strong> {{ num_points }}
-    <strong>data:</strong> <pre>{{ data|json_script:"data" }}</pre>
+    <strong>Resumen de Datos:</strong>
+    <strong>Total registros:</strong> {{ debug.num_points }}
+    <strong>Sensores:</strong> {{ debug.sensors|join:", " }}
+    <strong>Primer registro:</strong> {{ debug.first_record.timestamp }} ({{ debug.first_record.sensor }}: {{ debug.first_record.value }})
+    <strong>Último registro:</strong> {{ debug.last_record.timestamp }} ({{ debug.last_record.sensor }}: {{ debug.last_record.value }})
+    <strong>Intervalo:</strong> {{ selected_timeframe }}
 </pre>
 <hr/>
 <script>

@@ -151,17 +151,32 @@ class ChartView(TemplateView):
         params = {'metric': metric, 'timeframe': selected_timeframe}
         
         response = requests.get(api_url, params=params)
-        data = response.json()
+        data = response.json()['data']
         
         # Generate chart
-        chart_html = generate_plotly_chart(data['data'], metric)
+        chart_html = generate_plotly_chart(data, metric)
+        
+        # Prepare debug info
+        debug_info = {
+            'num_points': len(data),
+            'sensors': sorted(set(item['sensor'] for item in data)),
+            'first_record': {
+                'timestamp': data[-1]['timestamp'] if data else None,
+                'sensor': data[-1]['sensor'] if data else None,
+                'value': data[-1][metric] if data else None
+            },
+            'last_record': {
+                'timestamp': data[0]['timestamp'] if data else None,
+                'sensor': data[0]['sensor'] if data else None,
+                'value': data[0][metric] if data else None
+            }
+        }
         
         context.update({
             'chart_html': chart_html,
             'metric': metric,
             'selected_timeframe': selected_timeframe,
-            'api_url': api_url,
-            'data': data['data']
+            'debug': debug_info
         })
             
         return context

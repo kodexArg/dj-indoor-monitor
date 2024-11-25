@@ -102,8 +102,8 @@ def parse_time_string(time_str):
 
 def timeframe_to_freq(timeframe: str) -> str:
     timeframe_to_freq = {
-        '5s': '5S',
-        '30s': '30S',
+        '5s': '5s',
+        '30s': '30s',
         '1m': '1min',
         '10m': '10min',
         '30m': '30min',
