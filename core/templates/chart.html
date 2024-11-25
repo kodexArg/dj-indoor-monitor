@@ -1,6 +1,8 @@
 {% extends "layouts/base.html" %}
 {% load static %}
-
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/chart.css' %}">
+{% endblock %}
 {% block header %}
 <h3>
     {% if metric == 't' %}
@@ -15,47 +17,6 @@
 {% endblock %}
 
 {% block content %}
-<style>
-    #toggle-buttons {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-    .button {
-        margin: 0 5px 10px 5px;  /* Added bottom margin of 10px */
-        padding: 5px 20px;  /* Adjusted padding */
-        border: 1px solid #ccc;
-        background-color: #f9f9f9;
-        cursor: pointer;
-        text-align: center;
-        font-size: 1.1em;  /* Increased font size */
-        line-height: 1.5;  /* Center text vertically */
-    }
-    #toggle-buttons-timeframe .button {
-        width: 70px;  /* Fixed width for frequency buttons */
-    }
-    #toggle-buttons-metric .button {
-        width: 120px;  /* Fixed width for metric buttons */
-    }
-    .button-group {
-        margin-bottom: 2px;  /* Small bottom margin */
-    }
-    .button.active {
-        background-color: #d4edda;
-        border-color: #c3e6cb;
-    }
-    .button.metric {
-        background-color: #f9f9f9;
-    }
-    .button.metric.active {
-        background-color: #a9d5b5;
-    }
-    .vertical-separator {
-        border-left: 1px solid #ccc;
-        height: 30px;
-        margin: 0 10px;
-    }
-</style>
 <div id="chart-container">
     {% if error %}
         <div class="alert alert-danger">
@@ -66,11 +27,6 @@
         </div>
     {% else %}
         {{ chart_html|safe }}
-        <div class="chart-info">
-            <p>Data points: {{ num_points }}</p>
-            <p>From: {{ start_date }}</p>
-            <p>To: {{ end_date }}</p>
-        </div>
     {% endif %}
 </div>
 <div id="toggle-buttons" class="button-group">
