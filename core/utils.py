@@ -117,16 +117,18 @@ def get_start_date(freq: str, end_date: datetime = None) -> datetime:
     if end_date is None:
         end_date = datetime.now(timezone.utc)
     
-    freq = freq.replace('min', 'T').upper()
+    # Convert freq to seconds
+    freq_seconds = {
+        '5s': 5,
+        '30s': 30,
+        '1min': 60,
+        '10min': 600,
+        '30min': 1800,
+        '1H': 3600,
+        '1D': 86400
+    }.get(freq.lower(), 1800)  # default 30min in seconds
     
-    time_delta = {
-        '30T': timedelta(minutes=30),
-        '1H': timedelta(hours=1),
-        '6H': timedelta(hours=6),
-        '12H': timedelta(hours=12),
-        '1D': timedelta(days=1),
-        '7D': timedelta(days=7),
-        '30D': timedelta(days=30),
-    }.get(freq, timedelta(minutes=30))
+    # Calculate total time window needed
+    total_seconds = freq_seconds * settings.MAX_PLOT_RECORDS
     
-    return end_date - time_delta
+    return end_date - timedelta(seconds=total_seconds)
