@@ -30,10 +30,10 @@ async def insertar_valores(sensor_data):
 
 def generate_metric_value(metric: str, last_value: float = None, timestamp: datetime = None) -> float:
     if metric == 't':
-        max_change = 1.0
+        max_change = 0.2
         is_temperature = True
     elif metric == 'h':
-        max_change = 2.0
+        max_change = 0.5
         is_temperature = False
     else:
         raise ValueError("Metric must be 't' for temperature or 'h' for humidity")
@@ -72,26 +72,12 @@ def calculate_next_timestamp(previous_timestamp: datetime, seconds: int) -> date
     latency = random.uniform(0, 0.02) * seconds
     return previous_timestamp + timedelta(seconds=seconds + latency)
 
-def delete_all_data(db_path: str) -> None:
-    conn: sqlite3.Connection = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor: sqlite3.Cursor = conn.cursor()
-        cursor.execute("DELETE FROM core_sensordata") 
-        conn.commit()
-        logger.info("Datos eliminados de 'core_sensordata'.")
-    except sqlite3.Error as e:
-        logger.error(f"Error al eliminar datos: {e}")
-    finally:
-        if conn:
-            conn.close()
-
 def prepare_arguments():
     parser = argparse.ArgumentParser(description="Insert sensor data into the database.")
     parser.add_argument('--sensor', type=str, required=True, help='Name of the sensor to add')
     parser.add_argument('--seconds', type=int, default=5, help='Seconds between timestamps (default: 5)')
     parser.add_argument('--start-date', type=str, default=(datetime.now() - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S'), help='Start date (default: 48 hours ago)')
-    parser.add_argument('--end-date', type=str, default=(datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S'), help='End date (default: 1 hour in the future)')
+    parser.add_argument('--end-date', type=str, default=(datetime.now() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S'), help='End date (default: 30 minutes in the future)')
     parser.add_argument('--delete', action='store_true', help='Delete all data before inserting new data')
     
     return parser.parse_args()
@@ -135,9 +121,6 @@ async def loop_write_values(sensor: str, start_date: datetime, seconds: int, sto
 
 async def main():
     args = prepare_arguments()
-    
-    if args.delete:
-        delete_all_data('../db.sqlite3')
     
     sensor = args.sensor
     seconds = args.seconds

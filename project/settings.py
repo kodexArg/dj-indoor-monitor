@@ -56,8 +56,12 @@ WSGI_APPLICATION = 'project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -124,7 +128,7 @@ LOGGING = {
 }
 
 MAX_DATA_MINUTES = int(os.getenv('MAX_DATA_MINUTES', 5))
-MAX_PLOT_RECORDS = int(os.getenv('MAX_PLOT_RECORDS', 1000))
+MAX_PLOT_RECORDS = int(os.getenv('MAX_PLOT_RECORDS', 100))
 
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [

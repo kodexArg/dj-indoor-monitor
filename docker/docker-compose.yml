@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: timescale/timescaledb:2.11.1-pg14
+    container_name: postgres_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: dj_db
+      POSTGRES_USER: kodex_user
+      POSTGRES_PASSWORD: kodex_pass_do_not_use_in_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
