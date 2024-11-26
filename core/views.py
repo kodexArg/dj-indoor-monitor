@@ -13,6 +13,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
+from django.utils.dateparse import parse_datetime
 
 # Third-party
 from loguru import logger
@@ -89,8 +90,13 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             )
 
         # Usar get_start_date para filtrar
-        end_date = datetime.now()
-        start_date = get_start_date(freq, end_date)
+        end_date = datetime.now(timezone.utc)
+        start_date = request.query_params.get('start_date', None)
+        if start_date:
+            start_date = datetime.fromisoformat(start_date)
+        else:
+            start_date = get_start_date(freq, end_date)
+        
         queryset = self.filter_queryset(
             self.get_queryset().filter(
                 timestamp__gte=start_date,
@@ -125,6 +131,16 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         return Response({'data': grouped.to_dict('records')})
 
+    @action(detail=False, methods=['post'])
+    def write_values(self, request):
+        sensor_data = request.data
+        sensor_data['timestamp'] = parse_datetime(sensor_data['timestamp'])
+        serializer = SensorDataSerializer(data=sensor_data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'status': 'Values written successfully'}, status=201)
+        return Response(serializer.errors, status=400)
+
 
 # Template Views
 class HomeView(TemplateView):
@@ -141,10 +157,12 @@ class ChartView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Get parameters with defaults
+        selected_timeframe = self.request.GET.get('timeframe', '30s')
         metric = self.request.GET.get('metric', 't')
-        selected_timeframe = self.request.GET.get('timeframe', '30m')
+        
         freq = timeframe_to_freq(selected_timeframe)
+        end_date = datetime.now(timezone.utc)
+        start_date = get_start_date(freq, end_date)
         
         # Build API URL and get data
         api_url = self.request.build_absolute_uri(reverse('sensor-data-chart'))
@@ -156,7 +174,7 @@ class ChartView(TemplateView):
             data = response.json()['data']
             
             # Generate chart
-            chart_html = generate_plotly_chart(data, metric)
+            chart_html = generate_plotly_chart(data, metric, start_date, end_date)
             
             # Prepare debug info
             debug_info = {
@@ -176,38 +194,15 @@ class ChartView(TemplateView):
             
             context.update({
                 'chart_html': chart_html,
-                'metric': metric,
+                'start_date': start_date,
+                'end_date': end_date,
                 'selected_timeframe': selected_timeframe,
+                'metric': metric,
                 'debug': debug_info
             })
-            
         except requests.RequestException as e:
-            context.update({
-                'error': f"Error de conexión con la API: {str(e)}",
-                'metric': metric,
-                'selected_timeframe': selected_timeframe,
-                'debug': {
-                    'num_points': 0,
-                    'sensors': [],
-                    'first_record': {'timestamp': None, 'sensor': None, 'value': None},
-                    'last_record': {'timestamp': None, 'sensor': None, 'value': None}
-                }
-            })
-            logger.error(f"Error accessing API: {str(e)}")
-        except ValueError as e:
-            context.update({
-                'error': f"Error procesando respuesta de la API: {str(e)}",
-                'metric': metric,
-                'selected_timeframe': selected_timeframe,
-                'debug': {
-                    'num_points': 0,
-                    'sensors': [],
-                    'first_record': {'timestamp': None, 'sensor': None, 'value': None},
-                    'last_record': {'timestamp': None, 'sensor': None, 'value': None}
-                }
-            })
-            logger.error(f"Error processing API response: {str(e)}")
-            
+            context.update({'error': str(e)})
+        
         return context
 
 

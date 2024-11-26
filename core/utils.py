@@ -3,9 +3,10 @@ import pandas as pd
 import plotly.graph_objs as go
 from plotly.io import to_html
 from datetime import datetime, timedelta, timezone
+import pytz
 
 
-def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str:
+def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_date: datetime, div_id: str = 'chart') -> str:
     """Generate static Plotly chart HTML with the following features:
     - One line per sensor
     - Range slider for time navigation
@@ -13,36 +14,34 @@ def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str
     - Legend positioned horizontally at the bottom
     - Unified hover mode for all series
     """
+    # Convert dates to GMT-3 (Argentina/Buenos Aires)
+    tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    start_date = start_date.astimezone(tz)
+    end_date = end_date.astimezone(tz)
+    
     df = pd.DataFrame(data)
     if df.empty:
-        return f'<div id="{div_id}"></div>'
+        df = pd.DataFrame(columns=['timestamp', 'sensor', metric])
+    
+    # Convert timestamps in the dataframe to GMT-3
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    if df['timestamp'].dt.tz is None:
+        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+    df['timestamp'] = df['timestamp'].dt.tz_convert(tz)
     
     fig = go.Figure()
     
-
-    """
-    Create individual traces for each sensor with shared timestamp x-axis
-    and metric-specific y-axis values
-    """
+    # Create individual traces for each sensor with shared timestamp x-axis
     for sensor in df['sensor'].unique():
-        sensor_df = df[df['sensor'] == sensor]
+        sensor_data = df[df['sensor'] == sensor]
         fig.add_trace(go.Scatter(
-            x=sensor_df['timestamp'],
-            y=sensor_df[metric],
-            mode='lines',
-            line_shape='spline',  # Add this line to smooth the lines
+            x=sensor_data['timestamp'],
+            y=sensor_data[metric],
+            mode='lines+markers',
             name=sensor
         ))
     
-
-    """
-    Layout configuration optimized for:
-    - White background for better contrast
-    - Horizontal legend inside chart
-    - Minimal margins
-    - Dynamic y-axis range with padding
-    - Range slider and grid for better data exploration
-    """
+    # Layout configuration optimized for:
     fig.update_layout(
         paper_bgcolor='white',
         plot_bgcolor='white',
@@ -61,12 +60,13 @@ def generate_plotly_chart(data: list, metric: str, div_id: str = 'chart') -> str
             b=8
         ),
         yaxis=dict(
-            range=[df[metric].min() - 2, df[metric].max() + 2],
+            range=[df[metric].min() - 2, df[metric].max() + 2] if not df.empty else [0, 1],
             gridcolor='lightgrey',
             gridwidth=0.2,
             griddash='dot'
         ),
         xaxis=dict(
+            range=[start_date, end_date],
             rangeslider=dict(visible=True),
             showgrid=True,
             gridcolor='lightgrey',
