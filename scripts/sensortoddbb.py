@@ -23,7 +23,7 @@ async def insertar_valores(sensor_data):
     async with aiohttp.ClientSession() as session:
         async with session.post(URL, json=sensor_data, headers=HEADERS) as response:
             if response.status == 201:
-                logger.info(f"time={sensor_data['timestamp']} (h={sensor_data['h']}%, t={sensor_data['t']}°C)")
+                logger.info(f"time={sensor_data['timestamp']} (sensor={sensor_data['sensor']}, h={sensor_data['h']}%, t={sensor_data['t']}°C)")
             else:
                 logger.warning(f"Error al insertar datos: {response.status}")
                 exit(1)
@@ -89,12 +89,14 @@ def delete_all_data(db_path: str) -> None:
 def prepare_arguments():
     parser = argparse.ArgumentParser(description="Insert sensor data into the database.")
     parser.add_argument('--sensor', type=str, required=True, help='Name of the sensor to add')
-    parser.add_argument('--seconds', type=int, required=True, help='Seconds between timestamps')
+    parser.add_argument('--seconds', type=int, default=5, help='Seconds between timestamps (default: 5)')
     parser.add_argument('--start-date', type=str, default=(datetime.now() - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S'), help='Start date (default: 48 hours ago)')
+    parser.add_argument('--end-date', type=str, default=(datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S'), help='End date (default: 1 hour in the future)')
+    parser.add_argument('--delete', action='store_true', help='Delete all data before inserting new data')
     
     return parser.parse_args()
 
-async def loop_write_values(sensor: str, start_date: datetime, seconds: int):
+async def loop_write_values(sensor: str, start_date: datetime, seconds: int, stop_time: datetime = None):
     current_timestamp = start_date
     last_temperature = 24.0
     last_humidity = 60.0
@@ -122,6 +124,9 @@ async def loop_write_values(sensor: str, start_date: datetime, seconds: int):
             await asyncio.gather(*tasks)
             tasks = []
 
+        if stop_time and current_timestamp >= stop_time:
+            break
+
         # Remove or reduce the sleep time to speed up the loop
         # await asyncio.sleep(seconds)
 
@@ -129,16 +134,18 @@ async def loop_write_values(sensor: str, start_date: datetime, seconds: int):
         await asyncio.gather(*tasks)
 
 async def main():
-    delete_all_data('../db.sqlite3')
-    
     args = prepare_arguments()
+    
+    if args.delete:
+        delete_all_data('../db.sqlite3')
     
     sensor = args.sensor
     seconds = args.seconds
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d %H:%M:%S')
+    end_date = datetime.strptime(args.end_date, '%Y-%m-%d %H:%M:%S')
     
     try:
-        await loop_write_values(sensor, start_date, seconds)
+        await loop_write_values(sensor, start_date, seconds, stop_time=end_date)
     except asyncio.CancelledError:
         logger.warning("Proceso interrumpido por el usuario (Ctrl+C). Limpiando y saliendo...")
 
