@@ -37,7 +37,8 @@ def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_dat
         fig.add_trace(go.Scatter(
             x=sensor_data['timestamp'],
             y=sensor_data[metric],
-            mode='lines+markers',
+            mode='lines',  # Change to lines only
+            line_shape='spline',  # Smooth the lines
             name=sensor
         ))
     
