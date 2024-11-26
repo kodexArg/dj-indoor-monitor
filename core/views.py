@@ -1,6 +1,5 @@
 # Python imports
 from datetime import datetime, timedelta, timezone
-import json
 import requests
 import pandas as pd
 
@@ -17,7 +16,6 @@ from django.utils.dateparse import parse_datetime
 
 # Third-party
 from loguru import logger
-from plotly.io import to_html
 
 # Local
 from .models import SensorData
@@ -80,22 +78,10 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def chart(self, request):
         metric = request.query_params.get('metric', 't')
-        timeframe = request.query_params.get('timeframe', '30m')
+        timeframe = request.query_params.get('timeframe', '30s')
         freq = timeframe_to_freq(timeframe)
-        
-        if metric not in ['t', 'h']:
-            return Response(
-                {'error': "metric must be either 't' for temperature or 'h' for humidity"},
-                status=400
-            )
-
-        # Usar get_start_date para filtrar
-        end_date = datetime.now(timezone.utc)
-        start_date = request.query_params.get('start_date', None)
-        if start_date:
-            start_date = datetime.fromisoformat(start_date)
-        else:
-            start_date = get_start_date(freq, end_date)
+        start_date = datetime.fromisoformat(request.query_params['start_date'])
+        end_date = datetime.fromisoformat(request.query_params['end_date'])
         
         queryset = self.filter_queryset(
             self.get_queryset().filter(
@@ -104,32 +90,46 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             )
         )
 
-        # Convert to DataFrame for processing
         df = pd.DataFrame(queryset.values('timestamp', 'sensor', metric))
-        
         if df.empty:
             return Response({'data': []})
 
-        # Process data
         df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
         
-        # Group and aggregate
-        grouped = df.groupby([
-            'sensor',
-            pd.Grouper(key='timestamp', freq=freq)
-        ]).agg({
-            metric: 'mean'
-        }).reset_index()
+        logger.debug(f"total records before resampling: {len(df)}, freq={freq}")
+
+        # Filter for sensor 'flora-01'
+        df = df[df['sensor'] == 'flora-01']
         
-        # Format output
-        grouped['timestamp'] = grouped['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
-        grouped[metric] = grouped[metric].round(1)
+        # Ensure timestamps are exactly aligned to 5s intervals
+        df.index = df.index.floor('5S')
         
-        # Sort and limit records
-        grouped = grouped.sort_values(['timestamp', 'sensor'], ascending=[False, True])
-        grouped = grouped.tail(settings.MAX_PLOT_RECORDS)
+        logger.debug(f"Data after filtering:\n{df}")
+
+        # Group and resample with fill method
+        resampled = (df.groupby('sensor')
+                     .resample(freq, origin='start')  # Add origin parameter
+                     .mean()
+                     .fillna(method='ffill')  # Forward fill missing values
+                     .reset_index())
+
+        logger.debug(f"Resampled data:\n{resampled}")
+
+
+        # Validation
+        original_count = len(df)
+        resampled_count = len(resampled)
+        if freq == '5S' and original_count != resampled_count:
+            logger.warning(f"Data point count mismatch: original={original_count}, resampled={resampled_count}")
+
+        logger.debug(f"total records after resampling: {len(resampled)}, freq={freq}")
         
-        return Response({'data': grouped.to_dict('records')})
+        resampled[metric] = resampled[metric].round(1)
+        
+        resampled = resampled.sort_values(['timestamp'], ascending=[False])
+        
+        return Response({'data': resampled.to_dict('records')})
 
     @action(detail=False, methods=['post'])
     def write_values(self, request):
@@ -161,12 +161,19 @@ class ChartView(TemplateView):
         metric = self.request.GET.get('metric', 't')
         
         freq = timeframe_to_freq(selected_timeframe)
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now()
+        end_date = datetime.fromisoformat('2024-11-26T06:39:00')
         start_date = get_start_date(freq, end_date)
+        logger.debug(f"Start date, iso format: {start_date.isoformat()}")
         
         # Build API URL and get data
         api_url = self.request.build_absolute_uri(reverse('sensor-data-chart'))
-        params = {'metric': metric, 'timeframe': selected_timeframe}
+        params = {
+            'metric': metric,
+            'timeframe': selected_timeframe,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat()
+        }
         
         try:
             response = requests.get(api_url, params=params)
