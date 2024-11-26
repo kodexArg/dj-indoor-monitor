@@ -107,7 +107,7 @@ def timeframe_to_freq(timeframe: str) -> str:
         '1m': '1min',
         '10m': '10min',
         '30m': '30min',
-        '1h': '1H',
+        '1h': '1h',
         '1d': '1D'
     }
     return timeframe_to_freq.get(timeframe, '30min')

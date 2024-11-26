@@ -56,7 +56,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         
-        queryset = SensorData.objects.all()
+        queryset = SensorData.objects.all().order_by('-timestamp')
 
         if seconds:
             seconds = int(seconds)
@@ -89,7 +89,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             )
 
         # Usar get_start_date para filtrar
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now()
         start_date = get_start_date(freq, end_date)
         queryset = self.filter_queryset(
             self.get_queryset().filter(
