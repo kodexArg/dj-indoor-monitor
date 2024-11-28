@@ -10,8 +10,20 @@ services:
       POSTGRES_DB: dj_db
       POSTGRES_USER: kodex_user
       POSTGRES_PASSWORD: kodex_pass_do_not_use_in_production
+      TZ: America/Argentina/Buenos_Aires
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kodex_user -d dj_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:
