@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import random
 import sqlite3
 import sys
+from pytz import timezone
 
 # Configure logger to remove timestamp and function name
 logger.remove()
@@ -19,7 +20,7 @@ HEADERS = {'Content-Type': 'application/json'}
 async def insertar_valores(sensor_data):
     sensor_data['t'] = round(sensor_data['t'], 1)
     sensor_data['h'] = round(sensor_data['h'], 1)
-    sensor_data['timestamp'] = sensor_data['timestamp'].split('.')[0]  # Remove milliseconds
+    sensor_data['timestamp'] = sensor_data['timestamp'].astimezone(timezone('America/Argentina/Buenos_Aires')).isoformat().split('.')[0]  # Convert to Buenos Aires timezone
     async with aiohttp.ClientSession() as session:
         async with session.post(URL, json=sensor_data, headers=HEADERS) as response:
             if response.status == 201:
@@ -69,8 +70,7 @@ def generate_metric_value(metric: str, last_value: float = None, timestamp: date
     return last_value + change
 
 def calculate_next_timestamp(previous_timestamp: datetime, seconds: int) -> datetime:
-    latency = random.uniform(0, 0.02) * seconds
-    return previous_timestamp + timedelta(seconds=seconds + latency)
+    return previous_timestamp + timedelta(seconds=seconds)
 
 def prepare_arguments():
     parser = argparse.ArgumentParser(description="Insert sensor data into the database.")
@@ -94,7 +94,7 @@ async def loop_write_values(sensor: str, start_date: datetime, seconds: int, sto
         humidity = generate_metric_value('h', last_humidity, current_timestamp)
         
         sensor_data = {
-            'timestamp': current_timestamp.isoformat().split('.')[0],  # Remove milliseconds
+            'timestamp': current_timestamp.astimezone(timezone('America/Argentina/Buenos_Aires')).isoformat().split('.')[0],  # Convert to Buenos Aires timezone
             'sensor': sensor,
             't': round(temperature, 1),
             'h': round(humidity, 1)
@@ -112,9 +112,6 @@ async def loop_write_values(sensor: str, start_date: datetime, seconds: int, sto
 
         if stop_time and current_timestamp >= stop_time:
             break
-
-        # Remove or reduce the sleep time to speed up the loop
-        # await asyncio.sleep(seconds)
 
     if tasks:
         await asyncio.gather(*tasks)

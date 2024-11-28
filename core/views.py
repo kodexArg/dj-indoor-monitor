@@ -67,10 +67,14 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         if start_date:
             start_date = datetime.fromisoformat(start_date)
+            if start_date.tzinfo is None:
+                start_date = start_date.replace(tzinfo=timezone.utc)
             queryset = queryset.filter(timestamp__gte=start_date)
 
         if end_date:
             end_date = datetime.fromisoformat(end_date)
+            if end_date.tzinfo is None:
+                end_date = end_date.replace(tzinfo=timezone.utc)
             queryset = queryset.filter(timestamp__lte=end_date)
         
         return queryset.order_by('-timestamp')
@@ -81,7 +85,11 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         timeframe = request.query_params.get('timeframe', '30s')
         freq = timeframe_to_freq(timeframe)
         start_date = datetime.fromisoformat(request.query_params['start_date'])
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
         end_date = datetime.fromisoformat(request.query_params['end_date'])
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
         
         queryset = self.filter_queryset(
             self.get_queryset().filter(
@@ -103,7 +111,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         df = df[df['sensor'] == 'flora-01']
         
         # Ensure timestamps are exactly aligned to 5s intervals
-        df.index = df.index.floor('5S')
+        df.index = df.index.floor('5s')
         
         logger.debug(f"Data after filtering:\n{df}")
 
@@ -111,7 +119,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         resampled = (df.groupby('sensor')
                      .resample(freq, origin='start')  # Add origin parameter
                      .mean()
-                     .fillna(method='ffill')  # Forward fill missing values
+                     .ffill()  # Forward fill missing values
                      .reset_index())
 
         logger.debug(f"Resampled data:\n{resampled}")
@@ -146,7 +154,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 class HomeView(TemplateView):
     template_name = 'home.html'
 
-
 class DevelopmentView(TemplateView):
     template_name = 'development.html'
 
@@ -162,7 +169,6 @@ class ChartView(TemplateView):
         
         freq = timeframe_to_freq(selected_timeframe)
         end_date = datetime.now()
-        end_date = datetime.fromisoformat('2024-11-26T06:39:00')
         start_date = get_start_date(freq, end_date)
         logger.debug(f"Start date, iso format: {start_date.isoformat()}")
         

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import argparse
 import psycopg2
 from psycopg2 import sql
+from pytz import timezone
 
 # Añadir el directorio actual al sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -12,14 +13,15 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from sensortoddbb import loop_write_values
 
 # Constants
-SENSORS = ['flora-01', 'flora-02', 'vege-03', 'secado-04']
+# SENSORS = ['flora-01', 'flora-02', 'vege-03', 'secado-04']
 
 def prepare_arguments():
     parser = argparse.ArgumentParser(description="Insert sensor data into the database for multiple sensors.")
     parser.add_argument('--seconds', type=int, default=5, help='Seconds between timestamps (default: 5)')
     parser.add_argument('--start-date', type=str, default=(datetime.now() - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S'), help='Start date (default: 48 hours ago)')
-    parser.add_argument('--end-date', type=str, default=(datetime.now() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S'), help='End date (default: 30 minutes in the future)')
+    parser.add_argument('--end-date', type=str, default=datetime.now().strftime('%Y-%m-%d %H:%M:%S'), help='End date (default: now)')
     parser.add_argument('--delete', action='store_true', help='Delete all data before inserting new data')
+    parser.add_argument('--num-sensors', type=int, default=1, help='Number of sensors (default: 1)')
     
     return parser.parse_args()
 
@@ -66,10 +68,11 @@ async def main():
         sys.exit("Datos eliminados correctamente. Cerrando el script.")
     
     tasks = []
-    start_date = datetime.strptime(args.start_date, '%Y-%m-%d %H:%M:%S')
-    end_date = datetime.strptime(args.end_date, '%Y-%m-%d %H:%M:%S')
+    start_date = datetime.strptime(args.start_date, '%Y-%m-%d %H:%M:%S').astimezone(timezone('America/Argentina/Buenos_Aires'))
+    end_date = datetime.now(timezone('America/Argentina/Buenos_Aires')) if args.end_date == "now" else datetime.strptime(args.end_date, '%Y-%m-%d %H:%M:%S').astimezone(timezone('America/Argentina/Buenos_Aires'))
     
-    for sensor in SENSORS:
+    for i in range(args.num_sensors):
+        sensor = f'sensor-{i+1:02d}'
         tasks.append(loop_write_values(sensor, start_date, args.seconds, stop_time=end_date))
     
     await asyncio.gather(*tasks)
