@@ -3,17 +3,9 @@
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/chart.css' %}">
 {% endblock %}
+
 {% block header %}
-<h3>
-    {% if metric == 't' %}
-        Métrica: Temperatura
-    {% elif metric == 'h' %}
-        Métrica: Humedad
-    {% else %}
-        Chart
-    {% endif %}
-</h3>
-<hr style="border: 1px solid #d4edda; margin-top: -10px;">
+<a href="{% url 'home' %}" style="text-decoration: none; color: inherit;">KCBD</a><span class="header-subtitle"> - {% if metric == 't' %}TEMPERATURA{% elif metric == 'h' %}HUMEDAD{% else %}MONITOR{% endif %}</span>
 {% endblock %}
 
 {% block content %}
