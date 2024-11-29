@@ -20,7 +20,7 @@ from loguru import logger
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import parse_time_string, generate_plotly_chart, timeframe_to_freq, get_start_date
+from .utils import generate_plotly_chart, get_start_date
 
 
 # Main Project ViewSets (keep at top)
@@ -106,12 +106,10 @@ class ChartView(TemplateView):
         selected_timeframe = self.request.GET.get('timeframe', '30s')
         metric = self.request.GET.get('metric', 't')
         
-        freq = timeframe_to_freq(selected_timeframe)
-        end_date = datetime.now(timezone.utc)
-        start_date = get_start_date(freq, end_date)
-        logger.debug(f"Start date, iso format: {start_date.isoformat()}")
+        end_date = datetime.now(timezone.utc) - timedelta(minutes=120)
+        start_date = get_start_date(selected_timeframe, end_date)
         
-        # Query data directly from model
+        # Filtra datos usando el rango calculado
         queryset = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
@@ -119,9 +117,9 @@ class ChartView(TemplateView):
         
         # Convert queryset to list of dicts
         data = list(queryset.values('timestamp', 'sensor', metric))
-        
-        # Generate chart
-        chart_html = generate_plotly_chart(data, metric, start_date, end_date)
+
+        # Genera el gráfico pasando el rango temporal
+        chart_html = generate_plotly_chart(data, metric, start_date, end_date, selected_timeframe)
         
         # Prepare debug info
         debug_info = {
