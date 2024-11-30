@@ -103,7 +103,7 @@ class ChartView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        selected_timeframe = self.request.GET.get('timeframe', '30s')
+        selected_timeframe = self.request.GET.get('timeframe', '30min')  # Cambiado de '30s' a '30min'
         metric = self.request.GET.get('metric', 't')
         
         end_date = datetime.now(timezone.utc) - timedelta(minutes=120)
@@ -119,11 +119,12 @@ class ChartView(TemplateView):
         data = list(queryset.values('timestamp', 'sensor', metric))
 
         # Genera el gráfico pasando el rango temporal
-        chart_html = generate_plotly_chart(data, metric, start_date, end_date, selected_timeframe)
+        chart_html, plotted_points = generate_plotly_chart(data, metric, start_date, end_date, selected_timeframe)
         
         # Prepare debug info
         debug_info = {
             'num_points': len(data),
+            'plotted_points': plotted_points,  # Agregamos los puntos graficados
             'sensors': sorted(set(item['sensor'] for item in data)),
             'first_record': {
                 'timestamp': data[-1]['timestamp'] if data else None,

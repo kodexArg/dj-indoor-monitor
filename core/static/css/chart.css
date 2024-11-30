@@ -14,7 +14,7 @@
     line-height: 1.5;  /* Center text vertically */
 }
 #toggle-buttons-timeframe .button {
-    width: 70px;  /* Fixed width for frequency buttons */
+    min-width: 70px;  /* Cambiado de width fijo a min-width */
 }
 #toggle-buttons-metric .button {
     width: 120px;  /* Fixed width for metric buttons */
@@ -36,4 +36,7 @@
     border-left: 1px solid #ccc;
     height: 30px;
     margin: 0 10px;
+}
+#toggle-buttons-timeframe .button.online-button {
+    min-width: 10px;  
 }
