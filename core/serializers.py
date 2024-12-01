@@ -1,10 +1,13 @@
+# Django y DRF
 from rest_framework import serializers
-from .models import SensorData
 from django.utils.timezone import localtime
+
+# Local
+from .models import SensorData
 
 class SensorDataSerializer(serializers.ModelSerializer):
     """
-    Serializer for SensorData model.
+    Serializador para el modelo SensorData.
     """
     timestamp = serializers.SerializerMethodField()
 

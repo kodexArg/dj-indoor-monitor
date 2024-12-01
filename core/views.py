@@ -1,20 +1,14 @@
-# Python imports
+# Python
 from datetime import datetime, timedelta, timezone
-import pandas as pd
 
-# Django and DRF
+# Django y DRF
 from django.conf import settings
 from django.shortcuts import render
 from django.views.generic import TemplateView
-from django.urls import reverse
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters import rest_framework as filters
 from django.utils.dateparse import parse_datetime
-
-# Third-party
-from loguru import logger
 
 # Local
 from .models import SensorData
@@ -23,22 +17,19 @@ from .filters import SensorDataFilter
 from .utils import generate_plotly_chart, get_start_date
 
 
-# Main Project ViewSets (keep at top)
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
-    A viewset that provides the standard actions for SensorData.
+    Parámetros:
+    - `seconds`: Opcional. Número de segundos para obtener datos. No excederá `max_time_threshold`.
+    - `start_date` y `end_date`: Opcional. Rango de fechas para obtener datos.
+    - `metric`: Opcional. Métrica a obtener (ej: 't' para temperatura). Por defecto 't'.
+    - `freq`: Opcional. Frecuencia para agregar datos (ej: '30s'). Por defecto '30s'.
     
-    Query Parameters:
-    - `seconds`: Optional. The number of seconds to fetch data for. The data returned will not exceed the `max_time_threshold`.
-    - `start_date` and `end_date`: Optional. Date range to fetch data for.
-    - `metric`: Optional. The metric to fetch data for (e.g., 't' for temperature). Default is 't'.
-    - `freq`: Optional. The frequency for aggregating data (e.g., '30s' for 30 seconds). Default is '30s'.
-    
-    Examples:
-    - Fetch all records from sensor "sensor02":
+    Ejemplos:
+    - Obtener registros del sensor "sensor02":
       `/api/sensor-data/?sensor=sensor02`
     
-    - Fetch all records from sensor "sensor05" from the last minute:
+    - Obtener registros del sensor "sensor05" del último minuto:
       `/api/sensor-data/?sensor=sensor05&seconds=60`
     """
     serializer_class = SensorDataSerializer
@@ -89,42 +80,40 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=400)
 
 
-# Template Views
 class HomeView(TemplateView):
+    """Vista principal de la aplicación"""
     template_name = 'home.html'
 
 class DevelopmentView(TemplateView):
+    """Vista de desarrollo para pruebas"""
     template_name = 'development.html'
 
 
 class ChartView(TemplateView):
+    """Vista para mostrar gráficos de datos de sensores"""
     template_name = 'chart.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        selected_timeframe = self.request.GET.get('timeframe', '30min')  # Cambiado de '30s' a '30min'
+        selected_timeframe = self.request.GET.get('timeframe', '30min')
         metric = self.request.GET.get('metric', 't')
         
-        end_date = datetime.now(timezone.utc) - timedelta(minutes=120)
+        end_date = datetime.now(timezone.utc) - timedelta(minutes=60)
         start_date = get_start_date(selected_timeframe, end_date)
         
-        # Filtra datos usando el rango calculado
         queryset = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
         ).order_by('-timestamp')
         
-        # Convert queryset to list of dicts
         data = list(queryset.values('timestamp', 'sensor', metric))
 
-        # Genera el gráfico pasando el rango temporal
         chart_html, plotted_points = generate_plotly_chart(data, metric, start_date, end_date, selected_timeframe)
         
-        # Prepare debug info
         debug_info = {
             'num_points': len(data),
-            'plotted_points': plotted_points,  # Agregamos los puntos graficados
+            'plotted_points': plotted_points,
             'sensors': sorted(set(item['sensor'] for item in data)),
             'first_record': {
                 'timestamp': data[-1]['timestamp'] if data else None,
@@ -150,7 +139,6 @@ class ChartView(TemplateView):
         return context
 
 
-# Function-based Views
 def fetch_data(request, sensor=None, seconds=None):
     queryset = SensorData.objects.all().order_by('-timestamp')
     

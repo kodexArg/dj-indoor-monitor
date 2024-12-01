@@ -1,19 +1,24 @@
+# Django
 from django.conf import settings
-import pandas as pd
-import plotly.graph_objs as go
-from plotly.io import to_html
+
+# Python
 from datetime import datetime, timedelta, timezone
 import pytz
 
+# Third-party
+import pandas as pd
+import plotly.graph_objs as go
+from plotly.io import to_html
+
 
 def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_date: datetime, selected_timeframe: str, div_id: str = 'chart') -> tuple:
-    """Generate static Plotly chart HTML with the following features:
-    - One line per sensor
-    - Range slider for time navigation
-    - Dotted grid
-    - Legend positioned horizontally at the bottom
-    - Unified hover mode for all series
-    Returns:
+    """Genera HTML con gráfico estático Plotly con las siguientes características:
+    - Una línea por sensor
+    - Control deslizante para navegación temporal
+    - Cuadrícula punteada
+    - Leyenda posicionada horizontalmente en la parte inferior
+    - Modo de desplazamiento unificado para todas las series
+    Retorna:
     - tuple: (chart_html, plotted_points)
     """
     if not data:
