@@ -9,6 +9,8 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils.dateparse import parse_datetime
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 # Local
 from .models import SensorData
@@ -124,7 +126,7 @@ class DevelopmentView(TemplateView):
     """Vista de desarrollo para pruebas"""
     template_name = 'development.html'
 
-
+@method_decorator(cache_page(60 * 15), name='dispatch')
 class ChartView(TemplateView):
     """Vista para mostrar gráficos de datos de sensores"""
     template_name = 'chart.html'
