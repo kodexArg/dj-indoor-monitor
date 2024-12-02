@@ -28,12 +28,15 @@
         <button class="button {% if selected_timeframe == '1h' %}active{% endif %}" onclick="setTimeframe('1h')">1h</button>
         <button class="button {% if selected_timeframe == '4h' %}active{% endif %}" onclick="setTimeframe('4h')">4h</button>
         <button class="button {% if selected_timeframe == '1d' %}active{% endif %}" onclick="setTimeframe('1d')" disabled style="opacity: 0.5; cursor: not-allowed">1d</button>
-        <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}" onclick="setTimeframe('5s')">online</button>
     </div>
     <div class="vertical-separator"></div>
     <div id="toggle-buttons-metric">
         <button class="button metric {% if metric == 't' %}active{% endif %}" onclick="setMetric('t')">Temp</button>
         <button class="button metric {% if metric == 'h' %}active{% endif %}" onclick="setMetric('h')">Hum</button>
+    </div>
+    <div class="vertical-separator"></div>
+    <div id="toggle-buttons-online">
+        <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}" onclick="setTimeframe('5s')">online</button>
     </div>
 </div>
 <hr/>
@@ -54,6 +57,7 @@
 {% block scripts %}
     <script>
         var metric = '{{ metric }}';
+        var selectedTimeframe = '{{ selected_timeframe }}';
     </script>
     <script src="{% static 'js/chart.js' %}"></script>
 {% endblock %}

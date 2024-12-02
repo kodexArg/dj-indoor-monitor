@@ -32,6 +32,8 @@ async function fetchLatestData(startDate, metric = 't') {
     }
 }
 
+let autoUpdateInterval;
+
 function setTimeframe(timeframe) {
     const url = new URL(window.location.href);
     url.searchParams.set('timeframe', timeframe);
@@ -44,10 +46,21 @@ function setMetric(metric) {
     window.location.href = url.toString();
 }
 
+function initializeChart(data) {
+    const layout = {
+        xaxis: {
+            rangeslider: { visible: selectedTimeframe !== '5s' } // Hide rangeslider in online mode
+        },
+        // ...other layout configurations...
+    };
+
+    Plotly.newPlot('chart', data, layout);
+}
+
 function startAutoUpdate() {
     const timeIncrement = 5000; // 5 segundos en milisegundos
 
-    setInterval(async function() {
+    autoUpdateInterval = setInterval(async function() {
         const chartDiv = document.getElementById('chart');
 
         // Verificar si chartDiv.data tiene datos válidos
@@ -108,12 +121,20 @@ function startAutoUpdate() {
 
         Plotly.relayout('chart', {
             'xaxis.range': xAxisRange,
-            'xaxis.rangeslider.range': xAxisRange,
+            'xaxis.rangeslider.visible': false, // Ensure rangeslider is hidden in online mode
         });
     }, timeIncrement);
 }
 
-// Start the auto-update loop
+function stopAutoUpdate() {
+    clearInterval(autoUpdateInterval);
+}
+
+// Start or stop the auto-update loop based on the selected timeframe
 document.addEventListener('DOMContentLoaded', function() {
-    startAutoUpdate();
+    if (selectedTimeframe === '5s') {
+        startAutoUpdate();
+    } else {
+        stopAutoUpdate();
+    }
 });

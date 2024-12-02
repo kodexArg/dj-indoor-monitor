@@ -150,10 +150,6 @@ def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_dat
         ),
         xaxis=dict(
             range=[start_date, end_date],
-            rangeslider=dict(
-                visible=True,
-                range=[start_date, end_date]
-            ),
             showgrid=True,
             gridcolor='lightgrey',
             gridwidth=0.2,

@@ -1,3 +1,6 @@
+#chart-container {
+    margin-bottom: 12px;
+}
 #toggle-buttons {
     display: flex;
     justify-content: center;
