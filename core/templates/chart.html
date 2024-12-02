@@ -44,20 +44,16 @@
     <strong>Sensores:</strong> {{ debug.sensors|join:", " }}
     <strong>Primer registro:</strong> {{ debug.first_record.timestamp }} ({{ debug.first_record.sensor }}: {{ debug.first_record.value }})
     <strong>Último registro:</strong> {{ debug.last_record.timestamp }} ({{ debug.last_record.sensor }}: {{ debug.last_record.value }})
+    <strong>Primer registro online:</strong> {{ debug.first_record_online.timestamp }} ({{ debug.first_record_online.sensor }}: {{ debug.first_record_online.value }})
+    <strong>Segundo registro online:</strong> {{ debug.second_record_online.timestamp }} ({{ debug.second_record_online.sensor }}: {{ debug.second_record_online.value }})
     <strong>Intervalo:</strong> {{ selected_timeframe }}
 </pre>
 <hr/>
-<script>
-    function setTimeframe(timeframe) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('timeframe', timeframe);
-        window.location.href = url.toString();
-    }
+{% endblock %}
 
-    function setMetric(metric) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('metric', metric);
-        window.location.href = url.toString();
-    }
-</script>
+{% block scripts %}
+    <script>
+        var metric = '{{ metric }}';
+    </script>
+    <script src="{% static 'js/chart.js' %}"></script>
 {% endblock %}

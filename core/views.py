@@ -79,6 +79,42 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Values written successfully'}, status=201)
         return Response(serializer.errors, status=400)
 
+    @action(detail=False, methods=['get'])
+    def latest(self, request):
+        # Get and validate parameters
+        timestamp_param = request.query_params.get('timestamp')
+        metric = request.query_params.get('metric')
+        
+        # Validate metric first since it can trigger early return
+        valid_metrics = ['t', 'h']
+        if metric and metric not in valid_metrics:
+            return Response(
+                {'error': f'Invalid metric. Use one of: {", ".join(valid_metrics)}'},
+                status=400
+            )
+        
+        # Handle timestamp
+        if timestamp_param:
+            since = datetime.fromisoformat(timestamp_param)
+        else:
+            since = self.now() - timedelta(seconds=5)
+        
+        # Query data
+        queryset = SensorData.objects.filter(timestamp__gte=since)
+        
+        # Select fields based on metric
+        fields = ['timestamp', 'sensor']
+        if metric:
+            fields.append(metric)
+        else:
+            fields.extend(['t', 'h'])
+        
+        # Format response
+        data = list(queryset.values(*fields))
+        for item in data:
+            item['timestamp'] = item['timestamp'].isoformat()
+        
+        return Response(data)
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -99,13 +135,13 @@ class ChartView(TemplateView):
         selected_timeframe = self.request.GET.get('timeframe', '30min')
         metric = self.request.GET.get('metric', 't')
         
-        end_date = datetime.now(timezone.utc) - timedelta(minutes=60)
+        end_date = datetime.now(timezone.utc) 
         start_date = get_start_date(selected_timeframe, end_date)
         
         queryset = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
-        ).order_by('-timestamp')
+        ).order_by('timestamp')  # Ordenar cronológicamente
         
         data = list(queryset.values('timestamp', 'sensor', metric))
 
@@ -116,14 +152,24 @@ class ChartView(TemplateView):
             'plotted_points': plotted_points,
             'sensors': sorted(set(item['sensor'] for item in data)),
             'first_record': {
+                'timestamp': data[0]['timestamp'] if data else None,
+                'sensor': data[0]['sensor'] if data else None,
+                'value': data[0][metric] if data else None
+            },
+            'last_record': {
                 'timestamp': data[-1]['timestamp'] if data else None,
                 'sensor': data[-1]['sensor'] if data else None,
                 'value': data[-1][metric] if data else None
             },
-            'last_record': {
-                'timestamp': data[0]['timestamp'] if data else None,
-                'sensor': data[0]['sensor'] if data else None,
-                'value': data[0][metric] if data else None
+            'first_record_online': {
+                'timestamp': data[1]['timestamp'] if len(data) > 1 else None,
+                'sensor': data[1]['sensor'] if len(data) > 1 else None,
+                'value': data[1][metric] if len(data) > 1 else None
+            },
+            'second_record_online': {
+                'timestamp': data[2]['timestamp'] if len(data) > 2 else None,
+                'sensor': data[2]['sensor'] if len(data) > 2 else None,
+                'value': data[2][metric] if len(data) > 2 else None
             }
         }
         
