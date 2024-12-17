@@ -8,6 +8,7 @@ class SensorDataFilter(filters.FilterSet):
     Filter Parameters:
         timestamp_after (datetime): Filter data after this timestamp (inclusive)
         timestamp_before (datetime): Filter data before this timestamp (inclusive)
+        limit (int): Maximum number of records to return (default: 200)
         sensor (str): Filter by sensor identifier with following operations:
             - sensor: Exact match
             - sensor__contains: Partial match (case-sensitive)
@@ -29,6 +30,7 @@ class SensorDataFilter(filters.FilterSet):
     """
     timestamp_after = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='gte')
     timestamp_before = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='lte')
+    limit = filters.NumberFilter(method='filter_limit')
     
     class Meta:
         model = SensorData
@@ -37,3 +39,19 @@ class SensorDataFilter(filters.FilterSet):
             't': ['gt', 'lt', 'exact'],
             'h': ['gt', 'lt', 'exact'],
         }
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        if not any([
+            self.data.get('timestamp_after'),
+            self.data.get('timestamp_before'),
+            self.data.get('limit')
+        ]):
+            return queryset[:200]  # Límite por defecto
+        return queryset
+
+    def filter_limit(self, queryset, name, value):
+        try:
+            return queryset[:int(value)]
+        except (ValueError, TypeError):
+            return queryset[:2000]

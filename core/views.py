@@ -49,6 +49,10 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         queryset = SensorData.objects.all().order_by('-timestamp')
 
+        # Si no hay filtros de tiempo, aplicar límite por defecto
+        if not any([seconds, start_date, end_date]):
+            return queryset[:settings.DEFAULT_QUERY_LIMIT]
+
         if seconds:
             seconds = int(seconds)
             since = max(
@@ -85,9 +89,11 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     def latest(self, request):
         # Get and validate parameters
         timestamp_param = request.query_params.get('timestamp')
+        seconds_param = request.query_params.get('seconds')
+        sensor = request.query_params.get('sensor')
         metric = request.query_params.get('metric')
         
-        # Validate metric first since it can trigger early return
+        # Validate metric
         valid_metrics = ['t', 'h']
         if metric and metric not in valid_metrics:
             return Response(
@@ -95,14 +101,20 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                 status=400
             )
         
-        # Handle timestamp
+        # Handle time filtering
         if timestamp_param:
             since = datetime.fromisoformat(timestamp_param)
+        elif seconds_param:
+            since = self.now() - timedelta(seconds=int(seconds_param))
         else:
             since = self.now() - timedelta(seconds=5)
         
         # Query data
         queryset = SensorData.objects.filter(timestamp__gte=since)
+        
+        # Filter by sensor if provided
+        if sensor:
+            queryset = queryset.filter(sensor=sensor)
         
         # Select fields based on metric
         fields = ['timestamp', 'sensor']
