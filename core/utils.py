@@ -168,6 +168,73 @@ def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_dat
     ), plotted_points
 
 
+def generate_simple_plotly_chart(data: list, metric: str, start_date: datetime, end_date: datetime) -> str:
+    """Genera un gráfico Plotly simplificado para dispositivos antiguos:
+    - Agrupación cada 5 minutos
+    - Sin controles interactivos
+    - Optimizado para renderizado estático
+    """
+    if not data:
+        return '<div>No hay datos para mostrar</div>'
+    
+    # Crear DataFrame y configurar timezone
+    df = pd.DataFrame(data)
+    local_tz = pytz.timezone(settings.TIME_ZONE)
+    df['timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
+    
+    # Agrupar datos cada 5 minutos
+    df = df.set_index('timestamp')
+    grouped_df = df.groupby('sensor').resample('5min').agg({
+        metric: 'mean'
+    })
+    
+    # Filtrar valores <= 1 después de la agrupación
+    grouped_df = grouped_df[grouped_df[metric] > 1]
+    
+    # Crear gráfico
+    fig = go.Figure()
+    
+    for sensor in grouped_df.index.get_level_values('sensor').unique():
+        sensor_data = grouped_df.loc[sensor]
+        fig.add_trace(go.Scatter(
+            x=sensor_data.index,
+            y=sensor_data[metric],
+            mode='lines',
+            name=sensor
+        ))
+    
+    fig.update_layout(
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5
+        ),
+        margin=dict(l=20, r=20, t=30, b=30),
+        yaxis=dict(
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot'
+        ),
+        xaxis=dict(
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot'
+        ),
+    )
+    
+    return to_html(
+        fig,
+        include_plotlyjs=True,
+        full_html=False,
+        config={'staticPlot': True}
+    )
+
+
 def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
     time_windows = {
         '5s': timedelta(minutes=5),

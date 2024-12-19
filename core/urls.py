@@ -10,8 +10,8 @@ from .views import (
     SensorDataViewSet,
     HomeView,
     DevelopmentView,
-    latest_data_table,
     ChartView,
+    OldDevicesChartView,
 )
 
 
@@ -22,8 +22,8 @@ router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('development/', DevelopmentView.as_view(), name='development'),
-    path('latest-data-table/', latest_data_table, name='latest-data-table'),
     path('chart/', ChartView.as_view(), name='chart'),
+    path('old-devices/', OldDevicesChartView.as_view(), name='old-devices'),
     path('', include(router.urls)),
 ]
 

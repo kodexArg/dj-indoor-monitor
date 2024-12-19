@@ -16,7 +16,7 @@ from django.views.decorators.cache import cache_page
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import generate_plotly_chart, get_start_date
+from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly_chart
 
 
 class SensorDataViewSet(viewsets.ModelViewSet):
@@ -155,7 +155,7 @@ class ChartView(TemplateView):
         queryset = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
-        ).order_by('timestamp')  # Ordenar cronológicamente
+        ).order_by('timestamp')
         
         data = list(queryset.values('timestamp', 'sensor', metric))
 
@@ -198,20 +198,28 @@ class ChartView(TemplateView):
         
         return context
 
-
-def fetch_data(request, sensor=None, seconds=None):
-    queryset = SensorData.objects.all().order_by('-timestamp')
+class OldDevicesChartView(TemplateView):
+    template_name = 'old-devices.html'
     
-    if seconds:
-        since = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-        queryset = queryset.filter(timestamp__gte=since)
-    
-    if sensor:
-        queryset = queryset.filter(sensor=sensor)
-    
-    return list(queryset.values())
-
-def latest_data_table(request):
-    data = fetch_data(request, seconds=settings.MAX_DATA_MINUTES * 60)
-    return render(request, 'partials/latest-data-table-rows.html', {'data': data})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(hours=24)
+        
+        # Obtener datos del período
+        data = SensorData.objects.filter(
+            timestamp__gte=start_date,
+            timestamp__lte=end_date
+        ).values('timestamp', 'sensor', 't') 
+        
+        # Generar gráfico
+        chart_html = generate_simple_plotly_chart(
+            list(data),
+            't', 
+            start_date,
+            end_date
+        )
+        
+        context['chart'] = chart_html
+        return context
 
