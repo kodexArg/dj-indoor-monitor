@@ -12,5 +12,5 @@ class SensorData(models.Model):
     t = models.FloatField()
     h = models.FloatField()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.sensor} at {self.timestamp}"

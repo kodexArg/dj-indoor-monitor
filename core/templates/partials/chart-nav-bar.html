@@ -1,0 +1,6 @@
+<nav id="chart-nav-bar">
+    <ul>
+        <li><button class="nav-button {% if chart_type == 'default' %}active{% endif %}" onclick="location.href='{% url 'chart' %}?type=default'">Default</button></li>
+        <!-- Future chart types can be added here -->
+    </ul>
+</nav>

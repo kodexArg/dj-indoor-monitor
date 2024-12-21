@@ -1,5 +1,6 @@
-# Python
 from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Any
+from django.db.models import QuerySet
 
 # Django y DRF
 from django.conf import settings
@@ -21,6 +22,8 @@ from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly
 
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
+    Vista para gestionar los datos de los sensores. Permite obtener, filtrar y escribir datos.
+
     Parámetros:
     - `seconds`: Opcional. Número de segundos para obtener datos. No excederá `max_time_threshold`.
     - `start_date` y `end_date`: Opcional. Rango de fechas para obtener datos.
@@ -28,20 +31,28 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     - `freq`: Opcional. Frecuencia para agregar datos (ej: '30s'). Por defecto '30s'.
     
     Ejemplos:
-    - Obtener registros del sensor "sensor02":
-      `/api/sensor-data/?sensor=sensor02`
-    
-    - Obtener registros del sensor "sensor05" del último minuto:
-      `/api/sensor-data/?sensor=sensor05&seconds=60`
+    - Obtener registros del sensor "sensor02": `/api/sensor-data/?sensor=sensor02`
+    - Obtener registros del sensor "sensor05" del último minuto: `/api/sensor-data/?sensor=sensor05&seconds=60`
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
 
     @classmethod
-    def now(cls):
+    def now(cls) -> datetime:
+        """Obtiene la fecha y hora actual en UTC."""
         return datetime.now(timezone.utc)
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[SensorData]:
+        """
+        Obtiene el conjunto de datos del sensor basado en los parámetros de consulta.
+
+        Parámetros:
+        - `seconds`: Opcional. Número de segundos para obtener datos.
+        - `start_date` y `end_date`: Opcional. Rango de fechas para obtener datos.
+
+        Ejemplos:
+        - Obtener registros del sensor "sensor02": `/api/sensor-data/?sensor=sensor02`
+        """
         max_time_threshold = self.now() - timedelta(minutes=settings.MAX_DATA_MINUTES)
         seconds = self.request.query_params.get('seconds', None)
         start_date = self.request.query_params.get('start_date', None)
@@ -75,18 +86,20 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-timestamp')
 
-    @action(detail=False, methods=['post'])
-    def write_values(self, request):
-        sensor_data = request.data
-        sensor_data['timestamp'] = parse_datetime(sensor_data['timestamp'])
-        serializer = SensorDataSerializer(data=sensor_data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'status': 'Values written successfully'}, status=201)
-        return Response(serializer.errors, status=400)
-
     @action(detail=False, methods=['get'])
-    def latest(self, request):
+    def latest(self, request) -> Response:
+        """
+        Obtiene los últimos datos del sensor.
+
+        Parámetros:
+        - `timestamp`: Opcional. Marca de tiempo para filtrar datos.
+        - `seconds`: Opcional. Número de segundos para obtener datos.
+        - `sensor`: Opcional. Identificador del sensor.
+        - `metric`: Opcional. Métrica a obtener (ej: 't' para temperatura).
+
+        Ejemplos:
+        - Obtener últimos datos del sensor "sensor05": `/api/sensor-data/latest/?sensor=sensor05`
+        """
         # Get and validate parameters
         timestamp_param = request.query_params.get('timestamp')
         seconds_param = request.query_params.get('seconds')
@@ -143,7 +156,16 @@ class ChartView(TemplateView):
     """Vista para mostrar gráficos de datos de sensores"""
     template_name = 'chart.html'
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+        """
+        Obtiene el contexto para la vista de gráficos.
+
+        Parámetros:
+        - `kwargs`: Argumentos adicionales.
+
+        Ejemplos:
+        - Ver gráfico de temperatura: `/chart/?metric=t`
+        """
         context = super().get_context_data(**kwargs)
         
         selected_timeframe = self.request.GET.get('timeframe', '30min')
@@ -201,7 +223,16 @@ class ChartView(TemplateView):
 class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'
     
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+        """
+        Obtiene el contexto para la vista de gráficos de dispositivos antiguos.
+
+        Parámetros:
+        - `kwargs`: Argumentos adicionales.
+
+        Ejemplos:
+        - Ver gráfico de temperatura de dispositivos antiguos: `/old-devices/`
+        """
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=24)

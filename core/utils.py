@@ -1,4 +1,4 @@
-# Django
+from typing import List, Tuple
 from django.conf import settings
 
 # Python
@@ -11,18 +11,23 @@ import plotly.graph_objs as go
 from plotly.io import to_html
 
 
-def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_date: datetime, selected_timeframe: str, div_id: str = 'chart') -> tuple:
-    """Genera HTML con gráfico estático Plotly con las siguientes características:
-    - Una línea por sensor
-    - Control deslizante para navegación temporal
-    - Cuadrícula punteada
-    - Leyenda posicionada horizontalmente en la parte inferior
-    - Modo de desplazamiento unificado para todas las series
+def generate_plotly_chart(data: List[dict], metric: str, start_date: datetime, end_date: datetime, selected_timeframe: str, div_id: str = 'chart') -> Tuple[str, int]:
+    """
+    Genera HTML con gráfico estático Plotly.
+
+    Parámetros:
+    - `data`: Lista de diccionarios con los datos del sensor.
+    - `metric`: Métrica a graficar (ej: 't' para temperatura).
+    - `start_date`: Fecha de inicio del rango de datos.
+    - `end_date`: Fecha de fin del rango de datos.
+    - `selected_timeframe`: Intervalo de tiempo seleccionado.
+    - `div_id`: ID del div donde se insertará el gráfico.
+
     Retorna:
     - tuple: (chart_html, plotted_points)
     """
     if not data:
-        return '<div id="' + div_id + '">No hay datos para mostrar</div>', 0
+        return f'<div id="{div_id}">No hay datos para mostrar</div>', 0
     
     plotted_points = 0  # Contador de puntos graficados
     
@@ -168,11 +173,18 @@ def generate_plotly_chart(data: list, metric: str, start_date: datetime, end_dat
     ), plotted_points
 
 
-def generate_simple_plotly_chart(data: list, metric: str, start_date: datetime, end_date: datetime) -> str:
-    """Genera un gráfico Plotly simplificado para dispositivos antiguos:
-    - Agrupación cada 5 minutos
-    - Sin controles interactivos
-    - Optimizado para renderizado estático
+def generate_simple_plotly_chart(data: List[dict], metric: str, start_date: datetime, end_date: datetime) -> str:
+    """
+    Genera un gráfico Plotly simplificado para dispositivos antiguos.
+
+    Parámetros:
+    - `data`: Lista de diccionarios con los datos del sensor.
+    - `metric`: Métrica a graficar (ej: 't' para temperatura).
+    - `start_date`: Fecha de inicio del rango de datos.
+    - `end_date`: Fecha de fin del rango de datos.
+
+    Retorna:
+    - str: HTML del gráfico generado.
     """
     if not data:
         return '<div>No hay datos para mostrar</div>'
@@ -236,6 +248,16 @@ def generate_simple_plotly_chart(data: list, metric: str, start_date: datetime, 
 
 
 def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
+    """
+    Obtiene la fecha de inicio basada en el intervalo de tiempo seleccionado.
+
+    Parámetros:
+    - `timeframe`: Intervalo de tiempo seleccionado.
+    - `end_date`: Fecha de fin del rango de datos (opcional).
+
+    Retorna:
+    - datetime: Fecha de inicio calculada.
+    """
     time_windows = {
         '5s': timedelta(minutes=5),
         '1min': timedelta(minutes=15),
