@@ -9,7 +9,7 @@ import pytz
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.io import to_html
-
+from plotly.subplots import make_subplots
 
 def generate_plotly_chart(data: List[dict], metric: str, start_date: datetime, end_date: datetime, selected_timeframe: str, div_id: str = 'chart') -> Tuple[str, int]:
     """
@@ -171,6 +171,89 @@ def generate_plotly_chart(data: List[dict], metric: str, start_date: datetime, e
         div_id=div_id,
         config={'displayModeBar': False}
     ), plotted_points
+
+
+
+def generate_dual_plotly_chart(data: List[dict], start_date: datetime, end_date: datetime) -> str:
+    """
+    Genera un gráfico con subplots para temperatura y humedad, compartiendo la misma leyenda.
+
+    Parámetros:
+    - `data`: Lista de diccionarios con los datos del sensor.
+    - `start_date`: Fecha de inicio del rango de datos.
+    - `end_date`: Fecha de fin del rango de datos.
+
+    Retorna:
+    - str: HTML del gráfico generado.
+    """
+    if not data:
+        return '<div>No hay datos para mostrar</div>'
+    
+    # Crear DataFrame
+    df = pd.DataFrame(data)
+    local_tz = pytz.timezone(settings.TIME_ZONE)
+    df['timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
+    
+    # Agrupar datos cada 5 minutos
+    df = df.set_index('timestamp')
+    grouped_df = df.groupby('sensor').resample('5min').mean().reset_index()
+    
+    # Crear subplots
+    fig = make_subplots(
+        rows=2, cols=1, 
+        shared_xaxes=True, 
+        subplot_titles=("Temperatura (°C)", "Humedad (%)")
+    )
+    
+    # Agregar trazas de temperatura y humedad
+    for sensor in grouped_df['sensor'].unique():
+        sensor_data = grouped_df[grouped_df['sensor'] == sensor]
+        fig.add_trace(
+            go.Scatter(
+                x=sensor_data['timestamp'],
+                y=sensor_data['t'],
+                mode='lines',
+                name=sensor,
+                line_shape='spline'
+            ),
+            row=1, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=sensor_data['timestamp'],
+                y=sensor_data['h'],
+                mode='lines',
+                name=sensor,
+                line_shape='spline',
+                showlegend=False  # Oculta la leyenda duplicada
+            ),
+            row=2, col=1
+        )
+    
+    # Configurar diseño
+    fig.update_layout(
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        height=600,  # Ajustar altura
+        legend=dict(
+            orientation='h',
+            yanchor='top',
+            y=-0.2,
+            xanchor='center',
+            x=0.5
+        ),
+        margin=dict(l=20, r=20, t=30, b=30)
+    )
+    
+    fig.update_xaxes(showgrid=True, gridcolor='lightgrey', gridwidth=0.2)
+    fig.update_yaxes(showgrid=True, gridcolor='lightgrey', gridwidth=0.2)
+    
+    return to_html(
+        fig,
+        include_plotlyjs=True,
+        full_html=False,
+        config={'staticPlot': True}
+    )
 
 
 def generate_simple_plotly_chart(data: List[dict], metric: str, start_date: datetime, end_date: datetime) -> str:

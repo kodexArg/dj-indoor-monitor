@@ -17,7 +17,7 @@ from django.views.decorators.cache import cache_page
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly_chart
+from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly_chart, generate_dual_plotly_chart
 
 
 class SensorDataViewSet(viewsets.ModelViewSet):
@@ -224,15 +224,6 @@ class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'
     
     def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        """
-        Obtiene el contexto para la vista de gráficos de dispositivos antiguos.
-
-        Parámetros:
-        - `kwargs`: Argumentos adicionales.
-
-        Ejemplos:
-        - Ver gráfico de temperatura de dispositivos antiguos: `/old-devices/`
-        """
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=24)
@@ -241,12 +232,11 @@ class OldDevicesChartView(TemplateView):
         data = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
-        ).values('timestamp', 'sensor', 't') 
+        ).values('timestamp', 'sensor', 't', 'h') 
         
-        # Generar gráfico
-        chart_html = generate_simple_plotly_chart(
+        # Generar gráfico dual
+        chart_html = generate_dual_plotly_chart(
             list(data),
-            't', 
             start_date,
             end_date
         )
