@@ -1,0 +1,10 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<ul class="link-list">
+    <li><a href="{% url 'chart' %}" class="main-link">Gráfico de Monitoreo</a></li>
+    <li><a href="{% url 'dual-chart' %}">Gráfico dual</a></li>
+    <li><a href="{% url 'gauges' %}">Gauges</a></li>
+    <li><a href="{% url 'table-coef' %}">Tabla de coeficientes</a></li>
+</ul>
+{% endblock %}

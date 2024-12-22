@@ -1,31 +1,42 @@
-/* Anchos fijos para las columnas de la tabla */
+:root {
+  --brand-green: #6fbf73;
+  --brand-green-light: #d4edda;
+  --brand-green-dark: #2c642f;
+  --brand-bg: #f8faf8;
+  --brand-green-lighter: #c3e6cb;
+  --brand-green-extra-light: #a9d5b5;
+  --brand-gray-light: #ccc;
+  --brand-gray-lighter: #f9f9f9;
+}
+
+/* Table column widths */
 .fixed-width {
   table-layout: fixed;
 }
 .fixed-width th:nth-child(1),
 .fixed-width td:nth-child(1) {
-  width: 200px; /* Timestamp */
+  width: 200px;
 }
 .fixed-width th:nth-child(2),
 .fixed-width td:nth-child(2) {
-  width: 100px; /* RPi */
+  width: 100px;
 }
 .fixed-width th:nth-child(3),
 .fixed-width td:nth-child(3) {
-  width: 60px; /* Temp. */
+  width: 60px;
 }
 .fixed-width th:nth-child(4),
 .fixed-width td:nth-child(4) {
-  width: 60px; /* Hum. */
+  width: 60px;
 }
 
-/* footer */
+/* Footer */
 .footer {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: #d4edda; 
+  background-color: #d4edda;
   color: white;
   text-align: center;
   padding: 0;
@@ -37,31 +48,128 @@
   height: 1.8em;
 }
 
-/* header */
+.footer-text {
+  font-size: 0.8em;
+  color: gray;
+  font-style: italic;
+}
+.footer-text a {
+  color: #32CD32;
+}
+
+/* Header */
+header {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 10px;
+  padding-top: 10px;
+}
 .header-title {
   border-bottom: 3px solid #d4edda;
 }
-
 .header-subtitle {
-  font-size: 0.6em; /* Más pequeño */
-  color: #555; /* Gris oscuro */
-  vertical-align: middle; /* Centrado verticalmente */
+  font-size: 0.6em;
+  color: #555;
+  vertical-align: middle;
+}
+
+.header-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 /* Custom scrollbar */
 body {
-  overflow-y: scroll; /* Always show scrollbar to prevent content shift */
+  overflow-y: scroll;
+  background-color: #f8faf8;
 }
-
 body::-webkit-scrollbar {
-  width: 12px; /* Width of the scrollbar */
+  width: 12px;
 }
-
 body::-webkit-scrollbar-thumb {
-  background-color: #6fbf73; /* Darker green for the scrollbar thumb */
-  border-radius: 10px; /* Rounded corners */
+  background-color: #6fbf73;
+  border-radius: 10px;
+}
+body::-webkit-scrollbar-track {
+  background-color: #d4edda;
 }
 
-body::-webkit-scrollbar-track {
-  background-color: #d4edda; /* Light green background for the scrollbar track */
+/* Link list with main link */
+.link-list {
+  list-style: none;
+  padding: 0;
+  margin: 40px 0;  /* changed from auto to 0 */
+  display: block;
+  text-align: left;
+  width: 100%;
+  max-width: 300px;
+}
+.link-list li {
+  margin: 12px 0;
+}
+.link-list li a {
+  color: #666;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: inline-block;
+  font-size: 1.1em;
+}
+.link-list li a.main-link {
+  color: #2c642f;
+  font-size: 1.3em;
+  font-weight: 700;
+}
+.link-list li a:hover {
+  color: #000;
+  background-color: #f0f7f1;
+  transform: translateX(5px);
+}
+.link-list li a.main-link:hover {
+  color: #1a4b1c;
+  background-color: #e1f0e3;
+}
+
+/* Button enhancements */
+
+/* Construction notice styles */
+.construction-notice {
+  text-align: justify;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  line-height: 1.6;
+}
+.construction-notice h2 {
+  color: #2c642f;
+  margin-bottom: 30px;
+  font-size: 2em;
+}
+.update-message {
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 40px;
+  font-size: 1.1em;
+}
+
+.container {
+  min-height: calc(100vh - 4em);
+  margin-bottom: 2em;
+}
+
+@media (min-width: 600px) {
+  .container {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 20px rgba(111, 191, 115, 0.1);
+    margin: 20px auto;
+    padding: 20px;
+  }
+}
+
+.debug-info {
+  font-family: monospace;
+  color: darkgray;
 }

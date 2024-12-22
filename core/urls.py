@@ -4,13 +4,18 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
+from django.views.generic import TemplateView
 
 # Local
 from .views import (
     SensorDataViewSet,
     HomeView,
-    DevelopmentView,
+    ChartsView,
     ChartView,
+    DualChartView,
+    GaugesView,
+    TableCoefView,
+    DevelopmentView,
     OldDevicesChartView,
 )
 
@@ -28,8 +33,12 @@ router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
-    path('development/', DevelopmentView.as_view(), name='development'),
+    path('charts/', ChartsView.as_view(), name='charts'),
     path('chart/', ChartView.as_view(), name='chart'),
+    path('dual-chart/', DualChartView.as_view(), name='dual-chart'),
+    path('gauges/', GaugesView.as_view(), name='gauges'),
+    path('table-coef/', TableCoefView.as_view(), name='table-coef'),
+    path('development/', DevelopmentView.as_view(), name='development'),
     path('old-devices/', OldDevicesChartView.as_view(), name='old-devices'),
     path('', include(router.urls)),
 ]

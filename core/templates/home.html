@@ -1,14 +1,18 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<div class="container" style="text-align: center; margin-top: 50px;">
-    <h2 style="color: #ff6347;">Página en desarrollo</h2>
-    <p style="color: #555;">Estamos trabajando en esta página. Por favor, vuelva más tarde.</p>
-    <p style="font-size: 12px; color: #aaa;">
-        La página futura está siendo desarrollada en <a href="/development" style="color: #aaa; text-decoration: none;">/development</a>
+<div class="construction-notice">
+    <h2>Página en construcción</h2>
+    
+    <p class="update-message">
+        El proyecto "dj-indoor-monitor" es un sistema diseñado para
+        monitorizar y analizar datos ambientales en tiempo real. Proporciona
+        información detallada sobre temperatura y humedad, recolectada desde
+        sensores conectados a dispositivos Raspberry Pi.
     </p>
-    <a href="{% url 'chart' %}">Ir a la página de gráficos</a>
+
+    <a href="{% url 'charts' %}" class="button main-link">Ir a Monitoreo</a>
+    <a href="{% url 'development' %}" class="button main-link">Ir a Development</a>
+    <a href="{% url 'old-devices' %}" class="button main-link">Ir a dispositivos antiguos</a>
 </div>
-
-
 {% endblock %}

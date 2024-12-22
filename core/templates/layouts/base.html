@@ -26,19 +26,19 @@
 
   <div class="container">
     <header>
-      <h1 class="header-title">{% block header %}<a href="{% url 'home' %}" style="text-decoration: none; color: inherit;">KCBD</a><span class="header-subtitle"> - MONITOR</span>{% endblock %}</h1>
+      <h1 class="header-title">{% block header %}<a href="{% url 'home' %}" class="header-link">KCBD</a><span class="header-subtitle"> - MONITOR</span>{% endblock %}</h1>
     </header>
 
     <main>
       <div class="row">
-        <div class="twelve columns">
+        <div>
           {% block content %}{% endblock %}
         </div>
       </div>
     </main>
 
-    <footer class="footer">
-      <span style="font-size: 0.8em; color: gray; font-style: italic;">Solicitudes y reporte de bugs: <a href="mailto:gcavedal@gmail.com" style="color: #32CD32;">gcavedal@gmail.com</a>.</span>
+    <footer class="footer footer-text">
+      <span>Solicitudes y reporte de bugs: <a href="mailto:gcavedal@gmail.com">gcavedal@gmail.com</a>.</span>
     </footer>
   </div>
   <script src="{% static 'js/luxon.min.js' %}"></script>

@@ -173,7 +173,6 @@ def generate_plotly_chart(data: List[dict], metric: str, start_date: datetime, e
     ), plotted_points
 
 
-
 def generate_dual_plotly_chart(data: List[dict], start_date: datetime, end_date: datetime) -> str:
     """
     Genera un gráfico con subplots para temperatura y humedad, compartiendo la misma leyenda.

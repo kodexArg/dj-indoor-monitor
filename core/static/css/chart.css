@@ -3,14 +3,14 @@
 }
 #toggle-buttons {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start; /* changed from center */
     margin-bottom: 20px;
 }
 .button {
     margin: 0 5px 10px 5px;  /* Added bottom margin of 10px */
     padding: 5px 20px;  /* Adjusted padding */
-    border: 1px solid #ccc;
-    background-color: #f9f9f9;
+    border: 1px solid var(--brand-gray-light);
+    background-color: var(--brand-gray-lighter);
     cursor: pointer;
     text-align: center;
     font-size: 1.1em;  /* Increased font size */
@@ -26,14 +26,14 @@
     margin-bottom: 2px;  /* Small bottom margin */
 }
 .button.active {
-    background-color: #d4edda;
-    border-color: #c3e6cb;
+    background-color: var(--brand-green-light);
+    border-color: var(--brand-green-lighter);
 }
 .button.metric {
     background-color: #f9f9f9;
 }
 .button.metric.active {
-    background-color: #a9d5b5;
+    background-color: var(--brand-green-extra-light);
 }
 .vertical-separator {
     border-left: 1px solid #ccc;
@@ -43,3 +43,5 @@
 #toggle-buttons-timeframe .button.online-button {
     min-width: 10px;  
 }
+
+/* Move old-device-specific overrides here if applicable. */

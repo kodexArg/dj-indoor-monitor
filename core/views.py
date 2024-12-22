@@ -244,3 +244,38 @@ class OldDevicesChartView(TemplateView):
         context['chart'] = chart_html
         return context
 
+class ChartView(TemplateView):
+    template_name = 'partials/charts/chart.html'
+
+class DualChartView(TemplateView):
+    template_name = 'partials/charts/dual-chart.html'
+
+class GaugesView(TemplateView):
+    template_name = 'partials/charts/gauges.html'
+
+class TableCoefView(TemplateView):
+    template_name = 'partials/charts/table-coef.html'
+
+from django.views.generic import TemplateView
+
+class ChartsView(TemplateView):
+    """
+    Vista que agrupa varios gráficos disponibles en el sistema.
+    Sirve como punto de acceso a diferentes visualizaciones de datos.
+    """
+    template_name = 'charts.html'
+
+    def get_context_data(self, **kwargs):
+        """
+        Genera el contexto para la vista, con información de los gráficos disponibles.
+        """
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "charts": [
+                {"name": "Gráfico de Monitoreo", "url": "chart"},
+                {"name": "Gráfico Dual", "url": "dual-chart"},
+                {"name": "Gauges", "url": "gauges"},
+                {"name": "Tabla de Coeficientes", "url": "table-coef"},
+            ]
+        })
+        return context
