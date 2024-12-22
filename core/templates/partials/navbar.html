@@ -1,0 +1,13 @@
+{% load static %}
+<div class="navbar">
+  {% if request.path != '/' %}
+  <button class="nav-button" hx-get="javascript:history.back()">
+    <img src="{% static 'icons/arrow-back.svg' %}" alt="Volver">
+    <small>volver</small>
+  </button>
+  {% endif %}
+  <button class="nav-button" hx-get="{% url 'charts' %}">
+    <img src="{% static 'icons/chart-histogram.svg' %}" alt="Gráficos">
+    <small>Gráficos</small>
+  </button>
+</div>

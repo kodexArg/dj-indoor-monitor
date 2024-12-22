@@ -1,40 +1,30 @@
-{% extends "layouts/base.html" %}
 {% load static %}
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/chart.css' %}">
 {% endblock %}
 
-{% block header %}
-<a href="{% url 'home' %}" class="header-link">KCBD</a><span> - {% if metric == 't' %}TEMPERATURA{% elif metric == 'h' %}HUMEDAD{% else %}MONITOR{% endif %}</span>
+{% block header-navbar %}
+<button hx-get="javascript:history.back()" class="button">
+  <img src="{% static 'icons/arrow-back.svg' %}" alt="Back" style="vertical-align: middle;">
+  Back
+</button>
 {% endblock %}
 
 {% block content %}
-<div>
-    <h3>Gráfico de Monitoreo</h3>
-    <div id="chart-container">
+<div id="chart-container">
+    {% if error %}
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">Error</h4>
+            <p>{{ error }}</p>
+            <hr>
+            <p class="mb-0">Por favor, verifique que el servidor de la API esté funcionando y vuelva a intentar.</p>
+        </div>
+    {% else %}
         {{ chart_html|safe }}
-    </div>
+    {% endif %}
 </div>
 <div id="toggle-buttons" class="button-group">
     <div id="toggle-buttons-timeframe">
-        <button class="button {% if selected_timeframe == '1min' %}active{% endif %}" onclick="setTimeframe('1min')">1'</button>
-        <button class="button {% if selected_timeframe == '30min' %}active{% endif %}" onclick="setTimeframe('30min')">30'</button>
-        <button class="button {% if selected_timeframe == '1h' %}active{% endif %}" onclick="setTimeframe('1h')">1h</button>
-        <button class="button {% if selected_timeframe == '4h' %}active{% endif %}" onclick="setTimeframe('4h')">4h</button>
-        <button class="button {% if selected_timeframe == '1d' %}active{% endif %}" onclick="setTimeframe('1d')" disabled style="opacity: 0.5; cursor: not-allowed">1d</button>
-    </div>
-    <div class="vertical-separator"></div>
-    <div id="toggle-buttons-metric">
-        <button class="button metric {% if metric == 't' %}active{% endif %}" onclick="setMetric('t')">Temp</button>
-        <button class="button metric {% if metric == 'h' %}active{% endif %}" onclick="setMetric('h')">Hum</button>
-    </div>
-    <div class="vertical-separator"></div>
-    <div id="toggle-buttons-online">
-        <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}" onclick="setTimeframe('5s')">online</button>
-    </div>
-</div>
-<hr/>
-<pre class="debug-info">
     <strong>Resumen de Datos:</strong>
     <strong>Total registros:</strong> {{ debug.num_points }}
     <strong>Puntos graficados:</strong> {{ debug.plotted_points }}

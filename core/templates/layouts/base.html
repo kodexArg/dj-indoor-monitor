@@ -26,17 +26,17 @@
 <body>
 
   <div class="container">
-    <header>
-      <div class="row">
-        <div class="six columns">
-          <h1>{% block header %}<a href="{% url 'home' %}" class="header-link">KCBD</a><span> - MONITOR</span>{% endblock %}</h1>
-        </div>
-        <div class="six columns" style="text-align: right;">
-          <button hx-get="javascript:history.back()" class="button">
-            <img src="{% static 'icons/arrow-back.svg' %}" alt="Back" style="vertical-align: middle;">
-            Back
-          </button>
-        </div>
+    <header class="header-container">
+      <div class="header-left">
+        <a href="/">
+          KCBD
+        </a>
+      </div>
+      <div class="header-center">
+        &nbsp;-&nbsp;{% block subtitle %}SISTEMA DE MONITOREO{% endblock %}
+      </div>
+      <div class="header-right">
+        {% include 'partials/navbar.html' %}
       </div>
     </header>
 
