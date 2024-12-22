@@ -154,7 +154,7 @@ class DevelopmentView(TemplateView):
 @method_decorator(cache_page(60 * 15), name='dispatch')
 class ChartView(TemplateView):
     """Vista para mostrar gráficos de datos de sensores"""
-    template_name = 'chart.html'
+    template_name = 'partials/charts/chart.html'
 
     def get_context_data(self, **kwargs) -> Dict[str, Any]:
         """
@@ -243,9 +243,6 @@ class OldDevicesChartView(TemplateView):
         
         context['chart'] = chart_html
         return context
-
-class ChartView(TemplateView):
-    template_name = 'partials/charts/chart.html'
 
 class DualChartView(TemplateView):
     template_name = 'partials/charts/dual-chart.html'

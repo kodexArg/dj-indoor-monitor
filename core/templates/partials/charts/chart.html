@@ -5,21 +5,15 @@
 {% endblock %}
 
 {% block header %}
-<a href="{% url 'home' %}" style="text-decoration: none; color: inherit;">KCBD</a><span class="header-subtitle"> - {% if metric == 't' %}TEMPERATURA{% elif metric == 'h' %}HUMEDAD{% else %}MONITOR{% endif %}</span>
+<a href="{% url 'home' %}" class="header-link">KCBD</a><span> - {% if metric == 't' %}TEMPERATURA{% elif metric == 'h' %}HUMEDAD{% else %}MONITOR{% endif %}</span>
 {% endblock %}
 
 {% block content %}
-<div id="chart-container">
-    {% if error %}
-        <div class="alert alert-danger">
-            <h4 class="alert-heading">Error</h4>
-            <p>{{ error }}</p>
-            <hr>
-            <p class="mb-0">Por favor, verifique que el servidor de la API esté funcionando y vuelva a intentar.</p>
-        </div>
-    {% else %}
+<div>
+    <h3>Gráfico de Monitoreo</h3>
+    <div id="chart-container">
         {{ chart_html|safe }}
-    {% endif %}
+    </div>
 </div>
 <div id="toggle-buttons" class="button-group">
     <div id="toggle-buttons-timeframe">
