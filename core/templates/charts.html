@@ -1,11 +1,7 @@
 {% extends "layouts/base.html" %}
 {% load static %}
 
-{% block header %}
-<div id="chart-header">
-    <h1><a href="{% url 'home' %}" class="header-link">KCBD</a></h1>
-</div>
-{% endblock %}
+{% block subtitle %}MONITOR{% endblock %}
 
 {% block navbar %}
 <nav id="chart-nav-bar">
@@ -39,7 +35,7 @@
 {% endblock %}
 
 {% block content %}
-<div id="chart-content" class="dynamic-content">
+<div id="chart-content">
     <p>Seleccione un gráfico del menú superior</p>
 </div>
 {% endblock %}

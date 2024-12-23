@@ -53,6 +53,7 @@ body::-webkit-scrollbar-track {
 .header-container {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 3px solid var(--brand-green-dark);
 }
 
@@ -90,6 +91,20 @@ body::-webkit-scrollbar-track {
   flex: 0 0 auto;
   display: flex;
   gap: 0.5rem;
+  align-items: flex-end; 
+}
+
+/* Navbar */
+.navbar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
+.separator {
+  width: 1px;
+  background-color: var(--brand-gray-light);
+  margin: 0 10px;
 }
 
 /* Navigation button */
@@ -101,6 +116,7 @@ body::-webkit-scrollbar-track {
   border: none;
   cursor: pointer;
   padding: 0.3rem;
+  font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif; /* Asegurar la misma tipografía */
 }
 
 .nav-button img {
@@ -159,14 +175,14 @@ body::-webkit-scrollbar-track {
   font-size: 1.1em;
 }
 
-/* Dynamic content */
-.dynamic-content {
-  margin: 20px;
-}
-
 /* Chart */
 #chart-container {
+  background-color: #fff;
+  padding: 5px;
+  border: 1px solid var(--brand-green-light);
   width: 100%;
+  box-sizing: border-box;
+  border-radius: 4px;
   margin: 20px 0;
 }
 
@@ -192,5 +208,27 @@ body::-webkit-scrollbar-track {
 .alert-heading {
   color: inherit;
   margin-top: 0;
+}
+
+/* Links */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+a:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Pre */
+pre {
+  font-family: monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid var(--brand-gray-light);
+  overflow-x: auto;
 }
 

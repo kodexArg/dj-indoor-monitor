@@ -1,13 +1,35 @@
 {% load static %}
 <div class="navbar">
-  {% if request.path != '/' %}
-  <button class="nav-button" hx-get="javascript:history.back()">
-    <img src="{% static 'icons/arrow-back.svg' %}" alt="Volver">
-    <small>volver</small>
-  </button>
+  {% if request.path == '/charts/' %}
+    <button class="nav-button" hx-get="{% url 'chart' %}" hx-target="#chart-content">
+      <img src="{% static 'icons/chart-line.svg' %}" alt="Monitor">
+      <small>MONITOR</small>
+    </button>
+    <button class="nav-button" hx-get="{% url 'dual-chart' %}" hx-target="#chart-content">
+      <img src="{% static 'icons/chart-line-2.svg' %}" alt="Dual">
+      <small>DUAL</small>
+    </button>
+    <button class="nav-button" hx-get="{% url 'gauges' %}" hx-target="#chart-content">
+      <img src="{% static 'icons/gauge.svg' %}" alt="Gauges">
+      <small>GAUGES</small>
+    </button>
+    <button class="nav-button" hx-get="{% url 'table-coef' %}" hx-target="#chart-content">
+      <img src="{% static 'icons/layout-dashboard.svg' %}" alt="Coef.">
+      <small>COEF.</small>
+    </button>
+    <div class="separator"></div>
+    <button class="nav-button" onclick="window.location.href='{% url 'charts' %}'">
+      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Monitor">
+      <small>MONITOR</small>
+    </button>
+    <button class="nav-button" onclick="window.location.href='/'">
+      <img src="{% static 'icons/home.svg' %}" alt="Home">
+      <small>HOME</small>
+    </button>
+  {% else %}
+    <button class="nav-button" onclick="window.location.href='/'">
+      <img src="{% static 'icons/home.svg' %}" alt="Home">
+      <small>HOME</small>
+    </button>
   {% endif %}
-  <button class="nav-button" hx-get="{% url 'charts' %}">
-    <img src="{% static 'icons/chart-histogram.svg' %}" alt="Gráficos">
-    <small>Gráficos</small>
-  </button>
 </div>

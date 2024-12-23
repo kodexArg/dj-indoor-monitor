@@ -3,13 +3,6 @@
   <link rel="stylesheet" href="{% static 'css/chart.css' %}">
 {% endblock %}
 
-{% block header-navbar %}
-<button hx-get="javascript:history.back()" class="button">
-  <img src="{% static 'icons/arrow-back.svg' %}" alt="Back" style="vertical-align: middle;">
-  Back
-</button>
-{% endblock %}
-
 {% block content %}
 <div id="chart-container">
     {% if error %}
@@ -23,8 +16,8 @@
         {{ chart_html|safe }}
     {% endif %}
 </div>
-<div id="toggle-buttons" class="button-group">
-    <div id="toggle-buttons-timeframe">
+<hr/>
+<pre>
     <strong>Resumen de Datos:</strong>
     <strong>Total registros:</strong> {{ debug.num_points }}
     <strong>Puntos graficados:</strong> {{ debug.plotted_points }}
@@ -35,7 +28,6 @@
     <strong>Segundo registro online:</strong> {{ debug.second_record_online.timestamp }} ({{ debug.second_record_online.sensor }}: {{ debug.second_record_online.value }})
     <strong>Intervalo:</strong> {{ selected_timeframe }}
 </pre>
-<hr/>
 {% endblock %}
 
 {% block scripts %}
