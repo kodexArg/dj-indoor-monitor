@@ -54,7 +54,7 @@ body::-webkit-scrollbar-track {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 3px solid var(--brand-green-dark);
+  border-bottom: 3px solid var(--brand-green);
 }
 
 .header-left {
@@ -173,41 +173,6 @@ body::-webkit-scrollbar-track {
   line-height: 1.6;
   margin-bottom: 40px;
   font-size: 1.1em;
-}
-
-/* Chart */
-#chart-container {
-  background-color: #fff;
-  padding: 5px;
-  border: 1px solid var(--brand-green-light);
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 4px;
-  margin: 20px 0;
-}
-
-.button-group {
-  margin: 10px 0;
-  display: flex;
-  gap: 10px;
-}
-
-.alert {
-  padding: 15px;
-  margin-bottom: 20px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-}
-
-.alert-danger {
-  color: var(--brand-gray-dark);
-  background-color: var(--brand-green-light);
-  border-color: var(--brand-gray-light);
-}
-
-.alert-heading {
-  color: inherit;
-  margin-top: 0;
 }
 
 /* Links */

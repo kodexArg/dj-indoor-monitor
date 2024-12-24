@@ -166,7 +166,7 @@ def generate_plotly_chart(data: List[dict], metric: str, start_date: datetime, e
     
     return to_html(
         fig,
-        include_plotlyjs=True, 
+        include_plotlyjs=False, 
         full_html=False,
         div_id=div_id,
         config={'displayModeBar': False}
