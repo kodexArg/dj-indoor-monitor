@@ -1,8 +1,5 @@
 function normalizeTimestamp(isoString) {
-    // Convertir el string ISO a DateTime de Luxon
     let dateTime = luxon.DateTime.fromISO(isoString, { setZone: true });
-
-    // Convertir siempre a la zona horaria local y devolver en formato ISO
     return dateTime.setZone('local').toISO({ suppressMilliseconds: true });
 }
 
@@ -13,12 +10,9 @@ async function fetchLatestData(startDate, metric = 't') {
 
     try {
         const response = await fetch(url.toString());
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
 
-        // Normalizar los timestamps en los datos recibidos a la zona horaria local
         data.forEach(item => {
             if (item.timestamp) {
                 item.timestamp = normalizeTimestamp(item.timestamp);
@@ -49,41 +43,30 @@ function setMetric(metric) {
 function initializeChart(data) {
     const layout = {
         xaxis: {
-            rangeslider: { visible: selectedTimeframe !== '5s' } // Hide rangeslider in online mode
-        },
-        // ...other layout configurations...
+            rangeslider: { visible: selectedTimeframe !== '5s' }
+        }
     };
-
     Plotly.newPlot('chart', data, layout);
 }
 
 function startAutoUpdate() {
-    const timeIncrement = 5000; // 5 segundos en milisegundos
+    const timeIncrement = 5000;
 
     autoUpdateInterval = setInterval(async function() {
         const chartDiv = document.getElementById('chart');
-
-        // Verificar si chartDiv.data tiene datos válidos
         if (!chartDiv.data || chartDiv.data.length <= 0) {
             console.error('No previous data available or data length is invalid');
             return;
         }
 
-        // Obtener el primer y último timestamp del gráfico usando normalizeTimestamp
         let firstTimestamp, lastTimestamp;
         const xData = chartDiv.data[0].x;
         firstTimestamp = normalizeTimestamp(xData[0]);
         lastTimestamp = normalizeTimestamp(xData[xData.length - 1]);
 
-        // Obtener nuevos datos desde el último timestamp
         const newData = await fetchLatestData(lastTimestamp, metric);
+        if (newData.length === 0) return;
 
-        if (newData.length === 0) {
-            console.log('No new data available');
-            return;
-        }
-
-        // Preparar arrays x e y para cada traza
         const sensorIndices = {};
         chartDiv.data.forEach((trace, index) => {
             sensorIndices[trace.name] = index;
@@ -92,7 +75,6 @@ function startAutoUpdate() {
         const xUpdate = [];
         const yUpdate = [];
 
-        // Organizar newData por sensor y agregar a xUpdate y yUpdate
         newData.forEach(item => {
             const sensor = item.sensor;
             const index = sensorIndices[sensor];
@@ -106,14 +88,11 @@ function startAutoUpdate() {
             }
         });
 
-        // Extender las trazas con los nuevos datos
         Plotly.extendTraces('chart', { x: xUpdate, y: yUpdate }, Object.values(sensorIndices).map(Number));
 
-        // Calcular nuevas horas final e inicial de la ventana del gráfico
         const newRangeEnd = luxon.DateTime.local();
         const newRangeStart = newRangeEnd.minus({ minutes: 5 });
 
-        // Establecer el nuevo rango del eje x
         const xAxisRange = [
             newRangeStart.toISO({ suppressMilliseconds: true }),
             newRangeEnd.toISO({ suppressMilliseconds: true }),
@@ -121,7 +100,7 @@ function startAutoUpdate() {
 
         Plotly.relayout('chart', {
             'xaxis.range': xAxisRange,
-            'xaxis.rangeslider.visible': false, // Ensure rangeslider is hidden in online mode
+            'xaxis.rangeslider.visible': false,
         });
     }, timeIncrement);
 }
@@ -130,7 +109,6 @@ function stopAutoUpdate() {
     clearInterval(autoUpdateInterval);
 }
 
-// Start or stop the auto-update loop based on the selected timeframe
 document.addEventListener('DOMContentLoaded', function() {
     if (selectedTimeframe === '5s') {
         startAutoUpdate();

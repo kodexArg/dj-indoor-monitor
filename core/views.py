@@ -17,7 +17,7 @@ from django.views.decorators.cache import cache_page
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly_chart, generate_dual_plotly_chart
+from .utils import generate_plotly_chart, get_start_date, generate_simple_plotly_chart, generate_dual_plotly_chart, generate_gauges
 
 
 class SensorDataViewSet(viewsets.ModelViewSet):
@@ -220,35 +220,34 @@ class ChartView(TemplateView):
         
         return context
 
-class OldDevicesChartView(TemplateView):
-    template_name = 'old-devices.html'
-    
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+class GaugesView(TemplateView):
+    template_name = 'partials/charts/gauges.html'
+
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(hours=24)
+        start_date = end_date - timedelta(seconds=60)  # Changed from 5 to 30 seconds
         
-        # Obtener datos del período
-        data = SensorData.objects.filter(
+        data = list(SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
-        ).values('timestamp', 'sensor', 't', 'h') 
-        
-        # Generar gráfico dual
-        chart_html = generate_dual_plotly_chart(
-            list(data),
-            start_date,
-            end_date
-        )
-        
-        context['chart'] = chart_html
+        ).values('timestamp', 'sensor', 't', 'h').order_by('-timestamp'))
+
+        context['gauges_html'] = generate_gauges(data, end_date)
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'debug': {
+                'num_sensors': len(set(item['sensor'] for item in data)),
+                'sensors': sorted(set(item['sensor'] for item in data)),
+                'last_update': end_date,
+            }
+        })
         return context
 
 class DualChartView(TemplateView):
     template_name = 'partials/charts/dual-chart.html'
 
-class GaugesView(TemplateView):
-    template_name = 'partials/charts/gauges.html'
 
 class TableCoefView(TemplateView):
     template_name = 'partials/charts/table-coef.html'
@@ -275,4 +274,29 @@ class ChartsView(TemplateView):
                 {"name": "Tabla de Coeficientes", "url": "table-coef"},
             ]
         })
+        return context
+
+
+class OldDevicesChartView(TemplateView):
+    template_name = 'old-devices.html'
+    
+    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(hours=24)
+        
+        # Obtener datos del período
+        data = SensorData.objects.filter(
+            timestamp__gte=start_date,
+            timestamp__lte=end_date
+        ).values('timestamp', 'sensor', 't', 'h') 
+        
+        # Generar gráfico dual
+        chart_html = generate_dual_plotly_chart(
+            list(data),
+            start_date,
+            end_date
+        )
+        
+        context['chart'] = chart_html
         return context

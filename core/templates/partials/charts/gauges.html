@@ -1,7 +1,29 @@
 {% load static %}
-<div>
-    <h3>Medidores</h3>
-    <div id="gauges-container">
-        {{ gauges_html|safe }}
+
+{% block content %}
+<div id="gauges-partial">
+    <div id="chart-container">
+        {% if error %}
+            <div class="alert alert-danger">
+                <h4 class="alert-heading">Error</h4>
+                <p>{{ error }}</p>
+                <hr>
+                <p class="mb-0">Por favor, verifique que el servidor de la API esté funcionando y vuelva a intentar.</p>
+            </div>
+        {% else %}
+            {{ gauges_html|safe }}
+        {% endif %}
     </div>
+    
+    <pre>
+        <strong>Resumen de Datos:</strong>
+        <strong>Total sensores:</strong> {{ debug.num_sensors }}
+        <strong>Sensores:</strong> {{ debug.sensors|join:", " }}
+        <strong>Última actualización:</strong> {{ debug.last_update }}
+    </pre>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/gauges.js' %}" defer></script>
+{% endblock %}
