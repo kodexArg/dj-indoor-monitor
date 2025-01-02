@@ -37,11 +37,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
 
-    @classmethod
-    def now(cls) -> datetime:
-        """Obtiene la fecha y hora actual en UTC."""
-        return datetime.now(timezone.utc)
-
     def get_queryset(self) -> QuerySet[SensorData]:
         """
         Obtiene el conjunto de datos del sensor basado en los parámetros de consulta.
@@ -53,14 +48,13 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         Ejemplos:
         - Obtener registros del sensor "sensor02": `/api/sensor-data/?sensor=sensor02`
         """
-        max_time_threshold = self.now() - timedelta(minutes=settings.MAX_DATA_MINUTES)
+        max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
         seconds = self.request.query_params.get('seconds', None)
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         
         queryset = SensorData.objects.all().order_by('-timestamp')
 
-        # Si no hay filtros de tiempo, aplicar límite por defecto
         if not any([seconds, start_date, end_date]):
             return queryset[:settings.DEFAULT_QUERY_LIMIT]
 
@@ -68,7 +62,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             seconds = int(seconds)
             since = max(
                 max_time_threshold,
-                self.now() - timedelta(seconds=seconds)
+                datetime.now(timezone.utc) - timedelta(seconds=seconds)
             )
             queryset = queryset.filter(timestamp__gte=since)
         
@@ -89,59 +83,39 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def latest(self, request) -> Response:
         """
-        Obtiene los últimos datos del sensor.
-
-        Parámetros:
-        - `timestamp`: Opcional. Marca de tiempo para filtrar datos.
-        - `seconds`: Opcional. Número de segundos para obtener datos.
-        - `sensor`: Opcional. Identificador del sensor.
-        - `metric`: Opcional. Métrica a obtener (ej: 't' para temperatura).
-
-        Ejemplos:
-        - Obtener últimos datos del sensor "sensor05": `/api/sensor-data/latest/?sensor=sensor05`
+        Obtiene el último valor de cada sensor.
         """
-        # Get and validate parameters
-        timestamp_param = request.query_params.get('timestamp')
-        seconds_param = request.query_params.get('seconds')
-        sensor = request.query_params.get('sensor')
         metric = request.query_params.get('metric')
-        
-        # Validate metric
         valid_metrics = ['t', 'h']
         if metric and metric not in valid_metrics:
             return Response(
                 {'error': f'Invalid metric. Use one of: {", ".join(valid_metrics)}'},
                 status=400
             )
+
+        since = datetime.now(timezone.utc) - timedelta(minutes=60)  # último hora
+        base_queryset = SensorData.objects.filter(timestamp__gte=since)
         
-        # Handle time filtering
-        if timestamp_param:
-            since = datetime.fromisoformat(timestamp_param)
-        elif seconds_param:
-            since = self.now() - timedelta(seconds=int(seconds_param))
-        else:
-            since = self.now() - timedelta(seconds=5)
+        latest_data = []
+        sensors = base_queryset.values_list('sensor', flat=True).distinct()
         
-        # Query data
-        queryset = SensorData.objects.filter(timestamp__gte=since)
-        
-        # Filter by sensor if provided
-        if sensor:
-            queryset = queryset.filter(sensor=sensor)
-        
-        # Select fields based on metric
-        fields = ['timestamp', 'sensor']
-        if metric:
-            fields.append(metric)
-        else:
-            fields.extend(['t', 'h'])
-        
-        # Format response
-        data = list(queryset.values(*fields))
-        for item in data:
-            item['timestamp'] = item['timestamp'].isoformat()
-        
-        return Response(data)
+        for sensor in sensors:
+            latest_record = base_queryset.filter(sensor=sensor).order_by('-timestamp').first()
+            if latest_record:
+                sensor_data = {
+                    'timestamp': latest_record.timestamp.isoformat(),
+                    'sensor': latest_record.sensor,
+                }
+                
+                if metric:
+                    sensor_data[metric] = getattr(latest_record, metric)
+                else:
+                    sensor_data['t'] = latest_record.t
+                    sensor_data['h'] = latest_record.h
+                    
+                latest_data.append(sensor_data)
+
+        return Response(latest_data)
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -171,7 +145,7 @@ class ChartView(TemplateView):
         selected_timeframe = self.request.GET.get('timeframe', '30min')
         metric = self.request.GET.get('metric', 't')
         
-        end_date = datetime.now(timezone.utc) 
+        end_date = datetime.now(timezone.utc)
         start_date = get_start_date(selected_timeframe, end_date)
         
         queryset = SensorData.objects.filter(
@@ -226,22 +200,17 @@ class GaugesView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(seconds=60)  # Changed from 5 to 30 seconds
-        
+        start_date = end_date - timedelta(minutes=10)
+
         data = list(SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
-        ).values('timestamp', 'sensor', 't', 'h').order_by('-timestamp'))
+        ).values('sensor').distinct())
 
-        context['gauges_html'] = generate_gauges(data, end_date)
+        sensors = sorted(item['sensor'] for item in data)
         context.update({
-            'start_date': start_date,
-            'end_date': end_date,
-            'debug': {
-                'num_sensors': len(set(item['sensor'] for item in data)),
-                'sensors': sorted(set(item['sensor'] for item in data)),
-                'last_update': end_date,
-            }
+            'sensors': sensors,
+            'metrics': ['t', 'h']
         })
         return context
 
@@ -299,4 +268,21 @@ class OldDevicesChartView(TemplateView):
         )
         
         context['chart'] = chart_html
+        return context
+
+class GaugePartialView(TemplateView):
+    template_name = 'partials/charts/gauges/gauge.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        metric = kwargs['metric']
+        sensor = kwargs['sensor']
+        # Obtain the latest data for this sensor+metric here:
+        latest = SensorData.objects.filter(sensor=sensor).order_by('-timestamp').first()
+        gauge_value = latest.__dict__.get(metric, 0) if latest else 0
+        context.update({
+            'sensor': sensor,
+            'metric': metric,
+            'gauge_value': gauge_value
+        })
         return context

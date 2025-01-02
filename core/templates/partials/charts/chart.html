@@ -39,22 +39,22 @@
                     {% if selected_timeframe != '1d' %}disabled{% endif %}>1d</button>
         </div>
         <div class="vertical-separator"></div>
-        <div id="toggle-buttons-metric">
-            <button class="button metric {% if metric == 't' %}active{% endif %}"
-                    hx-get="/chart/?timeframe={{ selected_timeframe }}&metric=t"
-                    hx-target="#chart-partial"
-                    hx-swap="outerHTML">Temp</button>
-            <button class="button metric {% if metric == 'h' %}active{% endif %}"
-                    hx-get="/chart/?timeframe={{ selected_timeframe }}&metric=h"
-                    hx-target="#chart-partial"
-                    hx-swap="outerHTML">Hum</button>
-        </div>
-        <div class="vertical-separator"></div>
         <div id="toggle-buttons-online">
             <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}"
                     hx-get="/chart/?timeframe=5s&metric={{ metric }}"
                     hx-target="#chart-partial"
                     hx-swap="outerHTML">online</button>
+        </div>
+        <div class="vertical-separator"></div>
+        <div id="toggle-buttons-metric">
+            <button class="button metric {% if metric == 't' %}active{% endif %}"
+            hx-get="/chart/?timeframe={{ selected_timeframe }}&metric=t"
+            hx-target="#chart-partial"
+            hx-swap="outerHTML">Temp</button>
+            <button class="button metric {% if metric == 'h' %}active{% endif %}"
+            hx-get="/chart/?timeframe={{ selected_timeframe }}&metric=h"
+            hx-target="#chart-partial"
+            hx-swap="outerHTML">Hum</button>
         </div>
     </div>
     <pre>

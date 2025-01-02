@@ -1,29 +1,23 @@
 {% load static %}
-
 {% block content %}
-<div id="gauges-partial">
-    <div id="chart-container">
-        {% if error %}
-            <div class="alert alert-danger">
-                <h4 class="alert-heading">Error</h4>
-                <p>{{ error }}</p>
-                <hr>
-                <p class="mb-0">Por favor, verifique que el servidor de la API esté funcionando y vuelva a intentar.</p>
+<div id="gauges-grid">
+    {% for metric in metrics %}
+        <div class="metric-section">
+            <h2>Métrica: {{ metric }}</h2>
+            <div class="sensors-row">
+                {% for sensor in sensors %}
+                    <div id="gauge-{{ metric }}-{{ sensor }}"
+                         hx-get="{% url 'gauge-partial' metric=metric sensor=sensor %}"
+                         hx-trigger="load, every 5s"
+                         hx-target="#gauge-container-{{ sensor }}-{{ metric }}"
+                         hx-swap="outerHTML">
+                        <div id="gauge-container-{{ sensor }}-{{ metric }}">
+                            <!-- Partial gauge will be loaded here -->
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
-        {% else %}
-            {{ gauges_html|safe }}
-        {% endif %}
-    </div>
-    
-    <pre>
-        <strong>Resumen de Datos:</strong>
-        <strong>Total sensores:</strong> {{ debug.num_sensors }}
-        <strong>Sensores:</strong> {{ debug.sensors|join:", " }}
-        <strong>Última actualización:</strong> {{ debug.last_update }}
-    </pre>
+        </div>
+    {% endfor %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/gauges.js' %}" defer></script>
 {% endblock %}

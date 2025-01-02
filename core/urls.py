@@ -17,6 +17,7 @@ from .views import (
     TableCoefView,
     DevelopmentView,
     OldDevicesChartView,
+    GaugePartialView,
 )
 
 router = DefaultRouter()
@@ -40,6 +41,7 @@ urlpatterns = [
     path('table-coef/', TableCoefView.as_view(), name='table-coef'),
     path('development/', DevelopmentView.as_view(), name='development'),
     path('old-devices/', OldDevicesChartView.as_view(), name='old-devices'),
+    path('gauge-partial/<str:metric>/<str:sensor>/', GaugePartialView.as_view(), name='gauge-partial'),
     path('', include(router.urls)),
 ]
 

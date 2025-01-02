@@ -1,0 +1,54 @@
+{% load static %}
+<div id="gauge-container-{{ sensor }}-{{ metric }}" style="display:flex;flex-direction:column;align-items:center;">
+    <h4>{{ sensor }} ({{ metric }})</h4>
+    <canvas id="gaugeCanvas-{{ sensor }}-{{ metric }}" width="200" height="120"></canvas>
+</div>
+
+<script src="{% static 'js/gauge.min.js' %}"></script>
+<script>
+(function() {
+    const canvas = document.getElementById("gaugeCanvas-{{ sensor }}-{{ metric }}");
+    if (!canvas) return;
+
+    if (!window.gaugeObjects) {
+        window.gaugeObjects = {};
+    }
+
+    const sensorKey = "{{ sensor }}--{{ metric }}";
+    // Wrap in quotes:
+    let rawValue = "{{ gauge_value|default:"0" }}";
+    let gaugeValue = parseFloat(rawValue) || 0;
+
+    if (!window.gaugeObjects[sensorKey]) {
+        let opts = {
+            angle: 0.15,
+            lineWidth: 0.44,
+            radiusScale: 1,
+            limitMax: true,
+            limitMin: true,
+            highDpiSupport: true,
+            minValue: 0,
+            maxValue: ( "{{ metric }}" === "h" ? 100 : 50 ),
+            staticZones: []
+        };
+        if ("{{ metric }}" === "t") {
+            opts.staticZones = [
+                {strokeStyle: "#ffc0cb", min: 0,  max: 18},
+                {strokeStyle: "#ffffff", min: 18, max: 25},
+                {strokeStyle: "#ffc0cb", min: 25, max: 50}
+            ];
+        } else {
+            opts.staticZones = [
+                {strokeStyle: "#c0ffff", min: 0,  max: 35},
+                {strokeStyle: "#ffffff", min: 35, max: 70},
+                {strokeStyle: "#ffc0cb", min: 70, max: 100}
+            ];
+        }
+        window.gaugeObjects[sensorKey] = new Gauge(canvas).setOptions(opts);
+        window.gaugeObjects[sensorKey].setTextField(null);
+    }
+
+    window.gaugeObjects[sensorKey].set(gaugeValue);
+    window.gaugeObjects[sensorKey].lastValue = gaugeValue;
+})();
+</script>
