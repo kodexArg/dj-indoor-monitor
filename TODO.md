@@ -8,6 +8,6 @@
 
 ## C
 [ ] Agregar filtrado de sensores en el backend
-
+[ ] Que los gráficos cambien el subtítulo MONITOR
 
 ## W

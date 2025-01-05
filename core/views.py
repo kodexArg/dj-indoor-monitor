@@ -294,23 +294,6 @@ class DevelopmentView(TemplateView):
 class GaugesView(TemplateView):
     template_name = 'partials/charts/gauges.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(minutes=10)
-
-        data = list(SensorData.objects.filter(
-            timestamp__gte=start_date,
-            timestamp__lte=end_date
-        ).values('sensor').distinct())
-
-        sensors = sorted(item['sensor'] for item in data)
-        context.update({
-            'sensors': sensors,
-            'metrics': ['t', 'h']
-        })
-        return context
-
 class DualChartView(TemplateView):
     template_name = 'partials/charts/dual-chart.html'
 

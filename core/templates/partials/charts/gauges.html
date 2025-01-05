@@ -1,22 +1,6 @@
 {% load static %}
-{% block content %}
-<div id="gauges-grid">
-    {% for metric in metrics %}
-        <div class="metric-section">
-            <h2>Métrica: {{ metric }}</h2>
-            <div class="sensors-row">
-                {% for sensor in sensors %}
-                    <div id="gauge-{{ metric }}-{{ sensor }}"
-                         hx-trigger="load, every 5s"
-                         hx-target="#gauge-container-{{ sensor }}-{{ metric }}"
-                         hx-swap="outerHTML">
-                        <div id="gauge-container-{{ sensor }}-{{ metric }}">
-                            <!-- Partial gauge will be loaded here -->
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    {% endfor %}
+<div>
+    <h3>Gauges</h3>
+    <div id="dual-chart-container">
+    </div>
 </div>
-{% endblock %}
