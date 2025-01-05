@@ -1,11 +1,10 @@
 function normalizeTimestamp(isoString) {
     let dateTime = luxon.DateTime.fromISO(isoString, { setZone: true });
-    return dateTime.setZone('local').toISO({ suppressMilliseconds: true });
+    return dateTime.setZone('local').toLocaleString(luxon.DateTime.DATETIME_MED);
 }
 
-async function fetchLatestData(startDate, metric = 't') {
+async function fetchLatestData(metric = 't') {
     const url = new URL(`${window.location.origin}/api/sensor-data/latest/`);
-    url.searchParams.set('timestamp', startDate);
     url.searchParams.set('metric', metric);
 
     try {
@@ -26,91 +25,31 @@ async function fetchLatestData(startDate, metric = 't') {
     }
 }
 
-let autoUpdateInterval;
-
-function setTimeframe(timeframe) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('timeframe', timeframe);
-    window.location.href = url.toString();
-}
-
-function setMetric(metric) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('metric', metric);
-    window.location.href = url.toString();
-}
-
-function initializeChart(data) {
-    const layout = {
-        xaxis: {
-            rangeslider: { visible: selectedTimeframe !== '5s' }
+function update_debug_info() {
+    fetchLatestData().then(data => {
+        if (data.length > 0) {
+            document.getElementById('last-reading').textContent = `${data[0].t}°C`;
         }
-    };
-    Plotly.newPlot('chart', data, layout);
+    });
 }
 
 function startAutoUpdate() {
-    const timeIncrement = 5000;
-
-    autoUpdateInterval = setInterval(async function() {
-        const chartDiv = document.getElementById('chart');
-        if (!chartDiv.data || chartDiv.data.length <= 0) {
-            console.error('No previous data available or data length is invalid');
-            return;
-        }
-
-        let firstTimestamp, lastTimestamp;
-        const xData = chartDiv.data[0].x;
-        firstTimestamp = normalizeTimestamp(xData[0]);
-        lastTimestamp = normalizeTimestamp(xData[xData.length - 1]);
-
-        const newData = await fetchLatestData(lastTimestamp, metric);
-        if (newData.length === 0) return;
-
-        const sensorIndices = {};
-        chartDiv.data.forEach((trace, index) => {
-            sensorIndices[trace.name] = index;
-        });
-
-        const xUpdate = [];
-        const yUpdate = [];
-
-        newData.forEach(item => {
-            const sensor = item.sensor;
-            const index = sensorIndices[sensor];
-            if (index !== undefined) {
-                if (!xUpdate[index]) {
-                    xUpdate[index] = [];
-                    yUpdate[index] = [];
-                }
-                xUpdate[index].push(item.timestamp);
-                yUpdate[index].push(item[metric]);
-            }
-        });
-
-        Plotly.extendTraces('chart', { x: xUpdate, y: yUpdate }, Object.values(sensorIndices).map(Number));
-
-        const newRangeEnd = luxon.DateTime.local();
-        const newRangeStart = newRangeEnd.minus({ minutes: 5 });
-
-        const xAxisRange = [
-            newRangeStart.toISO({ suppressMilliseconds: true }),
-            newRangeEnd.toISO({ suppressMilliseconds: true }),
-        ];
-
-        Plotly.relayout('chart', {
-            'xaxis.range': xAxisRange,
-            'xaxis.rangeslider.visible': false,
-        });
-    }, timeIncrement);
+    autoUpdateInterval = setInterval(() => {
+        update_debug_info();
+    }, 5000);
 }
 
 function stopAutoUpdate() {
-    clearInterval(autoUpdateInterval);
+    if (autoUpdateInterval) {
+        clearInterval(autoUpdateInterval);
+        autoUpdateInterval = null;
+    }
 }
 
+let autoUpdateInterval;
+
 document.addEventListener('DOMContentLoaded', function() {
-    if (selectedTimeframe === '5s') {
+    if (typeof online !== 'undefined' && online === true) {
         startAutoUpdate();
     } else {
         stopAutoUpdate();

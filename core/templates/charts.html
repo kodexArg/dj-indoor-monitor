@@ -46,4 +46,23 @@
 
 {% block scripts %}
 <script src="{% static 'js/plotly-2.35.2.min.js' %}"></script>
+<script src="{% static 'js/chart.js' %}"></script>
+<script>
+  function setOnline(status) {
+    window.online = status;
+    if (status) {
+      startAutoUpdate();
+    } else {
+      stopAutoUpdate();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof online !== 'undefined' && online === true) {
+      startAutoUpdate();
+    } else {
+      stopAutoUpdate();
+    }
+  });
+</script>
 {% endblock %}

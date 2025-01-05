@@ -4,7 +4,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
-from django.views.generic import TemplateView
 
 # Local
 from .views import (
@@ -17,7 +16,6 @@ from .views import (
     TableCoefView,
     DevelopmentView,
     OldDevicesChartView,
-    GaugePartialView,
 )
 
 router = DefaultRouter()
@@ -41,7 +39,6 @@ urlpatterns = [
     path('table-coef/', TableCoefView.as_view(), name='table-coef'),
     path('development/', DevelopmentView.as_view(), name='development'),
     path('old-devices/', OldDevicesChartView.as_view(), name='old-devices'),
-    path('gauge-partial/<str:metric>/<str:sensor>/', GaugePartialView.as_view(), name='gauge-partial'),
     path('', include(router.urls)),
 ]
 

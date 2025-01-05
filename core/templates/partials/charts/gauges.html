@@ -7,7 +7,6 @@
             <div class="sensors-row">
                 {% for sensor in sensors %}
                     <div id="gauge-{{ metric }}-{{ sensor }}"
-                         hx-get="{% url 'gauge-partial' metric=metric sensor=sensor %}"
                          hx-trigger="load, every 5s"
                          hx-target="#gauge-container-{{ sensor }}-{{ metric }}"
                          hx-swap="outerHTML">

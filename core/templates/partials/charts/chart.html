@@ -39,9 +39,9 @@
                     {% if selected_timeframe != '1d' %}disabled{% endif %}>1d</button>
         </div>
         <div class="vertical-separator"></div>
-        <div id="toggle-buttons-online">
-            <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}"
-                    hx-get="/chart/?timeframe=5s&metric={{ metric }}"
+        <div id="toggle-buttons-5s">
+            <button class="button {% if selected_timeframe == '5s' %}active{% endif %}"
+                    hx-get="/chart/?timeframe=5s&metric={{ metric }}&online=true"
                     hx-target="#chart-partial"
                     hx-swap="outerHTML">online</button>
         </div>
@@ -67,6 +67,10 @@
         <strong>Primer registro online:</strong> {{ debug.first_record_online.timestamp }} ({{ debug.first_record_online.sensor }}: {{ debug.first_record_online.value }})
         <strong>Segundo registro online:</strong> {{ debug.second_record_online.timestamp }} ({{ debug.second_record_online.sensor }}: {{ debug.second_record_online.value }})
         <strong>Intervalo:</strong> {{ selected_timeframe }}
+        <strong>Última lectura:</strong> <span id="last-reading">-</span>
     </pre>
 </div>
+<script>
+  window.online = {{ online|yesno:"true,false" }};
+</script>
 {% endblock %}
