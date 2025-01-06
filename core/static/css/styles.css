@@ -200,6 +200,7 @@ a:hover {
   line-height: 1.2;
   padding: 0.5rem;
   text-align: left;
+  white-space: pre-wrap;
 }
 
 .debug-pre strong {
@@ -214,5 +215,48 @@ a:hover {
 .debug-section h4 {
   color: var(--brand-gray-dark);
   margin-bottom: 0.5rem;
+}
+
+/* Loading Progress Bar */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: block;
+}
+
+.htmx-request.htmx-indicator {
+  display: block;
+}
+
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;  /* Cambiado de 3px a 5px */
+  background: linear-gradient(
+    to right,
+    var(--brand-bg),
+    var(--brand-green-light),
+    var(--brand-green),
+    var(--brand-green-dark),
+    var(--brand-green),
+    var(--brand-green-light),
+    var(--brand-bg)
+  );
+  background-size: 200% 100%;
+  animation: loading-gradient 2s ease infinite;
+  z-index: 9999;
+}
+
+@keyframes loading-gradient {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 

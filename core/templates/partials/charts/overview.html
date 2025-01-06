@@ -1,6 +1,7 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">OVERVIEW</span>
-<section class="overview-section">
+<section id="overview-section" class="overview-section">
+    {% include 'partials/hx-indicator.html' %}
     <!-- Artículo para el gráfico (en construcción) -->
     <article id="chart-content">
         <div class="chart-container">
@@ -13,20 +14,51 @@
     <article id="toggle-buttons-container">
         <div id="toggle-buttons" class="button-group">
             <div id="toggle-buttons-timeframe">
-                <button class="button {% if selected_timeframe == '1T' %}active{% endif %}">1'</button>
-                <button class="button {% if selected_timeframe == '30T' %}active{% endif %}">30'</button>
-                <button class="button {% if selected_timeframe == '1h' %}active{% endif %}">1h</button>
-                <button class="button {% if selected_timeframe == '4' %}active{% endif %}">4h</button>
-                <button class="button {% if selected_timeframe == '1D' %}active{% endif %}" disabled style="opacity: 0.5; cursor: not-allowed">1d</button>
+                <button class="button {% if metadata.timeframe == '1T' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?timeframe=1T"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">1'</button>
+                <button class="button {% if metadata.timeframe == '30T' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?timeframe=30T"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">30'</button>
+                <button class="button {% if metadata.timeframe == '1h' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?timeframe=1h"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">1h</button>
+                <button class="button {% if metadata.timeframe == '4h' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?timeframe=4h"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">4h</button>
+                <button class="button {% if metadata.timeframe == '1D' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?timeframe=1D"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">1d</button>
             </div>
             <div class="vertical-separator"></div>
             <div id="toggle-buttons-metric">
-                <button class="button metric {% if metric == 't' %}active{% endif %}">Temp</button>
-                <button class="button metric {% if metric == 'h' %}active{% endif %}">Hum</button>
+                <button class="button metric {% if metadata.metric == 't' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?metric=t"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">Temp</button>
+                <button class="button metric {% if metadata.metric == 'h' %}active{% endif %}"
+                        hx-get="{% url 'overview' %}?metric=h"
+                        hx-target="#overview-section"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loading-spinner">Hum</button>
             </div>
             <div class="vertical-separator"></div>
             <div id="toggle-buttons-online">
-                <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}">online</button>
+                <button class="button online-button {% if metadata.timeframe == '5s' %}active{% endif %}"
+                hx-get="{% url 'overview' %}?timeframe=5s"
+                hx-target="#overview-section"
+                hx-swap="outerHTML">online</button>
             </div>
         </div>
     </article>
@@ -36,18 +68,20 @@
         <div class="debug-section">
             <h4>Metadata</h4>
             <pre class="debug-pre">
-<strong>Período actual</strong>: {{ metadata.debug.start_pretty }} → {{ metadata.debug.end_pretty }}
+<strong>Período actual</strong>: {{ metadata.start_pretty }} → {{ metadata.end_pretty }}
 <strong>Registros</strong>: {{ metadata.record_count }}
 <strong>Sensores</strong>: {{ metadata.sensor_ids|join:", " }}
-<strong>Timeframe</strong>: {{ metadata.debug.timeframe }} ({{ metadata.debug.window_seconds }}s)
-<strong>Consulta</strong>: {{ metadata.debug.delay_ms }}ms</pre>
+<strong>Timeframe</strong>: {{ metadata.timeframe }}
+<strong>Ventana</strong>: {{ metadata.window_minutes }} min
+<strong>Métrica</strong>: {{ metadata.metric }}
+<strong>Duración de consulta</strong>: {{ metadata.query_duration_s }} s</pre>
         </div>
 
         <div class="debug-section">
             <h4>Últimos registros</h4>
             <pre class="debug-pre">
                 {% for item in results %}
-- {{ item.timestamp_pretty }} >> '{{ item.sensor }}' t: {{ item.t|floatformat:1 }}°C h: {{ item.h|floatformat:1 }}%
+    {{ item.timestamp }} >> '{{ item.sensor }}' t: {{ item.t|floatformat:1 }}°C h: {{ item.h|floatformat:1 }}%
                 {% endfor %}
             </pre>
         </div>

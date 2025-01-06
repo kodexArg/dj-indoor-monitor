@@ -17,6 +17,8 @@
   <link rel="stylesheet" href="{% static 'css/skeleton.css' %}">
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
+  <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
+
   {% block extra_css %}{% endblock %}
 
   <meta name="csrf-token" content="{{ csrf_token }}">
@@ -52,6 +54,7 @@
       <span>Solicitudes y reporte de bugs: <a href="mailto:gcavedal@gmail.com">gcavedal@gmail.com</a>.</span>
     </footer>
   </div>
+  {% include 'partials/hx-indicator.html' %}
   <script src="{% static 'js/luxon.min.js' %}"></script>
   {% block scripts %}{% endblock %}
 </body>

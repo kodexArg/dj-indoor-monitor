@@ -35,28 +35,21 @@ class OverviewView(TemplateView):
         timeframe = self.request.GET.get('timeframe', '30T')
         metric = self.request.GET.get('metric', 't')
         
-        # Configurar rango de tiempo y parámetros
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(minutes=5)
-        
         # Construir URL usando reverse y request actual
         api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
         params = {
-            'timestamp__gte': start_date.isoformat(),
-            'timestamp__lte': end_date.isoformat(),
-            'fields': f'timestamp,sensor,{metric}'
+            'timeframe': timeframe,
+            'metric': metric
         }
         
         # Realizar petición a la API
         response = requests.get(api_url, params=params)
         data = response.json()
         
-        # Actualizar contexto separando metadata y results
+        # Actualizar contexto con la nueva estructura
         context.update({
             'metadata': data.get('metadata', {}),
-            'results': data.get('results', []),
-            'selected_timeframe': timeframe,
-            'metric': metric
+            'results': data.get('results', [])
         })
         
         return context

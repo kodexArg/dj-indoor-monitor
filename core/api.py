@@ -48,30 +48,22 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     def get_metadata(self, queryset) -> Dict:
         """Genera metadatos para el queryset actual"""
         timeframe = self.request.query_params.get('timeframe', '5s')
+        metric = self.request.query_params.get('metric', 't')
         end_date = datetime.now(timezone.utc)
         time_window = get_timedelta_from_timeframe(timeframe)
         start_date = get_start_date(timeframe, end_date)
 
         return {
-            **queryset.aggregate(
-                start_date=Min('timestamp'),
-                end_date=Max('timestamp'),
-                record_count=Count('id')
-            ),
-            'sensor_ids': sorted(list(set(queryset.values_list('sensor', flat=True)))),
-            'query_timestamp': self._query_timestamp,
-            'query_delay': round(perf_counter() - self._query_start_time, 3),
             'timeframe': timeframe,
-            'time_window': int(time_window.total_seconds()),
-            'debug': {
-                'timeframe': timeframe,
-                'window_seconds': int(time_window.total_seconds()),
-                'start_pretty': format_timestamp(start_date),
-                'end_pretty': format_timestamp(end_date),
-                'start': start_date.isoformat(),
-                'end': end_date.isoformat(),
-                'delay_ms': round((perf_counter() - self._query_start_time) * 1000, 1)
-            }
+            'metric': metric,
+            'window_minutes': int(time_window.total_seconds() / 60),  # Convertir a minutos
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'start_pretty': format_timestamp(start_date),
+            'end_pretty': format_timestamp(end_date),
+            'record_count': queryset.count(),
+            'sensor_ids': sorted(list(set(queryset.values_list('sensor', flat=True)))),
+            'query_duration_s': round(perf_counter() - self._query_start_time, 3)  # Expresar en segundos
         }
 
     def get_queryset(self) -> QuerySet[SensorData]:
