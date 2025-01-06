@@ -36,20 +36,18 @@
         <div class="debug-section">
             <h4>Metadata</h4>
             <pre class="debug-pre">
-                <strong>Inicio del período</strong>: {{ metadata.start_date }}
-                <strong>Fin del período</strong>: {{ metadata.end_date }}
-                <strong>Cantidad de registros</strong>: {{ metadata.record_count }}
-                <strong>Sensores activos</strong>: {{ metadata.sensor_ids|join:", " }}
-                <strong>Timestamp consulta</strong>: {{ metadata.query_timestamp }}
-                <strong>Tiempo de ejecución</strong>: {{ metadata.query_delay }} seg
-                <strong>Intervalo</strong>: {{ metadata.timeframe }}</pre>
+<strong>Período actual</strong>: {{ metadata.debug.start_pretty }} → {{ metadata.debug.end_pretty }}
+<strong>Registros</strong>: {{ metadata.record_count }}
+<strong>Sensores</strong>: {{ metadata.sensor_ids|join:", " }}
+<strong>Timeframe</strong>: {{ metadata.debug.timeframe }} ({{ metadata.debug.window_seconds }}s)
+<strong>Consulta</strong>: {{ metadata.debug.delay_ms }}ms</pre>
         </div>
 
         <div class="debug-section">
-            <h4>Registros</h4>
+            <h4>Últimos registros</h4>
             <pre class="debug-pre">
                 {% for item in results %}
-                    - {{ item.timestamp }} >> '{{ item.sensor }}' t: {{ item.t|floatformat:1 }} C° h: {{ item.h|floatformat:1 }} %
+- {{ item.timestamp_pretty }} >> '{{ item.sensor }}' t: {{ item.t|floatformat:1 }}°C h: {{ item.h|floatformat:1 }}%
                 {% endfor %}
             </pre>
         </div>

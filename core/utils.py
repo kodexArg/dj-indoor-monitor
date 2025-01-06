@@ -117,3 +117,38 @@ def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
     """
     window = get_timedelta_from_timeframe(timeframe)
     return end_date - window
+
+
+def format_timestamp(timestamp: datetime, include_seconds: bool = False) -> str:
+    """
+    Formatea un timestamp para visualización amigable.
+    
+    Args:
+        timestamp: Datetime a formatear
+        include_seconds: Si True, incluye los segundos en el formato
+    
+    Returns:
+        String formateado, ejemplo: "26 Ene 15:30" o "26 Ene 15:30:45"
+    """
+    if timestamp is None:
+        return "N/A"
+        
+    # Convertir a timezone local si tiene timezone
+    if timestamp.tzinfo is not None:
+        local_tz = pytz.timezone(settings.TIME_ZONE)
+        timestamp = timestamp.astimezone(local_tz)
+    
+    # Diccionario de meses en español
+    meses = {
+        1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun',
+        7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'
+    }
+    
+    # Formato base
+    fecha = f"{timestamp.day} {meses[timestamp.month]}"
+    hora = f"{timestamp.hour:02d}:{timestamp.minute:02d}"
+    
+    if include_seconds:
+        hora += f":{timestamp.second:02d}"
+    
+    return f"{fecha} {hora}"

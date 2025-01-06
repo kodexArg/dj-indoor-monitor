@@ -16,6 +16,7 @@ import pandas as pd
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
+from .utils import get_timedelta_from_timeframe, get_start_date, format_timestamp
 
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
@@ -46,21 +47,31 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
     def get_metadata(self, queryset) -> Dict:
         """Genera metadatos para el queryset actual"""
-        metadata = queryset.aggregate(
-            start_date=Min('timestamp'),
-            end_date=Max('timestamp'),
-            record_count=Count('id')
-        )
-        
-        # Obtener timeframe de los parámetros o valor por defecto
         timeframe = self.request.query_params.get('timeframe', '5s')
-        
+        end_date = datetime.now(timezone.utc)
+        time_window = get_timedelta_from_timeframe(timeframe)
+        start_date = get_start_date(timeframe, end_date)
+
         return {
-            **metadata,
+            **queryset.aggregate(
+                start_date=Min('timestamp'),
+                end_date=Max('timestamp'),
+                record_count=Count('id')
+            ),
             'sensor_ids': sorted(list(set(queryset.values_list('sensor', flat=True)))),
             'query_timestamp': self._query_timestamp,
             'query_delay': round(perf_counter() - self._query_start_time, 3),
-            'timeframe': timeframe
+            'timeframe': timeframe,
+            'time_window': int(time_window.total_seconds()),
+            'debug': {
+                'timeframe': timeframe,
+                'window_seconds': int(time_window.total_seconds()),
+                'start_pretty': format_timestamp(start_date),
+                'end_pretty': format_timestamp(end_date),
+                'start': start_date.isoformat(),
+                'end': end_date.isoformat(),
+                'delay_ms': round((perf_counter() - self._query_start_time) * 1000, 1)
+            }
         }
 
     def get_queryset(self) -> QuerySet[SensorData]:
@@ -138,6 +149,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             if latest_record:
                 latest_data.append({
                     'timestamp': latest_record.timestamp.isoformat(),
+                    'timestamp_pretty': format_timestamp(latest_record.timestamp, include_seconds=True),
                     'sensor': latest_record.sensor,
                     't': round(latest_record.t, 2),
                     'h': round(latest_record.h, 2)
