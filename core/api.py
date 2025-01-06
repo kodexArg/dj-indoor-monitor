@@ -16,7 +16,6 @@ import pandas as pd
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
-from .utils import get_start_date
 
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
