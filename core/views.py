@@ -1,6 +1,5 @@
 # Python built-in
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
 import requests
 
 # Django y DRF
@@ -11,7 +10,7 @@ from django.urls import reverse
 
 # Local
 from .models import SensorData
-from .utils import old_devices_plot_generator, get_start_date
+from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator
 from .api import SensorDataViewSet
 
 class HomeView(TemplateView):
@@ -28,18 +27,23 @@ class ChartsView(TemplateView):
 class OverviewView(TemplateView):
     template_name = "partials/charts/overview.html"
 
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
         # Obtener parámetros de la solicitud
         timeframe = self.request.GET.get('timeframe', '30T')
         metric = self.request.GET.get('metric', 't')
         
+        # Calcular fechas antes de la petición API
+        end_date = datetime.now(timezone.utc)
+        start_date = get_start_date(timeframe, end_date)
+
         # Construir URL usando reverse y request actual
         api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
         params = {
             'timeframe': timeframe,
-            'metric': metric
+            'metric': metric,
+            'start_date': start_date.isoformat()  # Añadir start_date a los parámetros
         }
         
         # Realizar petición a la API
@@ -51,6 +55,20 @@ class OverviewView(TemplateView):
             'metadata': data.get('metadata', {}),
             'results': data.get('results', [])
         })
+        
+        chart_html, plotted_points = overview_plot_generator(
+            context['results'],
+            metric,
+            start_date,
+            end_date,
+            timeframe,
+            div_id='chart'
+        )
+        context.update({
+            'chart_html': chart_html,
+            'plotted_points': plotted_points
+        })
+
         
         return context
 
@@ -66,7 +84,7 @@ class GaugesView(TemplateView):
 class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'
     
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=24)

@@ -1,14 +1,177 @@
+# Python built-in
 from typing import List, Tuple
-from django.conf import settings
 from datetime import datetime, timedelta, timezone
+
+# Django
+from django.conf import settings
+
+# Third party
+from loguru import logger
 import pytz
 import pandas as pd
 import plotly.graph_objs as go
-from plotly.io import to_html
-from plotly.subplots import make_subplots
+import plotly.io as pio
+import plotly.subplots as make_subplots
+
+# Timeframe mapping
+TIMEFRAME_MAP = {
+    # API/UI format : Pandas format
+    '5S': '5S',
+    '1T': '1min',
+    '30T': '30min',
+    '1H': '1h',  # Changed from 1H to 1h
+    '4H': '4h',  # Changed from 4H to 4h
+    '1D': '1D'
+}
+
+# Configure logger
+logger.configure(
+    handlers=[
+        {
+            "sink": "logs/overview.log",
+            "format": "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+            "rotation": "1 day",
+            "retention": "10 days",
+            "level": "DEBUG"  # Always show DEBUG for file
+        },
+        {
+            "sink": lambda msg: print(msg),
+            "format": "<level>{level: <8}</level> | <level>{message}</level>",
+            "level": "DEBUG",  # Changed from INFO to DEBUG for console
+            "backtrace": True,
+            "diagnose": True
+        }
+    ]
+)
 
 
-def old_devices_plot_generator(data: List[dict], start_date: datetime, end_date: datetime) -> str:
+def overview_plot_generator(data, metric, start_date, end_date, selected_timeframe, div_id='chart'):
+    """
+    Genera HTML con gráfico estático Plotly.
+
+    Parámetros:
+    - `data`: Lista de diccionarios con los datos del sensor.
+    - `metric`: Métrica a graficar (ej: 't' para temperatura).
+    - `start_date`: Fecha de inicio del rango de datos.
+    - `end_date`: Fecha de fin del rango de datos.
+    - `selected_timeframe`: Intervalo de tiempo seleccionado.
+    - `div_id`: ID del div donde se insertará el gráfico.
+
+    Retorna:
+    - tuple: (chart_html, plotted_points)
+    """
+    if not data:
+        return f'<div id="{div_id}">No hay datos para mostrar</div>', 0
+    
+    plotted_points = 0  # Contador de puntos graficados
+    
+    # Crear DataFrame y convertir timestamps
+    df = pd.DataFrame(data)
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    
+    
+    
+    # Convertir a timezone local después de asegurar que es datetime
+    local_tz = pytz.timezone(settings.TIME_ZONE)
+    start_date = start_date.astimezone(local_tz)
+    end_date = end_date.astimezone(local_tz)
+    df['timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
+
+    # Para 5s y 1min no agrupamos los datos
+    if selected_timeframe.upper() in ['5S', '1MIN']:
+        df = df.set_index('timestamp')
+        fig = go.Figure()
+        for sensor in df.groupby('sensor').groups.keys():
+            sensor_data = df[df['sensor'] == sensor]
+            plotted_points += len(sensor_data)
+            if selected_timeframe.lower() == '5s':
+                mode = 'lines+markers'
+                marker = dict(size=6, symbol='circle')
+            else:
+                mode = 'lines'
+                marker = dict()
+                
+            fig.add_trace(go.Scatter(
+                x=sensor_data.index,
+                y=sensor_data[metric],
+                mode=mode,
+                line_shape='spline',
+                name=sensor,
+                marker=marker
+            ))
+    else:
+        df = df.set_index('timestamp')
+        resample_freq = TIMEFRAME_MAP.get(selected_timeframe.upper(), '30min')
+        grouped_df = df.groupby('sensor').resample(resample_freq).agg({
+            metric: 'mean'
+        }).dropna()
+
+        fig = go.Figure()
+        
+        for sensor in grouped_df.index.get_level_values('sensor').unique():
+            sensor_data = grouped_df.loc[sensor]
+            plotted_points += len(sensor_data)
+            
+            fig.add_trace(go.Scatter(
+                x=sensor_data.index,
+                y=sensor_data[metric],
+                mode='lines',
+                line_shape='spline',
+                name=sensor
+            ))
+
+    fig.update_layout(
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        showlegend=True, 
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5
+        ),
+        margin=dict(
+            l=0,
+            r=0,
+            t=5,
+            b=8
+        ),
+        yaxis=dict(
+            range=[df[metric].min() - 2, df[metric].max() + 2],
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot'
+        ),
+        xaxis=dict(
+            range=[start_date, end_date],
+            showgrid=True,
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot',
+            fixedrange=True
+        ),
+        hovermode='x unified'
+    )
+    
+    # Get oldest timestamp before logging
+    oldest_timestamp = df.index.min()
+    logger.debug(
+        f"Fecha de inicio solicitada: {format_timestamp(start_date)}, "
+        f"Fecha del registro más antiguo: {format_timestamp(oldest_timestamp)}, "
+        f"Cantidad de registros: {len(df)}"
+    )
+    html_chart = pio.to_html(
+                    fig,
+                    include_plotlyjs=True, 
+                    full_html=False,
+                    div_id=div_id,
+                    config={'displayModeBar': False}
+                 )
+    
+    return html_chart, plotted_points
+
+def old_devices_plot_generator(data, start_date, end_date):
     """
     Genera un gráfico con subplots para temperatura y humedad, compartiendo la misma leyenda.
 
@@ -77,7 +240,7 @@ def old_devices_plot_generator(data: List[dict], start_date: datetime, end_date:
     fig.update_xaxes(showgrid=True, gridcolor='lightgrey', gridwidth=0.2)
     fig.update_yaxes(showgrid=True, gridcolor='lightgrey', gridwidth=0.2)
     
-    return to_html(
+    return pio.to_html(
         fig,
         include_plotlyjs=True,
         full_html=False,
@@ -85,26 +248,26 @@ def old_devices_plot_generator(data: List[dict], start_date: datetime, end_date:
     )
 
 
-def get_timedelta_from_timeframe(timeframe: str) -> timedelta:
+def get_timedelta_from_timeframe(timeframe):
     """
     Convierte un timeframe en su timedelta correspondiente.
-    Para ser usado con timeframes válidos ('5s', '5T', '30T', '1h', '4h', '1D').
+    Para ser usado con timeframes válidos ('5S', '1min', '30min', '1H', '4H', '1D').
 
     Retorna:
     - timedelta: Ventana de tiempo correspondiente al timeframe
     """
     time_windows = {
-        '5s': timedelta(minutes=5),
+        '5S': timedelta(minutes=5),
         '1T': timedelta(minutes=15),
         '30T': timedelta(hours=12),
-        '1h': timedelta(hours=24),
-        '4h': timedelta(days=4),
+        '1H': timedelta(hours=24),
+        '4H': timedelta(days=4),
         '1D': timedelta(days=7)
     }
-    return time_windows[timeframe]
+    return time_windows[timeframe.upper()]
 
 
-def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
+def get_start_date(timeframe, end_date=None):
     """
     Calcula la fecha de inicio (usada 'por defecto') basada en el intervalo de tiempo seleccionado.
 
@@ -119,7 +282,7 @@ def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
     return end_date - window
 
 
-def format_timestamp(timestamp: datetime, include_seconds: bool = False) -> str:
+def format_timestamp(timestamp, include_seconds=False):
     """
     Formatea un timestamp para visualización amigable.
     

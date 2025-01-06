@@ -4,9 +4,8 @@
     {% include 'partials/hx-indicator.html' %}
     <!-- Artículo para el gráfico (en construcción) -->
     <article id="chart-content">
-        <div class="chart-container">
-            <!-- Aquí irá el gráfico en el futuro -->
-            <p>Gráfico en construcción...</p>
+        <div class="chart-container" id="chart">
+            {{ chart_html|safe }}
         </div>
     </article>
 
@@ -70,6 +69,7 @@
             <pre class="debug-pre">
 <strong>Período actual</strong>: {{ metadata.start_pretty }} → {{ metadata.end_pretty }}
 <strong>Registros</strong>: {{ metadata.record_count }}
+<strong>Puntos graficados</strong>: {{ plotted_points }}
 <strong>Sensores</strong>: {{ metadata.sensor_ids|join:", " }}
 <strong>Timeframe</strong>: {{ metadata.timeframe }}
 <strong>Ventana</strong>: {{ metadata.window_minutes }} min

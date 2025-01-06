@@ -1,6 +1,5 @@
 # Python built-in
 from datetime import datetime, timedelta, timezone
-from typing import Dict
 from time import perf_counter
 
 # Django y DRF
@@ -45,7 +44,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         self._query_start_time = perf_counter()
         super().initial(request, *args, **kwargs)
 
-    def get_metadata(self, queryset) -> Dict:
+    def get_metadata(self, queryset):
         """Genera metadatos para el queryset actual"""
         timeframe = self.request.query_params.get('timeframe', '5s')
         metric = self.request.query_params.get('metric', 't')
@@ -66,7 +65,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             'query_duration_s': round(perf_counter() - self._query_start_time, 3)  # Expresar en segundos
         }
 
-    def get_queryset(self) -> QuerySet[SensorData]:
+    def get_queryset(self):
         """Método DRF: Define el queryset base con filtros temporales"""
         queryset = SensorData.objects.all().order_by('-timestamp')
         
@@ -115,7 +114,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=False, methods=['get'])
-    def latest(self, request) -> Response:
+    def latest(self, request):
         """
         Obtiene el último valor de cada sensor activo.
         
@@ -150,7 +149,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         return Response(latest_data)
 
     @action(detail=False, methods=['get'])
-    def timeframed(self, request) -> Response:
+    def timeframed(self, request):
         """
         Agrupa datos por intervalos para cada sensor, calculando estadísticas.
         
