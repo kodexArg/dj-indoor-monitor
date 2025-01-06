@@ -1,27 +1,18 @@
 # Python built-in
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
-from time import perf_counter
+from typing import Dict, Any
+import requests
 
 # Django y DRF
 from django.conf import settings
-from django.db.models import QuerySet, Min, Max, Count
-from django.db.models.functions import TruncSecond, TruncMinute, TruncHour, TruncDay
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
+from django.http import JsonResponse
 from django.views.generic import TemplateView
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from loguru import logger
-import pandas as pd
+from django.urls import reverse
 
 # Local
 from .models import SensorData
-from .serializers import SensorDataSerializer
-from .filters import SensorDataFilter
-from .utils import old_devices_plot_generator
-
+from .utils import old_devices_plot_generator, get_start_date
+from .api import SensorDataViewSet
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -36,6 +27,39 @@ class ChartsView(TemplateView):
 
 class OverviewView(TemplateView):
     template_name = "partials/charts/overview.html"
+
+    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        
+        # Obtener parámetros de la solicitud
+        timeframe = self.request.GET.get('timeframe', '30T')
+        metric = self.request.GET.get('metric', 't')
+        
+        # Configurar rango de tiempo y parámetros
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(minutes=5)
+        
+        # Construir URL usando reverse y request actual
+        api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
+        params = {
+            'timestamp__gte': start_date.isoformat(),
+            'timestamp__lte': end_date.isoformat(),
+            'fields': f'timestamp,sensor,{metric}'
+        }
+        
+        # Realizar petición a la API
+        response = requests.get(api_url, params=params)
+        data = response.json()
+        
+        # Actualizar contexto separando metadata y results
+        context.update({
+            'metadata': data.get('metadata', {}),
+            'results': data.get('results', []),
+            'selected_timeframe': timeframe,
+            'metric': metric
+        })
+        
+        return context
 
 class SensorsView(TemplateView):
     template_name = "partials/charts/sensors.html"

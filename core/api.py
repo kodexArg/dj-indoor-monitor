@@ -26,7 +26,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     - seconds: Opcional. Número de segundos para obtener datos.
     - start_date y end_date: Opcional. Rango de fechas para obtener datos.
     - metric: Opcional. Métrica a obtener ('t' temperatura, 'h' humedad).
-    - freq: Frecuencia para agrupar datos ('5s', '5T', '30T', '1H', '4H', '1D').
+    - timeframe: Intervalo de tiempo ('5s', '5T', '30T', '1h', '4h', '1D').
 
     Endpoints:
     - GET /api/sensor-data/ : Lista de registros con metadatos
@@ -37,21 +37,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     filterset_class = SensorDataFilter
     _query_start_time = None
     _query_timestamp = None
-
-    TIMEFRAME_MAPPING = {
-        '5s': ('5S', TruncSecond, 'second'),
-        '5T': ('5min', TruncMinute, 'minute'),
-        '30T': ('30min', TruncMinute, 'minute'),
-        '1H': ('1H', TruncHour, 'hour'),
-        '4H': ('4H', TruncHour, 'hour'),
-        '1D': ('1D', TruncDay, 'day')
-    }
-
-    def _get_timeframe_params(self, freq: str) -> tuple:
-        """Obtiene los parámetros de agrupación para un timeframe dado"""
-        if freq not in self.TIMEFRAME_MAPPING:
-            raise ValueError(f"Frecuencia {freq} no válida. Valores permitidos: {list(self.TIMEFRAME_MAPPING.keys())}")
-        return self.TIMEFRAME_MAPPING[freq]
 
     def initial(self, request, *args, **kwargs):
         """Método DRF: Se ejecuta al inicio de cada solicitud"""
@@ -66,11 +51,16 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             end_date=Max('timestamp'),
             record_count=Count('id')
         )
+        
+        # Obtener timeframe de los parámetros o valor por defecto
+        timeframe = self.request.query_params.get('timeframe', '5s')
+        
         return {
             **metadata,
             'sensor_ids': sorted(list(set(queryset.values_list('sensor', flat=True)))),
             'query_timestamp': self._query_timestamp,
-            'query_delay': round(perf_counter() - self._query_start_time, 3)
+            'query_delay': round(perf_counter() - self._query_start_time, 3),
+            'timeframe': timeframe
         }
 
     def get_queryset(self) -> QuerySet[SensorData]:
@@ -123,7 +113,20 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def latest(self, request) -> Response:
-        """Obtiene el último valor de cada sensor en los últimos 5 minutos"""
+        """
+        Obtiene el último valor de cada sensor activo.
+        
+        Retorna una lista de lecturas recientes (últimos 5 minutos) por sensor:
+        [
+            {
+                "timestamp": "2025-01-06T12:35:50.068720-03:00",
+                "sensor": "vege-d4",
+                "t": 19.4,
+                "h": 62.3
+            },
+            ...
+        ]
+        """
         since = datetime.now(timezone.utc) - timedelta(minutes=5)
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
         
@@ -145,16 +148,33 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def timeframed(self, request) -> Response:
         """
-        Datos agrupados por intervalos con estadísticas.
-        Útil para gráficos de velas (OHLC) y análisis estadístico.
+        Agrupa datos por intervalos para cada sensor, calculando estadísticas.
         
+        Ejemplos de uso:
+        ```python
+        # Datos del último día agrupados por hora
+        GET /api/sensor-data/timeframed/?timeframe=1h
+
+        # Datos entre fechas específicas agrupados cada 30 minutos
+        GET /api/sensor-data/timeframed/?timeframe=30T&start_date=2025-01-06T00:00:00Z&end_date=2025-01-07T00:00:00Z
+
+        # Datos de un sensor específico agrupados cada 5 segundos
+        GET /api/sensor-data/timeframed/?timeframe=5s&sensor=vege-d4
+        ```
+
         Parámetros:
-        - freq: Intervalo de agrupación ('5s', '5T', '30T', '1H', '4H', '1D')
-        - start_date, end_date: Rango de fechas (opcional)
-        - sensor: ID del sensor (opcional)
+        - timeframe (str): Intervalo de agrupación ('5s', '5T', '30T', '1h', '4h', '1D')
+        - start_date (str): Fecha inicial en formato ISO (opcional)
+        - end_date (str): Fecha final en formato ISO (opcional)
+        - sensor (str): ID del sensor para filtrar (opcional)
+
+        Respuesta:
+        {
+            "metadata": {...},
+            "results": [...]
+        }
         """
-        freq = request.query_params.get('freq', '30T')
-        pandas_freq, trunc_func, field = self._get_timeframe_params(freq)
+        freq = request.query_params.get('timeframe', '5s')
         
         queryset = self.filter_queryset(self.get_queryset())
         df = pd.DataFrame(list(queryset.values('timestamp', 'sensor', 't', 'h')))
@@ -170,22 +190,9 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         # Configurar índice y agrupar con funciones adicionales
         df.set_index('timestamp', inplace=True)
-        grouped = df.groupby(['sensor', pd.Grouper(freq=pandas_freq)]).agg({
-            't': [
-                ('mean', 'mean'),
-                ('min', 'min'),
-                ('max', 'max'),
-                ('count', 'count'),
-                ('first', 'first'),
-                ('last', 'last')
-            ],
-            'h': [
-                ('mean', 'mean'),
-                ('min', 'min'),
-                ('max', 'max'),
-                ('first', 'first'),
-                ('last', 'last')
-            ]
+        grouped = df.groupby(['sensor', pd.Grouper(freq=freq)]).agg({
+            't': ['mean', 'min', 'max', 'count', 'first', 'last'],
+            'h': ['mean', 'min', 'max', 'first', 'last']
         }).round(2)
 
         # Formatear resultados

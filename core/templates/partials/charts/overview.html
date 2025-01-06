@@ -1,6 +1,57 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">OVERVIEW</span>
-<div class="chart-container">
-    <h3>Overview</h3>
-    <p class="construction-message">Esta página está en construcción</p>
-</div>
+<section class="overview-section">
+    <!-- Artículo para el gráfico (en construcción) -->
+    <article id="chart-content">
+        <div class="chart-container">
+            <!-- Aquí irá el gráfico en el futuro -->
+            <p>Gráfico en construcción...</p>
+        </div>
+    </article>
+
+    <!-- Artículo para los botones -->
+    <article id="toggle-buttons-container">
+        <div id="toggle-buttons" class="button-group">
+            <div id="toggle-buttons-timeframe">
+                <button class="button {% if selected_timeframe == '1T' %}active{% endif %}">1'</button>
+                <button class="button {% if selected_timeframe == '30T' %}active{% endif %}">30'</button>
+                <button class="button {% if selected_timeframe == '1h' %}active{% endif %}">1h</button>
+                <button class="button {% if selected_timeframe == '4' %}active{% endif %}">4h</button>
+                <button class="button {% if selected_timeframe == '1D' %}active{% endif %}" disabled style="opacity: 0.5; cursor: not-allowed">1d</button>
+            </div>
+            <div class="vertical-separator"></div>
+            <div id="toggle-buttons-metric">
+                <button class="button metric {% if metric == 't' %}active{% endif %}">Temp</button>
+                <button class="button metric {% if metric == 'h' %}active{% endif %}">Hum</button>
+            </div>
+            <div class="vertical-separator"></div>
+            <div id="toggle-buttons-online">
+                <button class="button online-button {% if selected_timeframe == '5s' %}active{% endif %}">online</button>
+            </div>
+        </div>
+    </article>
+
+    <!-- Artículo para debug -->
+    <article id="debug-info">
+        <div class="debug-section">
+            <h4>Metadata</h4>
+            <pre class="debug-pre">
+                <strong>Inicio del período</strong>: {{ metadata.start_date }}
+                <strong>Fin del período</strong>: {{ metadata.end_date }}
+                <strong>Cantidad de registros</strong>: {{ metadata.record_count }}
+                <strong>Sensores activos</strong>: {{ metadata.sensor_ids|join:", " }}
+                <strong>Timestamp consulta</strong>: {{ metadata.query_timestamp }}
+                <strong>Tiempo de ejecución</strong>: {{ metadata.query_delay }} seg
+                <strong>Intervalo</strong>: {{ metadata.timeframe }}</pre>
+        </div>
+
+        <div class="debug-section">
+            <h4>Registros</h4>
+            <pre class="debug-pre">
+                {% for item in results %}
+                    - {{ item.timestamp }} >> '{{ item.sensor }}' t: {{ item.t|floatformat:1 }} C° h: {{ item.h|floatformat:1 }} %
+                {% endfor %}
+            </pre>
+        </div>
+    </article>
+</section>

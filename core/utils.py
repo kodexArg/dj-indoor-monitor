@@ -85,9 +85,28 @@ def old_devices_plot_generator(data: List[dict], start_date: datetime, end_date:
     )
 
 
+def get_timedelta_from_timeframe(timeframe: str) -> timedelta:
+    """
+    Convierte un timeframe en su timedelta correspondiente.
+    Para ser usado con timeframes válidos ('5s', '5T', '30T', '1h', '4h', '1D').
+
+    Retorna:
+    - timedelta: Ventana de tiempo correspondiente al timeframe
+    """
+    time_windows = {
+        '5s': timedelta(minutes=5),
+        '1T': timedelta(minutes=15),
+        '30T': timedelta(hours=12),
+        '1h': timedelta(hours=24),
+        '4h': timedelta(days=4),
+        '1D': timedelta(days=7)
+    }
+    return time_windows[timeframe]
+
+
 def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
     """
-    Obtiene la fecha de inicio basada en el intervalo de tiempo seleccionado.
+    Calcula la fecha de inicio (usada 'por defecto') basada en el intervalo de tiempo seleccionado.
 
     Parámetros:
     - `timeframe`: Intervalo de tiempo seleccionado.
@@ -96,13 +115,5 @@ def get_start_date(timeframe: str, end_date: datetime = None) -> datetime:
     Retorna:
     - datetime: Fecha de inicio calculada.
     """
-    time_windows = {
-        '5s': timedelta(minutes=5),
-        '1min': timedelta(minutes=15),
-        '30min': timedelta(hours=12),
-        '1h': timedelta(hours=24),
-        '4h': timedelta(days=4),
-        '1d': timedelta(days=7)
-    }
-    window = time_windows.get(timeframe.lower(), timedelta(minutes=15))
+    window = get_timedelta_from_timeframe(timeframe)
     return end_date - window
