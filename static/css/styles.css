@@ -65,3 +65,13 @@ body::-webkit-scrollbar-thumb {
 body::-webkit-scrollbar-track {
   background-color: #d4edda; /* Light green background for the scrollbar track */
 }
+
+.chart-container {
+    text-align: center;
+    padding: 2rem;
+}
+
+.construction-message {
+    color: #666;
+    font-style: italic;
+}
