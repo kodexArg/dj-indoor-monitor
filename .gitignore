@@ -3,6 +3,8 @@
 
 ### CUSTOM ###
 core_sensordata.*
+*.dump
+*.csv
 
 ### Django ###
 *.log
