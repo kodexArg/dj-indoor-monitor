@@ -34,7 +34,7 @@ class OverviewView(TemplateView):
         context = super().get_context_data(**kwargs)
         
         # Obtener parámetros de la solicitud
-        timeframe = self.request.GET.get('timeframe', '5s')
+        timeframe = self.request.GET.get('timeframe', '1h')
         metric = self.request.GET.get('metric', 't')
         
         # Calcular fechas antes de la petición API

@@ -118,7 +118,7 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
             xanchor='center',
             x=0.5
         ),
-        margin=dict(l=50, r=50, t=5, b=50),
+        margin=dict(l=20, r=20, t=5, b=20),
         yaxis=dict(
             range=[min(sum([d['y'] for d in sensors.values()], [])) - 2,
                   max(sum([d['y'] for d in sensors.values()], [])) + 2],
@@ -333,10 +333,10 @@ def sensor_plot_generator(data, sensor, start_date, end_date, selected_timeframe
 
     html_chart = pio.to_html(
         fig,
-        include_plotlyjs=True,
+        include_plotlyjs=False,
         full_html=False,
         div_id=div_id,
-        config={'displayModeBar': False}
+        config={'staticPlot': True}
     )
     return html_chart, len(filtered_data)
 
