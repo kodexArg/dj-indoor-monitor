@@ -20,8 +20,77 @@ El proyecto emplea una combinación de tecnologías modernas para asegurar robus
 - **HTMX** para actualizar componentes del frontend dinámicamente sin necesidad de recargar la página.
 - **Loguru** para un registro detallado de eventos y errores, lo que facilita el monitoreo y depuración.
 
-## Interactividad y Actualización
-La interfaz está diseñada para reflejar cambios en los datos automáticamente, proporcionando tablas y gráficos que presentan información en tiempo real basada en la actividad de los sensores.
+## API RESTful
+
+### Endpoints Principales
+
+#### Datos de Sensores
+- `GET /api/sensor-data/`: Obtiene registros de sensores
+- `POST /api/sensor-data/`: Envía nuevos datos de sensores
+- `GET /api/sensor-data/timeframed/`: Obtiene datos agregados por ventana de tiempo
+
+### Timeframed API
+El endpoint `/api/sensor-data/timeframed/` es especialmente útil para obtener datos agregados. Acepta los siguientes parámetros:
+
+- `timeframe`: Ventana de tiempo para agregación
+  - Valores válidos: '5s', '1T', '30T', '1h', '4h', '1D'
+  - Default: '5s' (5 segundos)
+- `window_minutes`: Período total a consultar en minutos
+  - Default: 5 minutos
+- `metric`: Métrica a consultar
+  - 't': temperatura
+  - 'h': humedad
+  - Default: ambas
+
+Ejemplo:
+```
+GET /api/sensor-data/timeframed/?timeframe=30T&window_minutes=120&metric=t
+```
+
+### Filtros Disponibles
+La API soporta varios filtros para consultas específicas:
+
+- `sensor_id`: Filtrar por ID de sensor
+- `timestamp__gte`: Registros desde fecha
+- `timestamp__lte`: Registros hasta fecha
+- `t__gte`: Temperatura mayor o igual
+- `h__gte`: Humedad mayor o igual
+
+Ejemplo con filtros:
+```
+GET /api/sensor-data/?sensor_id=rpi-001&t__gte=25&timestamp__gte=2024-01-01
+```
+
+## Sistema de Visualización
+
+### Gráficos Disponibles
+
+1. **Overview**
+   - Gráfico principal con datos en tiempo real
+   - Soporte para diferentes timeframes
+   - Cambio dinámico entre temperatura y humedad
+
+2. **Sensores**
+   - Vista individual por sensor
+   - Gráficos de 4 horas para los últimos 4 días
+   - Comparativa de temperatura y humedad
+
+3. **VPD (Vapor Pressure Deficit)**
+   - Visualización especializada para VPD
+   - En desarrollo
+
+### Interactividad HTMX
+Los gráficos utilizan HTMX para:
+- Actualizaciones en tiempo real
+- Cambios de timeframe sin recarga
+- Cambios entre métricas
+- Indicadores de carga
+
+### Integración API-Gráficos
+Los gráficos consumen la API timeframed para:
+- Optimizar la cantidad de datos mostrados
+- Mantener la responsividad
+- Permitir diferentes niveles de agregación
 
 ## Configuración Modular y Seguridad
 La configuración del proyecto está centralizada en un archivo `.env`, donde se especifican variables sensibles como la clave secreta de Django (`SECRET_KEY`), las credenciales de la base de datos y las configuraciones de entorno. Esto permite una transición fluida entre entornos de desarrollo y producción.
