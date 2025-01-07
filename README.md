@@ -138,4 +138,23 @@ El proyecto requiere las siguientes variables de entorno en un archivo `.env`:
 - `MAX_DATA_MINUTES`: Ventana de tiempo máxima para consultas de sensores *(opcional, default: 5)
 - `MAX_PLOT_RECORDS`: Número máximo de registros para gráficos *(opcional, default: 1000)
 
+
+## Instalación
+No se explican aquí todos los escenarios sino un caso típico, utilizando el mismo docker provisto; pero el sistema no tiene ninguna particularidad y cualquier instalación (con o sin virtual environment) en la que estén instalados los requirements (`requirements.txt`) servirá. También soporta cualquier base de datos.
+
+Recuerda antes instalar dependencias si las necesitas. Por ejemplo en debian/ubuntu:
+```
+sudo apt update
+sudo apt update
+sudo apt install python3-dev build-essential libpq-dev
+
+```
+
+En un caso típico, este sistema incluye una base de datos postgrsql en docker, y el yaml está disponible en `/docker/docker-compose.yaml` para ejecutar directamente con `docker compose up -d`.
+
+Para inicializar la base de datos de docker, ejecutar `docker exec -it postgres_db psql -U kodex_user -d dj_db` (por supuesto que puedes cambiar el usuario en .env). Finalmente crea la base de datos con `CREATE DATABASE dj_db;`
+
+Lulego inicializa la DDBB con `python manage.py makemigrations && python manage.py migrate`
+
+
 Para comenzar, copia el archivo `.env.example` a `.env` y ajusta los valores según tu entorno.
