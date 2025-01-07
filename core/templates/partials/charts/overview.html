@@ -5,9 +5,14 @@
     hx-on::before-request="startTiming()"
     hx-on::after-settle="endTiming()">
     {% include 'partials/hx-indicator.html' %}
-    <!-- Artículo para el gráfico (en construcción) -->
+    <!-- Artículo para el gráfico -->
     <article id="chart-content">
+        <h3>Gráfico interactivo</h3>
         <div class="chart-container" id="chart">
+            <div class="chart-placeholder htmx-indicator">
+                <div class="placeholder-text">Cargando datos...</div>
+                <div class="placeholder-animation"></div>
+            </div>
             {{ chart_html|safe }}
         </div>
     </article>
@@ -107,6 +112,5 @@ function endTiming() {
     }
 }
 
-// Iniciar medición al cargar la página
 document.addEventListener('DOMContentLoaded', startTiming);
 </script>

@@ -8,7 +8,7 @@ from django.urls import reverse
 
 # Local
 from .models import SensorData
-from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator
+from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -70,6 +70,41 @@ class OverviewView(TemplateView):
 
 class SensorsView(TemplateView):
     template_name = "partials/charts/sensors.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        timeframe = '4H'
+        end_date = datetime.now(timezone.utc)
+        start_date = get_start_date(timeframe, end_date)
+        
+        api_url = self.request.build_absolute_uri(reverse('sensor-data-timeframed'))
+        params = {
+            'timeframe': timeframe,
+            'start_date': start_date.isoformat()
+        }
+        response = requests.get(api_url, params=params)
+        data = response.json()
+
+        context.update({
+            'metadata': data.get('metadata', {}),
+            'results': data.get('results', [])
+        })
+
+        sensor_ids = context['metadata'].get('sensor_ids', [])
+        charts = {}
+        for sensor in sensor_ids:
+            chart_html, _ = sensor_plot_generator(
+                context['results'], 
+                sensor, 
+                start_date, 
+                end_date, 
+                timeframe, 
+                div_id=f"chart_{sensor}"
+            )
+            charts[sensor] = chart_html
+
+        context['charts'] = charts
+        return context
 
 class VPDView(TemplateView):
     template_name = "partials/charts/vpd.html"

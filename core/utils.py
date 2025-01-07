@@ -118,7 +118,7 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
             xanchor='center',
             x=0.5
         ),
-        margin=dict(l=0, r=0, t=5, b=8),
+        margin=dict(l=50, r=50, t=5, b=50),
         yaxis=dict(
             range=[min(sum([d['y'] for d in sensors.values()], [])) - 2,
                   max(sum([d['y'] for d in sensors.values()], [])) + 2],
@@ -231,6 +231,114 @@ def old_devices_plot_generator(data, start_date, end_date):
         full_html=False,
         config={'staticPlot': True}
     )
+
+
+def sensor_plot_generator(data, sensor, start_date, end_date, selected_timeframe, div_id='chart'):
+    filtered_data = [item for item in data if item['sensor'] == sensor]
+    if not filtered_data:
+        return f'<div id="{div_id}">No hay datos para {sensor}</div>', 0
+
+    local_tz = pytz.timezone(settings.TIME_ZONE)
+    start_date = start_date.astimezone(local_tz)
+    end_date = end_date.astimezone(local_tz)
+
+    fig = go.Figure()
+    x_vals = []
+    temp_vals = []
+    hum_vals = []
+    for item in filtered_data:
+        ts = pd.to_datetime(item['timestamp']).tz_convert(local_tz)
+        x_vals.append(ts)
+        temp_vals.append(item['temperature']['mean'])
+        hum_vals.append(item['humidity']['mean'])
+
+    mode = 'lines' if selected_timeframe.lower() != '5s' else 'lines+markers'
+    
+    # Humedad en eje Y primario (izquierda)
+    fig.add_trace(
+        go.Scatter(
+            x=x_vals,
+            y=hum_vals,
+            mode=mode,
+            name='Humedad',
+            line_shape='spline',
+            line=dict(color='#1f77b4'),  # Azul
+            yaxis='y'
+        )
+    )
+    
+    # Temperatura en eje Y secundario (derecha)
+    fig.add_trace(
+        go.Scatter(
+            x=x_vals,
+            y=temp_vals,
+            mode=mode,
+            name='Temperatura',
+            line_shape='spline',
+            line=dict(color='#dc3545'),  # Rojo
+            yaxis='y2'
+        )
+    )
+
+    fig.update_layout(
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        showlegend=False,  # Cambiado de True a False
+        title=dict(
+            text=f'Sensor {sensor}',
+            y=0.95,
+            x=0.5,
+            xanchor='center',
+            yanchor='top',
+            font=dict(size=14)
+        ),
+        margin=dict(l=50, r=50, t=30, b=50),
+        xaxis=dict(
+            range=[start_date, end_date],
+            fixedrange=True,
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot'
+        ),
+        yaxis=dict(
+            title=dict(
+                text="Humedad en %",
+                standoff=0,
+                font=dict(size=10)
+            ),
+            range=[0, 100],
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot',
+            titlefont=dict(color="#1f77b4"),  # Azul
+            tickfont=dict(color="#1f77b4")    # Azul
+        ),
+        yaxis2=dict(
+            title=dict(
+                text="Temperatura en °C",
+                standoff=0,
+                font=dict(size=10)
+            ),
+            range=[0, 100],
+            gridcolor='lightgrey',
+            gridwidth=0.2,
+            griddash='dot',
+            overlaying='y',
+            side='right',
+            titlefont=dict(color="#dc3545"),  # Rojo
+            tickfont=dict(color="#dc3545")    # Rojo
+        ),
+        hovermode='x unified'
+    )
+
+    html_chart = pio.to_html(
+        fig,
+        include_plotlyjs=True,
+        full_html=False,
+        div_id=div_id,
+        config={'displayModeBar': False}
+    )
+    return html_chart, len(filtered_data)
 
 
 def get_timedelta_from_timeframe(timeframe):
