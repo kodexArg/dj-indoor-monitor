@@ -46,11 +46,17 @@ logger.configure(
 
 def overview_plot_generator(data, metric, start_date, end_date, selected_timeframe, div_id='chart'):
     """
-    Genera HTML con gráfico estático Plotly.
+    Genera HTML con gráfico estático Plotly usando datos pre-agrupados.
 
     Parámetros:
-    - `data`: Lista de diccionarios con los datos del sensor.
-    - `metric`: Métrica a graficar (ej: 't' para temperatura).
+    - `data`: Lista de diccionarios con la estructura timeframed:
+        {
+            'timestamp': '2024-01-01T00:00:00Z',
+            'sensor': 'sensor-id',
+            'temperature': {'mean': 20.5, ...},
+            'humidity': {'mean': 65.2, ...}
+        }
+    - `metric`: Métrica a graficar ('t' para temperatura, 'h' para humedad).
     - `start_date`: Fecha de inicio del rango de datos.
     - `end_date`: Fecha de fin del rango de datos.
     - `selected_timeframe`: Intervalo de tiempo seleccionado.
@@ -62,65 +68,49 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
     if not data:
         return f'<div id="{div_id}">No hay datos para mostrar</div>', 0
     
-    plotted_points = 0  # Contador de puntos graficados
-    
-    # Crear DataFrame y convertir timestamps
-    df = pd.DataFrame(data)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-    # Convertir a timezone local después de asegurar que es datetime
+    # Convertir a timezone local
     local_tz = pytz.timezone(settings.TIME_ZONE)
     start_date = start_date.astimezone(local_tz)
     end_date = end_date.astimezone(local_tz)
-    df['timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
 
-    # Para 5s y 1min no agrupamos los datos
-    if selected_timeframe.upper() in ['5S', '1MIN']:
-        df = df.set_index('timestamp')
-        fig = go.Figure()
-        for sensor in df.groupby('sensor').groups.keys():
-            sensor_data = df[df['sensor'] == sensor]
-            plotted_points += len(sensor_data)
-            if selected_timeframe.lower() == '5s':
-                mode = 'lines+markers'
-                marker = dict(size=6, symbol='circle')
-            else:
-                mode = 'lines'
-                marker = dict()
-                
-            fig.add_trace(go.Scatter(
-                x=sensor_data.index,
-                y=sensor_data[metric],
-                mode=mode,
-                line_shape='spline',
-                name=sensor,
-                marker=marker
-            ))
-    else:
-        df = df.set_index('timestamp')
-        resample_freq = TIMEFRAME_MAP.get(selected_timeframe.upper(), '30min')
-        grouped_df = df.groupby('sensor').resample(resample_freq).agg({
-            metric: 'mean'
-        }).dropna()
+    # Inicializar figura
+    fig = go.Figure()
+    plotted_points = 0
 
-        fig = go.Figure()
+    # Agrupar datos por sensor
+    sensors = {}
+    for item in data:
+        sensor = item['sensor']
+        if sensor not in sensors:
+            sensors[sensor] = {'x': [], 'y': []}
         
-        for sensor in grouped_df.index.get_level_values('sensor').unique():
-            sensor_data = grouped_df.loc[sensor]
-            plotted_points += len(sensor_data)
-            
-            fig.add_trace(go.Scatter(
-                x=sensor_data.index,
-                y=sensor_data[metric],
-                mode='lines',
-                line_shape='spline',
-                name=sensor
-            ))
+        # Convertir timestamp a zona horaria local
+        timestamp = pd.to_datetime(item['timestamp']).tz_convert(local_tz)
+        sensors[sensor]['x'].append(timestamp)
+        
+        # Obtener el valor según la métrica
+        value = item['temperature']['mean'] if metric == 't' else item['humidity']['mean']
+        sensors[sensor]['y'].append(value)
+        plotted_points += 1
+
+    # Crear trazas para cada sensor
+    for sensor, sensor_data in sensors.items():
+        mode = 'lines+markers' if selected_timeframe.lower() == '5s' else 'lines'
+        marker = dict(size=6, symbol='circle') if selected_timeframe.lower() == '5s' else dict()
+        
+        fig.add_trace(go.Scatter(
+            x=sensor_data['x'],
+            y=sensor_data['y'],
+            mode=mode,
+            name=sensor,
+            line_shape='spline',
+            marker=marker
+        ))
 
     fig.update_layout(
         paper_bgcolor='white',
         plot_bgcolor='white',
-        showlegend=True, 
+        showlegend=True,
         legend=dict(
             orientation='h',
             yanchor='bottom',
@@ -128,14 +118,10 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
             xanchor='center',
             x=0.5
         ),
-        margin=dict(
-            l=0,
-            r=0,
-            t=5,
-            b=8
-        ),
+        margin=dict(l=0, r=0, t=5, b=8),
         yaxis=dict(
-            range=[df[metric].min() - 2, df[metric].max() + 2],
+            range=[min(sum([d['y'] for d in sensors.values()], [])) - 2,
+                  max(sum([d['y'] for d in sensors.values()], [])) + 2],
             gridcolor='lightgrey',
             gridwidth=0.2,
             griddash='dot'
@@ -150,22 +136,24 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
         ),
         hovermode='x unified'
     )
-    
-    # Get oldest timestamp before logging
-    oldest_timestamp = df.index.min()
-    logger.debug(
-        f"Fecha de inicio solicitada: {format_timestamp(start_date)}, "
-        f"Fecha del registro más antiguo: {format_timestamp(oldest_timestamp)}, "
-        f"Cantidad de registros: {len(df)}"
-    )
+
+    # Logging
+    if sensors:
+        oldest_timestamp = min(min(s['x']) for s in sensors.values())
+        logger.debug(
+            f"Fecha de inicio solicitada: {format_timestamp(start_date)}, "
+            f"Fecha del registro más antiguo: {format_timestamp(oldest_timestamp)}, "
+            f"Cantidad de registros: {plotted_points}"
+        )
+
     html_chart = pio.to_html(
-                    fig,
-                    include_plotlyjs=True, 
-                    full_html=False,
-                    div_id=div_id,
-                    config={'displayModeBar': False}
-                 )
-    
+        fig,
+        include_plotlyjs=True,
+        full_html=False,
+        div_id=div_id,
+        config={'displayModeBar': False}
+    )
+
     return html_chart, plotted_points
 
 def old_devices_plot_generator(data, start_date, end_date):

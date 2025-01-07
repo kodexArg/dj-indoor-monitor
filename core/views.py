@@ -36,18 +36,18 @@ class OverviewView(TemplateView):
         start_date = get_start_date(timeframe, end_date)
 
         # Construir URL usando reverse y request actual
-        api_url = self.request.build_absolute_uri(reverse('sensor-data-list'))
+        api_url = self.request.build_absolute_uri(reverse('sensor-data-timeframed'))
         params = {
             'timeframe': timeframe,
             'metric': metric,
-            'start_date': start_date.isoformat()  # Añadir start_date a los parámetros
+            'start_date': start_date.isoformat()
         }
         
         # Realizar petición a la API
         response = requests.get(api_url, params=params)
         data = response.json()
         
-        # Actualizar contexto con la nueva estructura
+        # Actualizar contexto
         context.update({
             'metadata': data.get('metadata', {}),
             'results': data.get('results', [])
@@ -65,7 +65,6 @@ class OverviewView(TemplateView):
             'chart_html': chart_html,
             'plotted_points': plotted_points
         })
-
         
         return context
 
