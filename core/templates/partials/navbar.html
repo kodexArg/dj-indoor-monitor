@@ -1,31 +1,36 @@
 {% load static %}
 <div class="navbar">
   {% if request.path == '/charts/' %}
+    {% include 'partials/hx-indicator.html' %}
     <button class="nav-button" 
             hx-get="{% url 'overview' %}" 
             hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML">
+            hx-swap-oob="true #subtitle:innerHTML"
+            hx-indicator="#loading-spinner">
       <img src="{% static 'icons/chart-line.svg' %}" alt="Overview">
       <small>OVERVIEW</small>
     </button>
     <button class="nav-button" 
             hx-get="{% url 'sensors' %}" 
             hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML">
+            hx-swap-oob="true #subtitle:innerHTML"
+            hx-indicator="#loading-spinner">
       <img src="{% static 'icons/chart-line-2.svg' %}" alt="Sensors">
       <small>SENSORS</small>
     </button>
     <button class="nav-button" 
             hx-get="{% url 'gauges' %}" 
             hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML">
+            hx-swap-oob="true #subtitle:innerHTML"
+            hx-indicator="#loading-spinner">
       <img src="{% static 'icons/gauge.svg' %}" alt="Gauges">
       <small>GAUGES</small>
     </button>
     <button class="nav-button" 
             hx-get="{% url 'vpd' %}" 
             hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML">
+            hx-swap-oob="true #subtitle:innerHTML"
+            hx-indicator="#loading-spinner">
       <img src="{% static 'icons/layout-dashboard.svg' %}" alt="VPD">
       <small>VPD</small>
     </button>
