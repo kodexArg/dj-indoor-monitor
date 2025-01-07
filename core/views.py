@@ -3,15 +3,12 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 # Django y DRF
-from django.conf import settings
-from django.http import JsonResponse
 from django.views.generic import TemplateView
 from django.urls import reverse
 
 # Local
 from .models import SensorData
 from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator
-from .api import SensorDataViewSet
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -31,7 +28,7 @@ class OverviewView(TemplateView):
         context = super().get_context_data(**kwargs)
         
         # Obtener parámetros de la solicitud
-        timeframe = self.request.GET.get('timeframe', '30T')
+        timeframe = self.request.GET.get('timeframe', '5s')
         metric = self.request.GET.get('metric', 't')
         
         # Calcular fechas antes de la petición API

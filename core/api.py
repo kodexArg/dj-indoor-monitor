@@ -23,7 +23,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     Incluye metadatos sobre el rango de fechas, número de registros y demora del backend.
 
     Parámetros:
-    - seconds: Opcional. Número de segundos para obtener datos.
     - start_date y end_date: Opcional. Rango de fechas para obtener datos.
     - metric: Opcional. Métrica a obtener ('t' temperatura, 'h' humedad).
     - timeframe: Intervalo de tiempo ('5s', '5T', '30T', '1h', '4h', '1D').
@@ -35,6 +34,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
+    pagination_class = None  # Deshabilitar paginación
     _query_start_time = None
     _query_timestamp = None
 
@@ -69,45 +69,41 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         """Método DRF: Define el queryset base con filtros temporales"""
         queryset = SensorData.objects.all().order_by('-timestamp')
         
-        max_time_threshold = datetime.now(timezone.utc) - timedelta(minutes=settings.MAX_DATA_MINUTES)
-        seconds = self.request.query_params.get('seconds', None)
-        start_date = self.request.query_params.get('start_date', None)
+        # Obtener parámetros de fecha
         end_date = self.request.query_params.get('end_date', None)
-        
-        if seconds:
-            seconds = int(seconds)
-            since = max(max_time_threshold, datetime.now(timezone.utc) - timedelta(seconds=seconds))
-            queryset = queryset.filter(timestamp__gte=since)
-        elif start_date:
-            start_date = datetime.fromisoformat(start_date)
-            if start_date.tzinfo is None:
-                start_date = start_date.replace(tzinfo=timezone.utc)
-            queryset = queryset.filter(timestamp__gte=start_date)
-        elif end_date:
+        start_date = self.request.query_params.get('start_date', None)
+        timeframe = self.request.query_params.get('timeframe', '5s')
+
+        # Establecer end_date
+        if end_date:
             end_date = datetime.fromisoformat(end_date)
             if end_date.tzinfo is None:
                 end_date = end_date.replace(tzinfo=timezone.utc)
-            queryset = queryset.filter(timestamp__lte=end_date)
-        
-        action = getattr(self, 'action', None)
-        if not any([seconds, start_date, end_date]) and action not in ['timeframed', 'latest']:
-            queryset = queryset[:settings.DEFAULT_QUERY_LIMIT]
+        else:
+            end_date = datetime.now(timezone.utc)
+
+        # Establecer start_date
+        if start_date:
+            start_date = datetime.fromisoformat(start_date)
+            if start_date.tzinfo is None:
+                start_date = start_date.replace(tzinfo=timezone.utc)
+        else:
+            start_date = get_start_date(timeframe, end_date)
+
+        # Aplicar filtros de fecha
+        queryset = queryset.filter(
+            timestamp__gte=start_date,
+            timestamp__lte=end_date
+        )
         
         return queryset
 
     def list(self, request, *args, **kwargs):
         """Método DRF: Lista registros incluyendo metadatos"""
         queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        metadata = self.get_metadata(queryset)
-
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-            response.data['metadata'] = metadata
-            return response
-
         serializer = self.get_serializer(queryset, many=True)
+        metadata = self.get_metadata(queryset)
+        
         return Response({
             'metadata': metadata,
             'results': serializer.data
@@ -226,7 +222,4 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                 **self.get_metadata(queryset),
                 'timeframe': freq,
                 'groups': len(results)
-            },
-            'results': results
-        })
-
+            },            'results': results        })

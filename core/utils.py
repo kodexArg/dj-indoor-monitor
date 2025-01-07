@@ -13,14 +13,13 @@ import plotly.graph_objs as go
 import plotly.io as pio
 import plotly.subplots as make_subplots
 
-# Timeframe mapping
 TIMEFRAME_MAP = {
     # API/UI format : Pandas format
     '5S': '5S',
     '1T': '1min',
     '30T': '30min',
-    '1H': '1h',  # Changed from 1H to 1h
-    '4H': '4h',  # Changed from 4H to 4h
+    '1H': '1h', 
+    '4H': '4h',
     '1D': '1D'
 }
 
@@ -68,8 +67,6 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
     # Crear DataFrame y convertir timestamps
     df = pd.DataFrame(data)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-    
     
     # Convertir a timezone local después de asegurar que es datetime
     local_tz = pytz.timezone(settings.TIME_ZONE)
