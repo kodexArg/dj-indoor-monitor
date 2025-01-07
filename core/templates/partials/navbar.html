@@ -30,15 +30,15 @@
       <small>VPD</small>
     </button>
     <div class="separator"></div>
-    <button class="nav-button" onclick="window.location.href='{% url 'charts' %}'">
-      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Monitor">
-      <small>MONITOR</small>
-    </button>
     <button class="nav-button" onclick="window.location.href='/'">
       <img src="{% static 'icons/home.svg' %}" alt="Home">
       <small>HOME</small>
     </button>
   {% else %}
+    <button class="nav-button" onclick="window.location.href='{% url 'charts' %}'">
+      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Monitor">
+      <small>MONITOR</small>
+    </button>
     <button class="nav-button" onclick="window.location.href='/'">
       <img src="{% static 'icons/home.svg' %}" alt="Home">
       <small>HOME</small>

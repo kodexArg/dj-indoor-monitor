@@ -10,7 +10,6 @@ class SensorDataFilter(filters.FilterSet):
     Parámetros de filtro:
     - `timestamp_after` (datetime): Filtra datos después de esta marca de tiempo
     - `timestamp_before` (datetime): Filtra datos antes de esta marca de tiempo
-    - `limit` (int): Número máximo de registros (default: 200)
     - `sensor` (str): Identificador del sensor
     - `t` (float): Temperatura
     - `h` (float): Humedad
@@ -24,7 +23,6 @@ class SensorDataFilter(filters.FilterSet):
     """
     timestamp_after = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='gte')
     timestamp_before = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='lte')
-    limit = filters.NumberFilter(method='filter_limit')
     
     class Meta:
         model = SensorData
@@ -36,18 +34,4 @@ class SensorDataFilter(filters.FilterSet):
 
     def filter_queryset(self, queryset: QuerySet[SensorData]) -> QuerySet[SensorData]:
         """Filtra el conjunto de datos basado en los parámetros de consulta."""
-        queryset = super().filter_queryset(queryset)
-        if not any([
-            self.data.get('timestamp_after'),
-            self.data.get('timestamp_before'),
-            self.data.get('limit')
-        ]):
-            return queryset[:200]  # Límite por defecto
-        return queryset
-
-    def filter_limit(self, queryset: QuerySet[SensorData], name: str, value: Optional[int]) -> QuerySet[SensorData]:
-        """Aplica un límite al número de registros devueltos."""
-        try:
-            return queryset[:int(value)]
-        except (ValueError, TypeError):
-            return queryset[:2000]
+        return super().filter_queryset(queryset)

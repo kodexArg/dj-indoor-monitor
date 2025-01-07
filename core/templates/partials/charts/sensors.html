@@ -1,6 +1,10 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">SENSORES</span>
-<div class="chart-container">
-    <h3>Sensors</h3>
-    <p class="construction-message">Esta página está en construcción</p>
+<div class="chart-content">
+    <h3>Sensores, Temperatura y Humedad, Timeframe: 4 horas (últimos 4 días) </h3>
+    {% for sensor, chart_html in charts.items %}
+    <div class="chart-container" id="sensor-{{ sensor }}" style="margin-bottom: 2rem;">
+        {{ chart_html|safe }}
+    </div>
+    {% endfor %}
 </div>
