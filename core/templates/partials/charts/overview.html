@@ -1,6 +1,9 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">OVERVIEW</span>
-<section id="overview-section" class="overview-section">
+<section id="overview-section" class="overview-section"
+    hx-trigger="load"
+    hx-on::before-request="startTiming()"
+    hx-on::after-settle="endTiming()">
     {% include 'partials/hx-indicator.html' %}
     <!-- Artículo para el gráfico (en construcción) -->
     <article id="chart-content">
@@ -16,32 +19,38 @@
                 <div id="toggle-buttons-online">
                     <button class="button online-button {% if metadata.timeframe == '5s' %}active{% endif %}"
                     hx-get="{% url 'overview' %}?timeframe=5s"
+                    hx-on::before-request="startTiming()"
                     hx-target="#overview-section"
                     hx-swap="outerHTML">online</button>
                 </div>
                 <div class="vertical-separator"></div>
                 <button class="button {% if metadata.timeframe == '1T' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?timeframe=1T"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">1'</button>
                 <button class="button {% if metadata.timeframe == '30T' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?timeframe=30T"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">30'</button>
                 <button class="button {% if metadata.timeframe == '1h' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?timeframe=1h"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">1h</button>
                 <button class="button {% if metadata.timeframe == '4h' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?timeframe=4h"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">4h</button>
                 <button class="button {% if metadata.timeframe == '1D' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?timeframe=1D"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">1d</button>
@@ -50,11 +59,13 @@
             <div id="toggle-buttons-metric">
                 <button class="button metric {% if metadata.metric == 't' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?metric=t"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">Temp</button>
                 <button class="button metric {% if metadata.metric == 'h' %}active{% endif %}"
                         hx-get="{% url 'overview' %}?metric=h"
+                        hx-on::before-request="startTiming()"
                         hx-target="#overview-section"
                         hx-swap="outerHTML"
                         hx-indicator="#loading-spinner">Hum</button>
@@ -74,8 +85,28 @@
 <strong>Timeframe</strong>: {{ metadata.timeframe }}
 <strong>Ventana</strong>: {{ metadata.window_minutes }} min
 <strong>Métrica</strong>: {{ metadata.metric }}
-<strong>Duración de consulta</strong>: {{ metadata.query_duration_s }} s</pre>
+<strong>Uso Servidor</strong>: {{ metadata.query_duration_s }} s
+<strong>Tiempo Total</strong>: <span id="total-time"></span></pre>
         </div>
 
     </article>
 </section>
+
+<script>
+let requestStartTime;
+
+function startTiming() {
+    requestStartTime = performance.now();
+}
+
+function endTiming() {
+    if (requestStartTime) {
+        const endTime = performance.now();
+        const totalTime = ((endTime - requestStartTime) / 1000).toFixed(3);
+        document.getElementById('total-time').textContent = totalTime + ' s';
+    }
+}
+
+// Iniciar medición al cargar la página
+document.addEventListener('DOMContentLoaded', startTiming);
+</script>

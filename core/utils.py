@@ -223,7 +223,7 @@ def old_devices_plot_generator(data, start_date, end_date):
     fig.update_layout(
         paper_bgcolor='white',
         plot_bgcolor='white',
-        height=600,
+        height=400,
         legend=dict(
             orientation='h',
             yanchor='top',
