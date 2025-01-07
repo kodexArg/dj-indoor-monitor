@@ -337,7 +337,7 @@ h3 {
     }
 }
 
-@media screen and (max-width: 480px) {
+@media screen and (max-width: 768px) {  /* Cambiado de 480px a 768px */
     .subtitle-pre,
     .header-center {
         display: none;
@@ -346,7 +346,7 @@ h3 {
     .header-container {
         flex-direction: column;
         align-items: flex-start;
-        gap: 0.2rem;  /* Reducido de 0.5rem a 0.2rem */
+        gap: 0.2rem;
     }
 
     .header-right {
