@@ -5,22 +5,28 @@ import requests
 # Django y DRF
 from django.views.generic import TemplateView
 from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 # Local
 from .models import SensorData
 from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator
 
+@method_decorator(cache_page(60), name='dispatch')  # Cache for 1 minute
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
     template_name = 'home.html'
 
+@method_decorator(cache_page(60), name='dispatch')
 class DevelopmentView(TemplateView):
     """Vista de desarrollo para pruebas"""
     template_name = 'development.html'
 
+@method_decorator(cache_page(60), name='dispatch')
 class ChartsView(TemplateView):
     template_name = "charts.html"
 
+@method_decorator(cache_page(30), name='dispatch')  # Cache for 30 seconds
 class OverviewView(TemplateView):
     template_name = "partials/charts/overview.html"
 
@@ -68,6 +74,7 @@ class OverviewView(TemplateView):
         
         return context
 
+@method_decorator(cache_page(60), name='dispatch')
 class SensorsView(TemplateView):
     template_name = "partials/charts/sensors.html"
 
@@ -106,12 +113,15 @@ class SensorsView(TemplateView):
         context['charts'] = charts
         return context
 
+@method_decorator(cache_page(60), name='dispatch')
 class VPDView(TemplateView):
     template_name = "partials/charts/vpd.html"
 
+@method_decorator(cache_page(30), name='dispatch')
 class GaugesView(TemplateView):
     template_name = "partials/charts/gauges.html"
 
+@method_decorator(cache_page(300), name='dispatch')  # Cache for 5 minutes
 class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'
     

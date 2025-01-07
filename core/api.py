@@ -11,6 +11,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 import pandas as pd
 
+# Django caching
+from django.core.cache import cache
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+
 # Local
 from .models import SensorData
 from .serializers import SensorDataSerializer
@@ -98,6 +103,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         return queryset
 
+    @method_decorator(cache_page(30))  # Cache for 30 seconds
     def list(self, request, *args, **kwargs):
         """Método DRF: Lista registros incluyendo metadatos"""
         queryset = self.filter_queryset(self.get_queryset())
@@ -109,6 +115,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             'results': serializer.data
         })
 
+    @method_decorator(cache_page(15))  # Cache for 15 seconds
     @action(detail=False, methods=['get'])
     def latest(self, request):
         """
@@ -144,6 +151,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
         return Response(latest_data)
 
+    @method_decorator(cache_page(30))  # Cache for 30 seconds
     @action(detail=False, methods=['get'])
     def timeframed(self, request):
         """
@@ -173,6 +181,12 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             "results": [...]
         }
         """
+        cache_key = f"timeframed_{request.query_params.get('timeframe', '5s')}_{request.query_params.get('start_date', '')}_{request.query_params.get('end_date', '')}_{request.query_params.get('sensor', '')}"
+        cached_data = cache.get(cache_key)
+        
+        if cached_data:
+            return Response(cached_data)
+
         freq = request.query_params.get('timeframe', '5s')
         
         queryset = self.filter_queryset(self.get_queryset())
@@ -217,9 +231,14 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                 }
             })
 
-        return Response({
+        response_data = {
             'metadata': {
                 **self.get_metadata(queryset),
                 'timeframe': freq,
                 'groups': len(results)
-            },            'results': results        })
+            },
+            'results': results
+        }
+        
+        cache.set(cache_key, response_data, timeout=30)  # Cache for 30 seconds
+        return Response(response_data)
