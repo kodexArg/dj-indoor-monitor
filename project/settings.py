@@ -12,9 +12,8 @@ DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
     'django.contrib.contenttypes',
+    'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
@@ -96,12 +95,10 @@ TIME_ZONE = os.getenv('DJANGO_TIMEZONE')
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-STATIC_ROOT = os.getenv('DJANGO_STATIC_ROOT')
-STATICFILES_DIRS = [
-    BASE_DIR / 'core' / 'static',
-]
-MEDIA_URL = 'media/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'core' / 'static'
+STATICFILES_DIRS = []
+MEDIA_URL = 'media'
 MEDIA_ROOT = os.getenv('DJANGO_MEDIA_ROOT')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
