@@ -14,11 +14,17 @@ Estos datos se utilizan para gráficos interactivos y tablas dinámicas.
 
 ## Tecnologías Utilizadas
 El proyecto emplea una combinación de tecnologías modernas para asegurar robustez, escalabilidad e interactividad:
-- **Django** como framework principal para el backend y manejo de vistas.
-- **Django REST Framework (DRF)** para exponer una API que permite consultas y envío de datos desde sensores.
-- **Plotly** para la visualización de datos en gráficos interactivos.
-- **HTMX** para actualizar componentes del frontend dinámicamente sin necesidad de recargar la página.
-- **Loguru** para un registro detallado de eventos y errores, lo que facilita el monitoreo y depuración.
+- **Django 5.1+** como framework principal para el backend y manejo de vistas
+- **Django REST Framework (DRF) 3.15+** para la API RESTful
+- **Plotly 5.24+** para visualización de datos en gráficos interactivos
+- **HTMX 1.21+** para actualizaciones dinámicas del frontend
+- **Pandas 2.2+** para procesamiento y análisis de datos
+- **Loguru** para logging avanzado
+- **Pytest** con cobertura de tests
+- **Uvicorn** como servidor ASGI
+- **PostgreSQL** con psycopg2 para la base de datos
+- **Python-dotenv** para manejo de variables de entorno
+- **Gunicorn** como servidor WSGI de producción
 
 ## API RESTful
 
@@ -99,62 +105,86 @@ La configuración del proyecto está centralizada en un archivo `.env`, donde se
 El sistema permite que los dispositivos Raspberry Pi envíen datos mediante una API RESTful implementada con DRF. Los datos enviados son validados y almacenados en la base de datos para su análisis posterior.
 
 ## Almacenamiento de Datos
-Por defecto, se utiliza SQLite para almacenamiento local, pero el proyecto está preparado para PostgreSQL según las configuraciones definidas en `.env`. Esto asegura que el sistema pueda escalar con facilidad en entornos productivos.
+El proyecto utiliza PostgreSQL con TimescaleDB como motor de base de datos, aprovechando sus capacidades para series temporales. La configuración se realiza a través del contenedor Docker proporcionado.
 
-## Visualización de Datos
-Las visualizaciones incluyen gráficos dinámicos de temperatura y tablas actualizadas automáticamente. Estas herramientas permiten a los usuarios identificar patrones y tendencias en los datos recopilados.
+## Despliegue
 
-## Futuro y Escalabilidad
-El proyecto está diseñado con una arquitectura modular y un enfoque en la extensibilidad, facilitando la incorporación de nuevos tipos de sensores, integraciones con sistemas externos o ajustes en las visualizaciones según las necesidades del usuario.
+### Requisitos
+- Docker Engine 24.0+
+- Docker Compose v2.0+
+- ~2GB RAM mínimo recomendado
+- 1GB espacio en disco mínimo
+
+### Estructura Docker
+El sistema se despliega mediante tres contenedores:
+1. **webapp**: Aplicación Django con Gunicorn
+2. **db**: TimescaleDB (PostgreSQL 14)
+3. **nginx**: Servidor web y proxy inverso
+
+### Proceso de Despliegue
+1. Clonar el repositorio:
+```bash
+git clone https://github.com/usuario/dj-indoor-monitor.git
+cd dj-indoor-monitor
+```
+
+2. Configurar variables de entorno:
+```bash
+cp .env.example .env
+# Editar .env con los valores apropiados
+```
+
+3. Iniciar servicios:
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```
+
+4. Verificar estado:
+```bash
+docker compose -f docker/docker-compose.yml ps
+```
+
+### Mantenimiento
+- **Logs**: `docker compose -f docker/docker-compose.yml logs -f [servicio]`
+- **Reinicio**: `docker compose -f docker/docker-compose.yml restart [servicio]`
+- **Actualización**: 
+```bash
+docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml pull
+docker compose -f docker/docker-compose.yml up -d
+```
+
+### Backup de Datos
+El volumen `postgres_data` persiste los datos. Para backup:
+```bash
+docker exec db pg_dump -U kodex_user dj_db > backup.sql
+```
 
 ## Variables de Entorno
 El proyecto requiere las siguientes variables de entorno en un archivo `.env`:
 
 ### Configuración Django
-- `DJANGO_SECRET_KEY`: Clave secreta para Django (string alfanumérico largo) *(requerido)
-- `DJANGO_DEBUG`: Estado de depuración (`True` o `False`) *(requerido)
-- `DJANGO_ALLOWED_HOSTS`: Hosts permitidos (e.g., `localhost,example.com`) *(requerido)
-- `DJANGO_TIMEZONE`: Zona horaria (e.g., `America/Santiago`) *(opcional, default: UTC)
-- `DJANGO_STATIC_ROOT`: Ruta para archivos estáticos *(opcional, default: ./static)
-- `DJANGO_MEDIA_ROOT`: Ruta para archivos multimedia *(opcional, default: ./media)
-- `DJANGO_LOG_LEVEL`: Nivel de logging *(opcional, default: INFO)
-- `DJANGO_ALLOWED_CORS`: Habilitar CORS *(opcional, default: false)
-- `DJANGO_DEFAULT_LANGUAGE_CODE`: Código de idioma predeterminado *(opcional, default: en-us)
+- `DJANGO_SECRET_KEY`: Clave secreta para Django *(requerido)*
+- `DJANGO_DEBUG`: Estado de depuración (`True` o `False`) *(requerido)*
+- `DJANGO_ALLOWED_HOSTS`: Hosts permitidos *(requerido)*
+- `DJANGO_TIMEZONE`: Zona horaria (e.g., `America/Argentina/Buenos_Aires`) *(opcional, default: UTC)*
+- `DJANGO_LOG_LEVEL`: Nivel de logging *(opcional, default: INFO)*
+- `DJANGO_ALLOWED_CORS`: Habilitar CORS *(opcional, default: false)*
+- `DJANGO_DEFAULT_LANGUAGE_CODE`: Código de idioma predeterminado (e.g., `es-ar`) *(opcional, default: en-us)*
 
 ### Configuración Base de Datos
-- `DB_ENGINE`: Motor de base de datos *(opcional, default: django.db.backends.sqlite3)
-- `DB_NAME`: Nombre de la base de datos *(requerido)
-- `DB_USER`: Usuario de la base de datos *(requerido si no es SQLite)
-- `DB_PASSWORD`: Contraseña de la base de datos *(requerido si no es SQLite)
-- `DB_HOST`: Host de la base de datos *(requerido si no es SQLite)
-- `DB_PORT`: Puerto de la base de datos *(opcional, default: 5432 para PostgreSQL)
+- `DB_ENGINE`: Motor de base de datos (e.g., `django.db.backends.postgresql`) *(requerido)*
+- `DB_NAME`: Nombre de la base de datos *(requerido)*
+- `DB_USER`: Usuario de la base de datos *(requerido)*
+- `DB_PASSWORD`: Contraseña de la base de datos *(requerido)*
+- `DB_HOST`: Host de la base de datos *(requerido)*
+- `DB_PORT`: Puerto de la base de datos *(requerido)*
+- `DB_LOCAL`: Host local para conexiones locales *(opcional)*
 
-### Configuración DRF y CORS
-- `DRF_DEFAULT_THROTTLE_RATES`: Límites de frecuencia de API *(opcional)
-- `DRF_DEFAULT_PAGE_SIZE`: Tamaño de página predeterminado *(opcional, default: 10)
-- `CORS_ALLOWED_ORIGINS`: Orígenes permitidos para CORS *(requerido si DJANGO_ALLOWED_CORS=true)
+### Configuración DRF
+- `DRF_DEFAULT_THROTTLE_RATES`: Límites de frecuencia de API (e.g., `anon:1000/day`) *(opcional)*
+- `DRF_DEFAULT_PAGE_SIZE`: Tamaño de página predeterminado *(opcional, default: 20)*
 
 ### Configuración del Monitor
-- `MAX_DATA_MINUTES`: Ventana de tiempo máxima para consultas de sensores *(opcional, default: 5)
-- `MAX_PLOT_RECORDS`: Número máximo de registros para gráficos *(opcional, default: 1000)
-
-
-## Instalación
-No se explican aquí todos los escenarios sino un caso típico, utilizando el mismo docker provisto; pero el sistema no tiene ninguna particularidad y cualquier instalación (con o sin virtual environment) en la que estén instalados los requirements (`requirements.txt`) servirá. También soporta cualquier base de datos.
-
-Recuerda antes instalar dependencias si las necesitas. Por ejemplo en debian/ubuntu:
-```
-sudo apt update
-sudo apt update
-sudo apt install python3-dev build-essential libpq-dev
-
-```
-
-En un caso típico, este sistema incluye una base de datos postgrsql en docker, y el yaml está disponible en `/docker/docker-compose.yaml` para ejecutar directamente con `docker compose up -d`.
-
-Para inicializar la base de datos de docker, ejecutar `docker exec -it postgres_db psql -U kodex_user -d dj_db` (por supuesto que puedes cambiar el usuario en .env). Finalmente crea la base de datos con `CREATE DATABASE dj_db;`
-
-Lulego inicializa la DDBB con `python manage.py makemigrations && python manage.py migrate`
-
-
-Para comenzar, copia el archivo `.env.example` a `.env` y ajusta los valores según tu entorno.
+- `MAX_DATA_MINUTES`: Ventana de tiempo máxima para consultas de sensores *(opcional, default: 5)*
+- `MAX_PLOT_RECORDS`: Número máximo de registros para gráficos *(opcional, default: 300)*
