@@ -5,16 +5,19 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-#  PostgreSQL y Python
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/
+COPY . /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Crear directorio static y ejecutar collectstatic
+RUN mkdir -p /app/static && \
+    python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

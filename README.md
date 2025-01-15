@@ -1,5 +1,24 @@
 # dj-indoor-monitor
 
+⚠️ **PROYECTO EN CONSTRUCCIÓN** ⚠️
+
+Este proyecto se encuentra actualmente en desarrollo y **NO ES FUNCIONAL**. 
+
+## Estado Actual y Próximos Pasos
+El próximo objetivo es lograr la funcionalidad básica tanto en entorno de desarrollo como en producción:
+
+### Desarrollo
+```bash
+python manage.py runserver
+```
+
+### Producción
+```bash
+cd docker && docker compose up
+```
+
+Una vez alcanzado este hito, se continuará con la implementación de las funcionalidades descritas a continuación.
+
 ## Propósito del Proyecto
 "dj-indoor-monitor" es un sistema de monitoreo en tiempo real para datos ambientales de temperatura y humedad, recolectados desde dispositivos Raspberry Pi. Su objetivo es proporcionar una interfaz web funcional y dinámica que permita a los usuarios visualizar estos datos de forma clara y accesible.
 
@@ -188,3 +207,6 @@ El proyecto requiere las siguientes variables de entorno en un archivo `.env`:
 ### Configuración del Monitor
 - `MAX_DATA_MINUTES`: Ventana de tiempo máxima para consultas de sensores *(opcional, default: 5)*
 - `MAX_PLOT_RECORDS`: Número máximo de registros para gráficos *(opcional, default: 300)*
+
+
+Firmo en acuerdo con lo escrito por la ai.
