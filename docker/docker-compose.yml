@@ -4,14 +4,40 @@ services:
     container_name: db
     restart: always
     environment:
-      POSTGRES_USER: kodex_user
-      POSTGRES_PASSWORD: kodex_pass_do_not_use_in_production
-      POSTGRES_DB: dj_db
+      POSTGRES_USER: usuario
+      POSTGRES_PASSWORD: contraseña
+      POSTGRES_DB: nombre_db
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: always
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/static
+      - certs:/etc/nginx/certs
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - webapp
+
+  certs:
+    image: certbot/certbot
+    container_name: certs
+    restart: unless-stopped
+    volumes:
+      - certs:/etc/letsencrypt
+      - ./nginx/challenges:/var/www/challenges
+    command: >
+      sh -c "trap exit TERM; while :; do certbot renew && sleep 12h & wait $${!}; done;"
+    depends_on:
+      - nginx
 
   webapp:
     build:
@@ -25,26 +51,11 @@ services:
       - ../.env
     volumes:
       - ../:/app
+      - static_volume:/app/static
     depends_on:
       - db
-      - nginx
-    ports:
-      - "8000:8000"
-    command: >
-      sh -c "python manage.py collectstatic --noinput --clear &&
-             gunicorn project.wsgi:application --bind 0.0.0.0:8000 --workers 3"
-
-  nginx:
-    image: nginx:latest
-    container_name: nginx
-    restart: always
-    volumes:
-      - ../static:/static
-      - ../media:/media
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   
-    ports:
-      - "80:80"
 
 volumes:
   static_volume:
   postgres_data:
+  certs:
