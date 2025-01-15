@@ -4,10 +4,12 @@ services:
     container_name: db
     restart: always
     environment:
-      POSTGRES_USER: usuario
-      POSTGRES_PASSWORD: contraseña
-      POSTGRES_DB: nombre_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_HOST_AUTH_METHOD: trust
+    env_file:
+      - ../.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -27,17 +29,17 @@ services:
     depends_on:
       - webapp
 
-  certs:
-    image: certbot/certbot
-    container_name: certs
-    restart: unless-stopped
-    volumes:
-      - certs:/etc/letsencrypt
-      - ./nginx/challenges:/var/www/challenges
-    command: >
-      sh -c "trap exit TERM; while :; do certbot renew && sleep 12h & wait $${!}; done;"
-    depends_on:
-      - nginx
+  # certs:
+  #   image: certbot/certbot
+  #   container_name: certs
+  #   restart: unless-stopped
+  #   volumes:
+  #     - certs:/etc/letsencrypt
+  #     - ./nginx/challenges:/var/www/challenges
+  #   command: >
+  #     sh -c "trap exit TERM; while :; do certbot renew && sleep 12h & wait $${!}; done;"
+  #   depends_on:
+  #     - nginx
 
   webapp:
     build:
