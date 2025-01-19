@@ -3,21 +3,23 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-WORKDIR /app
-
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app/
+WORKDIR /app
 
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear directorio static y ejecutar collectstatic
-RUN mkdir -p /app/static && \
-    python manage.py collectstatic --noinput
+COPY . /app/
+
+RUN mkdir -p /app/staticfiles \
+    && python manage.py collectstatic --noinput
+
+RUN chmod -R 755 /app/staticfiles
 
 EXPOSE 8000
 

@@ -27,13 +27,6 @@ TIMEFRAME_MAP = {
 logger.configure(
     handlers=[
         {
-            "sink": "logs/overview.log",
-            "format": "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-            "rotation": "1 day",
-            "retention": "10 days",
-            "level": "DEBUG"  # Always show DEBUG for file
-        },
-        {
             "sink": lambda msg: print(msg),
             "format": "<level>{level: <8}</level> | <level>{message}</level>",
             "level": "DEBUG",  # Changed from INFO to DEBUG for console
