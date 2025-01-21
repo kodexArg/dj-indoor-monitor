@@ -14,6 +14,9 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
 # Detect if running with runserver, checking all arguments
 IS_RUNSERVER = 'runserver' in sys.argv
 
+# Internal API settings
+INTERNAL_API_URL = 'http://nginx' if not IS_RUNSERVER else 'http://localhost'
+
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.auth',

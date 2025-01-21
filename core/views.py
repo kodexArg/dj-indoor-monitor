@@ -7,6 +7,7 @@ from django.views.generic import TemplateView
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.conf import settings
 
 # Local
 from .models import SensorData
@@ -41,8 +42,8 @@ class OverviewView(TemplateView):
         end_date = datetime.now(timezone.utc)
         start_date = get_start_date(timeframe, end_date)
 
-        # Construir URL usando reverse y request actual
-        api_url = self.request.build_absolute_uri(reverse('sensor-data-timeframed'))
+        # Construir URL usando INTERNAL_API_URL
+        api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-timeframed')}"
         params = {
             'timeframe': timeframe,
             'metric': metric,
@@ -84,7 +85,7 @@ class SensorsView(TemplateView):
         end_date = datetime.now(timezone.utc)
         start_date = get_start_date(timeframe, end_date)
         
-        api_url = self.request.build_absolute_uri(reverse('sensor-data-timeframed'))
+        api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-timeframed')}"
         params = {
             'timeframe': timeframe,
             'start_date': start_date.isoformat()
@@ -144,4 +145,5 @@ class OldDevicesChartView(TemplateView):
         )
         
         context['chart'] = chart_html
+        return context
         return context

@@ -24,7 +24,6 @@ services:
       - ./staticfiles:/staticfiles
     ports:
       - "80:80"
-
     depends_on:
       - webapp
 
