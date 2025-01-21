@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import sys
 
 load_dotenv()
 
@@ -9,6 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
+
+# Detect if running with runserver, checking all arguments
+IS_RUNSERVER = 'runserver' in sys.argv
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -68,7 +72,7 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_LOCAL') if DEBUG else os.getenv('DB_HOST'),
+        'HOST': os.getenv('DB_LOCAL') if IS_RUNSERVER else os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }

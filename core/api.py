@@ -1,22 +1,14 @@
-# Python built-in
+# Standard library imports
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
-# Django y DRF
-from django.conf import settings
-from django.db.models import QuerySet, Min, Max, Count
-from django.db.models.functions import TruncSecond, TruncMinute, TruncHour, TruncDay
+# Django & DRF imports
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import pandas as pd
 
-# Django caching
-from django.core.cache import cache
-from django.views.decorators.cache import cache_page
-from django.utils.decorators import method_decorator
-
-# Local
+# Local imports
 from .models import SensorData
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
@@ -24,7 +16,7 @@ from .utils import get_timedelta_from_timeframe, get_start_date, format_timestam
 
 class SensorDataViewSet(viewsets.ModelViewSet):
     """
-    API para gestionar datos de sensores. Permite obtener, filtrar y escribir datos.
+    API para gestionar datos de sensores del modelo SensorData.
     Incluye metadatos sobre el rango de fechas, número de registros y demora del backend.
 
     Parámetros:
@@ -39,18 +31,18 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     """
     serializer_class = SensorDataSerializer
     filterset_class = SensorDataFilter
-    pagination_class = None  # Deshabilitar paginación
+    pagination_class = None
     _query_start_time = None
     _query_timestamp = None
 
     def initial(self, request, *args, **kwargs):
-        """Método DRF: Se ejecuta al inicio de cada solicitud"""
+        """Método DRF sobreescrito: Se ejecuta al inicio de cada solicitud"""
         self._query_timestamp = datetime.now(timezone.utc)
         self._query_start_time = perf_counter()
         super().initial(request, *args, **kwargs)
 
     def get_metadata(self, queryset):
-        """Genera metadatos para el queryset actual"""
+        """Genera metadatos del queryset incluyendo métricas de tiempo y conteos"""
         timeframe = self.request.query_params.get('timeframe', '5s')
         metric = self.request.query_params.get('metric', 't')
         end_date = datetime.now(timezone.utc)
@@ -71,15 +63,12 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         }
 
     def get_queryset(self):
-        """Método DRF: Define el queryset base con filtros temporales"""
+        """Método DRF sobreescrito: Define el queryset base aplicando filtros de tiempo según los parámetros recibidos"""
         queryset = SensorData.objects.all().order_by('-timestamp')
         
-        # Obtener parámetros de fecha
         end_date = self.request.query_params.get('end_date', None)
         start_date = self.request.query_params.get('start_date', None)
-        timeframe = self.request.query_params.get('timeframe', '5s')
 
-        # Establecer end_date
         if end_date:
             end_date = datetime.fromisoformat(end_date)
             if end_date.tzinfo is None:
@@ -87,35 +76,29 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         else:
             end_date = datetime.now(timezone.utc)
 
-        # Establecer start_date
         if start_date:
             start_date = datetime.fromisoformat(start_date)
             if start_date.tzinfo is None:
                 start_date = start_date.replace(tzinfo=timezone.utc)
         else:
-            start_date = get_start_date(timeframe, end_date)
+            start_date = end_date - timedelta(minutes=30)
 
-        # Aplicar filtros de fecha
-        queryset = queryset.filter(
+        return queryset.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
         )
-        
-        return queryset
 
-    @method_decorator(cache_page(30))  # Cache for 30 seconds
     def list(self, request, *args, **kwargs):
-        """Método DRF: Lista registros incluyendo metadatos"""
+        """Método DRF sobreescrito: Lista registros con sus metadatos asociados"""
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         metadata = self.get_metadata(queryset)
         
         return Response({
-            'metadata': metadata,
-            'results': serializer.data
+            'results': serializer.data,
+            'metadata': metadata
         })
 
-    @method_decorator(cache_page(15))  # Cache for 15 seconds
     @action(detail=False, methods=['get'])
     def latest(self, request):
         """
@@ -151,14 +134,12 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
         return Response(latest_data)
 
-    @method_decorator(cache_page(30))  # Cache for 30 seconds
     @action(detail=False, methods=['get'])
     def timeframed(self, request):
         """
         Agrupa datos por intervalos para cada sensor, calculando estadísticas.
         
         Ejemplos de uso:
-        ```python
         # Datos del último día agrupados por hora
         GET /api/sensor-data/timeframed/?timeframe=1h
 
@@ -167,7 +148,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
         # Datos de un sensor específico agrupados cada 5 segundos
         GET /api/sensor-data/timeframed/?timeframe=5s&sensor=vege-d4
-        ```
 
         Parámetros:
         - timeframe (str): Intervalo de agrupación ('5s', '5T', '30T', '1h', '4h', '1D')
@@ -181,34 +161,50 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             "results": [...]
         }
         """
-        cache_key = f"timeframed_{request.query_params.get('timeframe', '5s')}_{request.query_params.get('start_date', '')}_{request.query_params.get('end_date', '')}_{request.query_params.get('sensor', '')}"
-        cached_data = cache.get(cache_key)
-        
-        if cached_data:
-            return Response(cached_data)
+        # Parámetros de consulta
+        end_date = self.request.query_params.get('end_date', None)
+        start_date = self.request.query_params.get('start_date', None)
+        timeframe = self.request.query_params.get('timeframe', '1h')
+        sensor = self.request.query_params.get('sensor', None)
 
-        freq = request.query_params.get('timeframe', '5s')
-        
+        # Normalización de fechas
+        if end_date:
+            end_date = datetime.fromisoformat(end_date)
+            if end_date.tzinfo is None:
+                end_date = end_date.replace(tzinfo=timezone.utc)
+        else:
+            end_date = datetime.now(timezone.utc)
+
+        if start_date:
+            start_date = datetime.fromisoformat(start_date)
+            if start_date.tzinfo is None:
+                start_date = start_date.replace(tzinfo=timezone.utc)
+        else:
+            start_date = get_start_date(timeframe, end_date)
+
+        # Preparación del dataset
         queryset = self.filter_queryset(self.get_queryset())
+        if sensor:
+            queryset = queryset.filter(sensor=sensor)
+
         df = pd.DataFrame(list(queryset.values('timestamp', 'sensor', 't', 'h')))
         
         if df.empty:
             return Response({
+                'results': [],
                 'metadata': self.get_metadata(queryset),
-                'results': []
             })
 
-        # Ordenar por timestamp para asegurar first/last correctos
         df = df.sort_values('timestamp')
-        
-        # Configurar índice y agrupar con funciones adicionales
         df.set_index('timestamp', inplace=True)
-        grouped = df.groupby(['sensor', pd.Grouper(freq=freq)]).agg({
+        
+        # Agregación de datos por timeframe
+        grouped = df.groupby(['sensor', pd.Grouper(freq=timeframe)]).agg({
             't': ['mean', 'min', 'max', 'count', 'first', 'last'],
             'h': ['mean', 'min', 'max', 'first', 'last']
         }).round(2)
 
-        # Formatear resultados
+        # Formateo de resultados
         results = []
         for (sensor, timestamp), data in grouped.iterrows():
             results.append({
@@ -231,14 +227,14 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                 }
             })
 
-        response_data = {
+        return Response({
+            'results': results,
             'metadata': {
                 **self.get_metadata(queryset),
-                'timeframe': freq,
+                'timeframe': timeframe,
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'sensor': sensor,
                 'groups': len(results)
             },
-            'results': results
-        }
-        
-        cache.set(cache_key, response_data, timeout=30)  # Cache for 30 seconds
-        return Response(response_data)
+        })
