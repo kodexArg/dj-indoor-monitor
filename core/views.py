@@ -74,7 +74,7 @@ class SensorsView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        timeframe = '4H'
+        timeframe = self.request.GET.get('timeframe', '4H')
         end_date = datetime.now(timezone.utc)
         start_date = get_start_date(timeframe, end_date)
         
@@ -88,7 +88,8 @@ class SensorsView(TemplateView):
 
         context.update({
             'metadata': data.get('metadata', {}),
-            'results': data.get('results', [])
+            'results': data.get('results', []),
+            'selected_timeframe': timeframe  # Add selected timeframe to context
         })
 
         sensor_ids = context['metadata'].get('sensor_ids', [])

@@ -165,15 +165,25 @@ body::-webkit-scrollbar-track {
 .construction-notice {
   text-align: justify;
   max-width: 600px;
-  margin: 4rem auto 0 auto; 
+  margin: 3rem auto 0 auto;  /* reduced from 4rem */
   padding: 20px;
   line-height: 1.6;
+}
+
+.construction-notice ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.construction-notice li {
+  margin-bottom: 0.3rem;
+  line-height: 1.4;
 }
 
 .update-message {
   color: var(--brand-gray);
   line-height: 1.6;
-  margin-bottom: 40px;
+  margin-bottom: 20px;  /* reduced from 40px */
   font-size: 1.1em;
 }
 

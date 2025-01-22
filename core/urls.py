@@ -27,6 +27,6 @@ urlpatterns = [
     path('gauges/', GaugesView.as_view(), name='gauges'),
     path('sensors/', SensorsView.as_view(), name='sensors'),
     path('vpd/', VPDView.as_view(), name='vpd'),
-    path('timeframed/', SensorDataViewSet.as_view({'get': 'timeframed'}), name='timeframed'),
+    path('timeframed/', SensorDataViewSet.as_view({'get': 'timeframed'}), name='timeframed'), # shortcut for /api/sensor-data/timeframed/
     path('', include(router.urls)),
 ]
