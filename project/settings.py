@@ -17,6 +17,9 @@ IS_RUNSERVER = 'runserver' in sys.argv
 # Internal API settings
 INTERNAL_API_URL = 'http://nginx' if not IS_RUNSERVER else 'http://localhost'
 
+# Get IGNORE_SENSORS from env and split into list if not empty
+IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') if s.strip()]
+
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.auth',
