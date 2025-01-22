@@ -8,6 +8,8 @@ Sistema de monitoreo de sensores para cultivos indoor mediante dispositivos Rasp
 
 Backend para procesamiento y exposición de datos de sensores ambientales. Sirve un sitio web con gráficos interactivos, estadísticas en tiempo real y una *API REST* para integración con otros sistemas (Power BI, Grafana, etc.). Los datos se procesan mediante pandas para ofrecer agregaciones temporales (timeframe) optimizadas, con un payload muy eficiente y metadata, permitiendo tanto monitoreo básico como análisis detallado.
 
+Actualmente el sistema se encuentra en producción implementado por KCBD (empresa de Grupo ALVS) y puede visitarse en https://kcbd.grupoalvs.com
+
 ### Tecnologías Empleadas
 - **Framework**: Django, DRF
 - **Visualización**: HTMX, Plotly
