@@ -104,7 +104,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         """
         Obtiene el último valor de cada sensor activo.
         
-        Retorna una lista de lecturas recientes (últimos 5 minutos) por sensor:
+        Retorna una lista de lecturas recientes (últimos 7 días) por sensor:
         [
             {
                 "timestamp": "2025-01-06T12:35:50.068720-03:00",
@@ -115,7 +115,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             ...
         ]
         """
-        since = datetime.now(timezone.utc) - timedelta(minutes=5)
+        since = datetime.now(timezone.utc) - timedelta(days=7) #
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
         
         latest_data = []
@@ -139,33 +139,19 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         """
         Agrupa datos por intervalos para cada sensor, calculando estadísticas.
         
-        Ejemplos de uso:
-        # Datos del último día agrupados por hora
-        GET /api/sensor-data/timeframed/?timeframe=1h
-
-        # Datos entre fechas específicas agrupados cada 30 minutos
-        GET /api/sensor-data/timeframed/?timeframe=30T&start_date=2025-01-06T00:00:00Z&end_date=2025-01-07T00:00:00Z
-
-        # Datos de un sensor específico agrupados cada 5 segundos
-        GET /api/sensor-data/timeframed/?timeframe=5s&sensor=vege-d4
-
         Parámetros:
         - timeframe (str): Intervalo de agrupación ('5s', '5T', '30T', '1h', '4h', '1D')
         - start_date (str): Fecha inicial en formato ISO (opcional)
         - end_date (str): Fecha final en formato ISO (opcional)
         - sensor (str): ID del sensor para filtrar (opcional)
-
-        Respuesta:
-        {
-            "metadata": {...},
-            "results": [...]
-        }
+        - metadata (bool): Incluir metadatos en la respuesta (por defecto: true)
         """
         # Parámetros de consulta
         end_date = self.request.query_params.get('end_date', None)
         start_date = self.request.query_params.get('start_date', None)
         timeframe = self.request.query_params.get('timeframe', '1h')
         sensor = self.request.query_params.get('sensor', None)
+        include_metadata = self.request.query_params.get('metadata', 'true').lower() == 'true'
 
         # Normalización de fechas
         if end_date:
@@ -180,7 +166,13 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             if start_date.tzinfo is None:
                 start_date = start_date.replace(tzinfo=timezone.utc)
         else:
+            # Usar el método get_start_date para calcular la fecha de inicio por defecto
             start_date = get_start_date(timeframe, end_date)
+            # Asegurar que el queryset base use estas fechas
+            self.request.query_params._mutable = True
+            self.request.query_params['start_date'] = start_date.isoformat()
+            self.request.query_params['end_date'] = end_date.isoformat()
+            self.request.query_params._mutable = False
 
         # Preparación del dataset
         queryset = self.filter_queryset(self.get_queryset())
@@ -190,10 +182,11 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         df = pd.DataFrame(list(queryset.values('timestamp', 'sensor', 't', 'h')))
         
         if df.empty:
-            return Response({
-                'results': [],
-                'metadata': self.get_metadata(queryset),
-            })
+            response_data = {}
+            if include_metadata:
+                response_data['metadata'] = self.get_metadata(queryset)
+            response_data['results'] = []
+            return Response(response_data)
 
         df = df.sort_values('timestamp')
         df.set_index('timestamp', inplace=True)
@@ -227,14 +220,16 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                 }
             })
 
-        return Response({
-            'results': results,
-            'metadata': {
+        response_data = {}
+        if include_metadata:
+            response_data['metadata'] = {
                 **self.get_metadata(queryset),
                 'timeframe': timeframe,
                 'start_date': start_date.isoformat(),
                 'end_date': end_date.isoformat(),
                 'sensor': sensor,
                 'groups': len(results)
-            },
-        })
+            }
+        response_data['results'] = results
+
+        return Response(response_data)

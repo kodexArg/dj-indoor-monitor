@@ -343,12 +343,12 @@ def get_timedelta_from_timeframe(timeframe):
     - timedelta: Ventana de tiempo correspondiente al timeframe
     """
     time_windows = {
-        '5S': timedelta(minutes=5),
-        '1T': timedelta(minutes=15),
-        '30T': timedelta(hours=12),
-        '1H': timedelta(hours=24),
-        '4H': timedelta(days=4),
-        '1D': timedelta(days=7)
+        '5S': timedelta(minutes=30),
+        '1T': timedelta(hours=3),
+        '30T': timedelta(hours=36),
+        '1H': timedelta(days=3),
+        '4H': timedelta(days=12),
+        '1D': timedelta(days=42)
     }
     return time_windows[timeframe.upper()]
 
