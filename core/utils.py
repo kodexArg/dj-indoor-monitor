@@ -89,12 +89,24 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
 
     # Crear trazas para cada sensor
     for sensor, sensor_data in sensors.items():
+        # Encontrar gaps mayores a 3 puntos
+        x_data = pd.Series(sensor_data['x'])
+        y_data = pd.Series(sensor_data['y'])
+        
+        # Calcular la diferencia de tiempo entre puntos consecutivos
+        time_diff = x_data.diff()
+        expected_diff = pd.Timedelta(TIMEFRAME_MAP[selected_timeframe.upper()])
+        
+        # Si la diferencia es mayor a 3 veces el intervalo esperado, marcar como gap
+        gaps = time_diff > (expected_diff * 3)
+        
         fig.add_trace(go.Scatter(
             x=sensor_data['x'],
             y=sensor_data['y'],
-            mode='lines',  # Siempre usar líneas, sin importar el timeframe
+            mode='lines',
             name=sensor,
-            line_shape='spline'
+            line_shape='spline',
+            connectgaps=False  # No conectar gaps
         ))
 
     fig.update_layout(
@@ -407,8 +419,18 @@ def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
     """
     Genera un gráfico de VPD optimizado para cultivo de cannabis con ejes invertidos.
     """
-    temperatures = np.linspace(temp_min, temp_max, 200)  # Cambiar rango de temperatura
+    # Filtrar datos fuera de rango
+    filtered_data = [
+        (sensor_id, temp, hum) 
+        for sensor_id, temp, hum in data 
+        if temp_min <= temp <= temp_max and hum_min <= hum <= hum_max
+    ]
     
+    if not filtered_data:
+        return '<div>No hay datos dentro de los rangos especificados</div>'
+
+    temperatures = np.linspace(temp_min, temp_max, 200)
+
     vpd_bands = [
         ("Too Humid", 0, 0.4, "rgba(245, 230, 255, 0.2)"),
         ("Propagación", 0.4, 0.8, "rgba(195, 230, 215, 0.5)"),
@@ -449,7 +471,7 @@ def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
         ))
 
     # Agregar puntos y etiquetas directamente
-    for sensor_id, temperature, humidity in data:
+    for sensor_id, temperature, humidity in filtered_data:
         current_vpd = calculate_vpd(temperature, humidity)
         
         # Agregar líneas punteadas
