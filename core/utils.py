@@ -445,19 +445,41 @@ def vpd_chart_generator(data):
             fill='tonexty',
             fillcolor=color,
             name=band_name,
-            # Solo mostramos leyenda para las bandas óptimas
             showlegend=not band_name.startswith("Too")
         ))
 
+    # Agregar puntos y etiquetas directamente
     for sensor_id, temperature, humidity in data:
         current_vpd = calculate_vpd(temperature, humidity)
+        
+        # Agregar líneas punteadas
+        fig.add_trace(go.Scatter(
+            x=[0, humidity],
+            y=[temperature, temperature],
+            mode='lines',
+            line=dict(color='rgba(0,0,0,0.1)', dash='dot'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=[humidity, humidity],
+            y=[40, temperature],
+            mode='lines',
+            line=dict(color='rgba(0,0,0,0.1)', dash='dot'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        # Agregar punto y etiqueta
         fig.add_trace(go.Scatter(
             y=[temperature],
             x=[humidity],
             mode='markers+text',
             marker=dict(size=10, color='black'),
-            text=[sensor_id],
-            textposition='top center',
+            text=[f"{sensor_id} {current_vpd:.1f}kPa"],
+            textposition='middle right',
+            textfont=dict(size=10),
             hovertemplate=(
                 '<b>%{text}</b><br>'
                 'Temperatura: %{y:.1f}°C<br>'
@@ -480,14 +502,16 @@ def vpd_chart_generator(data):
             range=[100, 0],  # Eje invertido
             dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)',
-            side='bottom'  # Etiquetas de eje en la parte superior
+            side='bottom'
         ),
         yaxis=dict(
             title='Temperatura (°C)',
-            range=[40, 10],  # Eje invertido
+            range=[40, 10],
             dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)',
-            autorange='reversed'  # Aseguramos reversión vertical
+            autorange='reversed',
+            side='right',
+            title_standoff=0
         ),
         plot_bgcolor='white',
         margin=dict(l=50, r=50, t=50, b=50),
