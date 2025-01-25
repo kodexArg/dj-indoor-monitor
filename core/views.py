@@ -118,15 +118,11 @@ class VPDView(TemplateView):
         context = super().get_context_data(**kwargs)
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
         
-        # Obtener datos de la API
         response = requests.get(api_url)
         data = response.json()
         
-        # Transformar los datos al formato requerido por vpd_chart_generator
-        # [(sensor_id, temperature, humidity), ...]
         sensors_data = [(item['sensor'], item['t'], item['h']) for item in data]
         
-        # Generar el gráfico VPD
         chart_html = vpd_chart_generator(sensors_data)
         context['chart'] = chart_html
         

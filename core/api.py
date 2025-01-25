@@ -115,7 +115,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             ...
         ]
         """
-        since = datetime.now(timezone.utc) - timedelta(days=7) #
+        since = datetime.now(timezone.utc) - timedelta(days=1) #
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
         
         latest_data = []
@@ -166,9 +166,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             if start_date.tzinfo is None:
                 start_date = start_date.replace(tzinfo=timezone.utc)
         else:
-            # Usar el método get_start_date para calcular la fecha de inicio por defecto
             start_date = get_start_date(timeframe, end_date)
-            # Asegurar que el queryset base use estas fechas
             self.request.query_params._mutable = True
             self.request.query_params['start_date'] = start_date.isoformat()
             self.request.query_params['end_date'] = end_date.isoformat()
