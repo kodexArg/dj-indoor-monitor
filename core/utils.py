@@ -477,9 +477,9 @@ def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
             x=[humidity],
             mode='markers+text',
             marker=dict(size=10, color='black'),
-            text=[f"{sensor_id} {current_vpd:.1f}kPa"],
-            textposition='middle right',
-            textfont=dict(size=10),
+            text=[f"{sensor_id} {current_vpd:.1f} kPa"],
+            textposition='right',
+            textfont=dict(size=11),
             hovertemplate=(
                 '<b>%{text}</b><br>'
                 'Temperatura: %{y:.1f}°C<br>'
