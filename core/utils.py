@@ -405,115 +405,93 @@ def calculate_vpd(t, h):
 
 def vpd_chart_generator(data):
     """
-    Genera un gráfico de VPD optimizado para cultivo de cannabis.
-    
-    Parámetros:
-        data (list): Lista de tuplas (sensor_id, temperature, humidity)
-            sensor_id (str): Identificador del sensor
-            temperature (float): Temperatura actual en °C
-            humidity (float): Humedad actual en %
-    
-    Retorna:
-        html_chart (str): HTML del gráfico generado
+    Genera un gráfico de VPD optimizado para cultivo de cannabis con ejes invertidos.
     """
-    # Crear matriz de temperaturas y humedades para el gráfico base
     temperatures = np.linspace(10, 40, 200)
-    humidities = np.linspace(30, 90, 200)
     
-    # Definir las bandas de VPD para las diferentes etapas
     vpd_bands = [
-        ("Propagation/Early Veg", 65, 80, "rgba(255, 182, 193, 0.3)"),
-        ("Early Flower/Late Veg", 50, 65, "rgba(144, 238, 144, 0.3)"),
-        ("Mid/Late Flower", 40, 50, "rgba(255, 165, 0, 0.3)"),
+        ("Too Humid", 0, 0.42, "rgba(245, 230, 255, 0.2)"),
+        ("Propagation/Early Veg", 0.42, 0.64, "rgba(195, 230, 215, 0.5)"),
+        ("Early Flower/Late Veg", 0.64, 0.98, "rgba(255, 225, 180, 0.5)"),
+        ("Mid/Late Flower", 0.98, 1.35, "rgba(255, 200, 150, 0.5)"),
+        ("Too Dry", 1.35, 10.0, "rgba(255, 100, 100, 0.025)")
     ]
 
-    # Crear el gráfico base
     fig = go.Figure()
 
-    # Crear las bandas de VPD con ejes invertidos
-    for name, hum_min, hum_max, color in vpd_bands:
+    def calculate_h(t, vpd):
+        svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))
+        h = 100 * (1 - vpd / svp) if svp > 0 else 100
+        return max(0, min(100, h))
+
+    for band_name, vpd_min, vpd_max, color in vpd_bands:
+        h_upper = [calculate_h(t, vpd_min) for t in temperatures]
+        h_lower = [calculate_h(t, vpd_max) for t in temperatures]
+        
         fig.add_trace(go.Scatter(
+            x=h_upper,
             y=temperatures,
-            x=[hum_max] * len(temperatures),
-            fill=None,
             mode='lines',
             line=dict(width=0),
+            fillcolor=color,
             showlegend=False
         ))
         
         fig.add_trace(go.Scatter(
+            x=h_lower,
             y=temperatures,
-            x=[hum_min] * len(temperatures),
-            fill='tonextx',
             mode='lines',
             line=dict(width=0),
-            name=name,
-            showlegend=True,
-            fillcolor=color
+            fill='tonexty',
+            fillcolor=color,
+            name=band_name,
+            # Solo mostramos leyenda para las bandas óptimas
+            showlegend=not band_name.startswith("Too")
         ))
 
-    # Agregar los puntos de todos los sensores
     for sensor_id, temperature, humidity in data:
         current_vpd = calculate_vpd(temperature, humidity)
         fig.add_trace(go.Scatter(
             y=[temperature],
             x=[humidity],
             mode='markers+text',
-            name=sensor_id,
-            showlegend=False,  # Cambiado a False para ocultar de la leyenda
-            marker=dict(
-                size=10,
-                symbol='circle'
-            ),
+            marker=dict(size=10, color='black'),
             text=[sensor_id],
             textposition='top center',
-            textfont=dict(
-                size=12,
-                color='black'
+            hovertemplate=(
+                '<b>%{text}</b><br>'
+                'Temperatura: %{y:.1f}°C<br>'
+                'Humedad: %{x:.1f}%<br>'
+                f'VPD: {current_vpd:.2f} kPa<extra></extra>'
             ),
-            hovertemplate='Sensor: %{text}<br>Temperatura: %{y:.1f}°C<br>Humedad: %{x:.1f}%<br>VPD: ' + f'{current_vpd:.2f} kPa<extra></extra>'
+            showlegend=False
         ))
 
-    # Actualizar el layout (eliminamos el título)
     fig.update_layout(
         legend=dict(
             orientation='h',
             yanchor='bottom',
-            y=1.02,
+            y=1.1,
             xanchor='center',
             x=0.5
         ),
-        xaxis_title=dict(
-            text='Humedad Relativa (%HR)',
-            font=dict(size=10)
-        ),
-        yaxis_title=dict(
-            text='Temperatura (°C)',
-            font=dict(size=10)
-        ),
         xaxis=dict(
-            range=[30, 90],
-            gridcolor='rgba(128, 128, 128, 0.1)',
-            gridwidth=0.5,
+            title='Humedad Relativa (%HR)',
+            range=[100, 0],  # Eje invertido
             dtick=10,
-            side='bottom'
+            gridcolor='rgba(200, 200, 200, 0.2)',
+            side='bottom'  # Etiquetas de eje en la parte superior
         ),
         yaxis=dict(
-            range=[10, 40],
-            gridcolor='rgba(128, 128, 128, 0.1)',
-            gridwidth=0.5,
+            title='Temperatura (°C)',
+            range=[40, 10],  # Eje invertido
             dtick=5,
-            side='left'
+            gridcolor='rgba(200, 200, 200, 0.2)',
+            autorange='reversed'  # Aseguramos reversión vertical
         ),
-        hovermode='closest',
-        paper_bgcolor='white',
         plot_bgcolor='white',
-        margin=dict(l=50, r=50, t=20, b=50)
+        margin=dict(l=50, r=50, t=50, b=50),
+        height=600
     )
 
-    return pio.to_html(
-        fig,
-        include_plotlyjs=False,
-        full_html=False,
-        config={'staticPlot': True}
-    )
+    return pio.to_html(fig, include_plotlyjs=False, full_html=False, config={'staticPlot': True})
