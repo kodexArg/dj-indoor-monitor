@@ -410,11 +410,11 @@ def vpd_chart_generator(data):
     temperatures = np.linspace(10, 40, 200)
     
     vpd_bands = [
-        ("Too Humid", 0, 0.42, "rgba(245, 230, 255, 0.2)"),
-        ("Propagation/Early Veg", 0.42, 0.64, "rgba(195, 230, 215, 0.5)"),
-        ("Early Flower/Late Veg", 0.64, 0.98, "rgba(255, 225, 180, 0.5)"),
-        ("Mid/Late Flower", 0.98, 1.35, "rgba(255, 200, 150, 0.5)"),
-        ("Too Dry", 1.35, 10.0, "rgba(255, 100, 100, 0.025)")
+        ("Too Humid", 0, 0.4, "rgba(245, 230, 255, 0.2)"),
+        ("Propagación", 0.4, 0.8, "rgba(195, 230, 215, 0.5)"),
+        ("Vegetación", 0.8, 1.2, "rgba(255, 225, 180, 0.5)"),
+        ("Veg. Tardía / Flora", 1.2, 1.6, "rgba(255, 200, 150, 0.5)"),
+        ("Too Dry", 1.6, 10.0, "rgba(255, 100, 100, 0.025)")
     ]
 
     fig = go.Figure()
