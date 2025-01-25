@@ -403,11 +403,11 @@ def calculate_vpd(t, h):
     vpd = svp - vp  # Déficit de presión de vapor
     return vpd
 
-def vpd_chart_generator(data):
+def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
     """
     Genera un gráfico de VPD optimizado para cultivo de cannabis con ejes invertidos.
     """
-    temperatures = np.linspace(10, 40, 200)
+    temperatures = np.linspace(temp_min, temp_max, 200)  # Cambiar rango de temperatura
     
     vpd_bands = [
         ("Too Humid", 0, 0.4, "rgba(245, 230, 255, 0.2)"),
@@ -422,7 +422,7 @@ def vpd_chart_generator(data):
     def calculate_h(t, vpd):
         svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))
         h = 100 * (1 - vpd / svp) if svp > 0 else 100
-        return max(0, min(100, h))
+        return max(hum_min, min(hum_max, h))
 
     for band_name, vpd_min, vpd_max, color in vpd_bands:
         h_upper = [calculate_h(t, vpd_min) for t in temperatures]
@@ -454,19 +454,19 @@ def vpd_chart_generator(data):
         
         # Agregar líneas punteadas
         fig.add_trace(go.Scatter(
-            x=[0, humidity],
+            x=[hum_min, humidity],
             y=[temperature, temperature],
             mode='lines',
-            line=dict(color='rgba(0,0,0,0.1)', dash='dot'),
+            line=dict(color='rgba(0,100,50,0.1)', dash='dot'),
             showlegend=False,
             hoverinfo='skip'
         ))
         
         fig.add_trace(go.Scatter(
             x=[humidity, humidity],
-            y=[40, temperature],
+            y=[temp_max, temperature],
             mode='lines',
-            line=dict(color='rgba(0,0,0,0.1)', dash='dot'),
+            line=dict(color='rgba(0,100,50,0.1)', dash='dot'),
             showlegend=False,
             hoverinfo='skip'
         ))
@@ -499,14 +499,14 @@ def vpd_chart_generator(data):
         ),
         xaxis=dict(
             title='Humedad Relativa (%HR)',
-            range=[100, 0],  # Eje invertido
+            range=[hum_max, hum_min],
             dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)',
             side='bottom'
         ),
         yaxis=dict(
             title='Temperatura (°C)',
-            range=[40, 10],
+            range=[temp_max, temp_min],
             dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)',
             autorange='reversed',
