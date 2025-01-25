@@ -9,7 +9,8 @@ from django.conf import settings
 
 # Local
 from .models import SensorData
-from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator
+from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator, vpd_chart_generator
+
 
 class HomeView(TemplateView):
     """Vista principal de la aplicación"""
@@ -108,8 +109,29 @@ class SensorsView(TemplateView):
         context['charts'] = charts
         return context
 
+
+
 class VPDView(TemplateView):
     template_name = "partials/charts/vpd.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
+        
+        # Obtener datos de la API
+        response = requests.get(api_url)
+        data = response.json()
+        
+        # Transformar los datos al formato requerido por vpd_chart_generator
+        # [(sensor_id, temperature, humidity), ...]
+        sensors_data = [(item['sensor'], item['t'], item['h']) for item in data]
+        
+        # Generar el gráfico VPD
+        chart_html = vpd_chart_generator(sensors_data)
+        context['chart'] = chart_html
+        
+        return context
+
 
 class GaugesView(TemplateView):
     template_name = "partials/charts/gauges.html"
@@ -136,5 +158,4 @@ class OldDevicesChartView(TemplateView):
         )
         
         context['chart'] = chart_html
-        return context
         return context

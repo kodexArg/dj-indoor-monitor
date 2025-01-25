@@ -1,6 +1,10 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">VPD</span>
-<div class="chart-container">
-    <h3>VPD</h3>
-    <p class="construction-message">Esta página está en construcción</p>
-</div>
+<section id="overview-section" class="overview-section" hx-trigger="load">
+    <article id="chart-content">
+        <div class="chart-container">
+            {{ chart|safe }}
+        </div>
+    </article>
+
+</section>

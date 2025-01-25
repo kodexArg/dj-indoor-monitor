@@ -8,7 +8,7 @@
                         hx-get="{% url 'sensors' %}"
                         hx-target="#chart-content"
                         hx-indicator="#loading-spinner"
-                        hx-vals='{"timeframe": "5S"}'>5s</button>
+                        hx-vals='{"timeframe": "5S"}'><small>5"</small></button>
                 <button class="button {% if selected_timeframe == '1T' %}active{% endif %}"
                         hx-get="{% url 'sensors' %}"
                         hx-target="#chart-content"

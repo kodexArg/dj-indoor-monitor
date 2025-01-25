@@ -1,6 +1,7 @@
 # Python built-in
 from typing import List, Tuple
 from datetime import datetime, timedelta, timezone
+import numpy as np
 
 # Django
 from django.conf import settings
@@ -88,16 +89,12 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
 
     # Crear trazas para cada sensor
     for sensor, sensor_data in sensors.items():
-        mode = 'lines+markers' if selected_timeframe.lower() == '5s' else 'lines'
-        marker = dict(size=6, symbol='circle') if selected_timeframe.lower() == '5s' else dict()
-        
         fig.add_trace(go.Scatter(
             x=sensor_data['x'],
             y=sensor_data['y'],
-            mode=mode,
+            mode='lines',  # Siempre usar líneas, sin importar el timeframe
             name=sensor,
-            line_shape='spline',
-            marker=marker
+            line_shape='spline'
         ))
 
     fig.update_layout(
@@ -337,13 +334,9 @@ def sensor_plot_generator(data, sensor, start_date, end_date, selected_timeframe
 def get_timedelta_from_timeframe(timeframe):
     """
     Convierte un timeframe en su timedelta correspondiente.
-    Para ser usado con timeframes válidos ('5S', '1min', '30min', '1H', '4H', '1D').
-
-    Retorna:
-    - timedelta: Ventana de tiempo correspondiente al timeframe
     """
     time_windows = {
-        '5S': timedelta(minutes=30),
+        '5S': timedelta(minutes=15),  # Ventana más corta para datos de 5 segundos
         '1T': timedelta(hours=3),
         '30T': timedelta(hours=36),
         '1H': timedelta(days=3),
@@ -401,3 +394,126 @@ def format_timestamp(timestamp, include_seconds=False):
         hora += f":{timestamp.second:02d}"
     
     return f"{fecha} {hora}"
+
+
+# VPD
+def calculate_vpd(t, h):
+    svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))  # Presión de vapor de saturación
+    vp = svp * (h / 100)  # Presión de vapor actual
+    vpd = svp - vp  # Déficit de presión de vapor
+    return vpd
+
+def vpd_chart_generator(data):
+    """
+    Genera un gráfico de VPD optimizado para cultivo de cannabis.
+    
+    Parámetros:
+        data (list): Lista de tuplas (sensor_id, temperature, humidity)
+            sensor_id (str): Identificador del sensor
+            temperature (float): Temperatura actual en °C
+            humidity (float): Humedad actual en %
+    
+    Retorna:
+        html_chart (str): HTML del gráfico generado
+    """
+    # Crear matriz de temperaturas y humedades para el gráfico base
+    temperatures = np.linspace(10, 40, 200)
+    humidities = np.linspace(30, 90, 200)
+    
+    # Definir las bandas de VPD para las diferentes etapas
+    vpd_bands = [
+        ("Propagation/Early Veg", 65, 80, "rgba(255, 182, 193, 0.3)"),
+        ("Early Flower/Late Veg", 50, 65, "rgba(144, 238, 144, 0.3)"),
+        ("Mid/Late Flower", 40, 50, "rgba(255, 165, 0, 0.3)"),
+    ]
+
+    # Crear el gráfico base
+    fig = go.Figure()
+
+    # Crear las bandas de VPD con ejes invertidos
+    for name, hum_min, hum_max, color in vpd_bands:
+        fig.add_trace(go.Scatter(
+            y=temperatures,
+            x=[hum_max] * len(temperatures),
+            fill=None,
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False
+        ))
+        
+        fig.add_trace(go.Scatter(
+            y=temperatures,
+            x=[hum_min] * len(temperatures),
+            fill='tonextx',
+            mode='lines',
+            line=dict(width=0),
+            name=name,
+            showlegend=True,
+            fillcolor=color
+        ))
+
+    # Agregar los puntos de todos los sensores
+    for sensor_id, temperature, humidity in data:
+        current_vpd = calculate_vpd(temperature, humidity)
+        fig.add_trace(go.Scatter(
+            y=[temperature],
+            x=[humidity],
+            mode='markers+text',
+            name=sensor_id,
+            showlegend=False,  # Cambiado a False para ocultar de la leyenda
+            marker=dict(
+                size=10,
+                symbol='circle'
+            ),
+            text=[sensor_id],
+            textposition='top center',
+            textfont=dict(
+                size=12,
+                color='black'
+            ),
+            hovertemplate='Sensor: %{text}<br>Temperatura: %{y:.1f}°C<br>Humedad: %{x:.1f}%<br>VPD: ' + f'{current_vpd:.2f} kPa<extra></extra>'
+        ))
+
+    # Actualizar el layout (eliminamos el título)
+    fig.update_layout(
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5
+        ),
+        xaxis_title=dict(
+            text='Humedad Relativa (%HR)',
+            font=dict(size=10)
+        ),
+        yaxis_title=dict(
+            text='Temperatura (°C)',
+            font=dict(size=10)
+        ),
+        xaxis=dict(
+            range=[30, 90],
+            gridcolor='rgba(128, 128, 128, 0.1)',
+            gridwidth=0.5,
+            dtick=10,
+            side='bottom'
+        ),
+        yaxis=dict(
+            range=[10, 40],
+            gridcolor='rgba(128, 128, 128, 0.1)',
+            gridwidth=0.5,
+            dtick=5,
+            side='left'
+        ),
+        hovermode='closest',
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        margin=dict(l=50, r=50, t=20, b=50)
+    )
+
+    return pio.to_html(
+        fig,
+        include_plotlyjs=False,
+        full_html=False,
+        config={'staticPlot': True}
+    )

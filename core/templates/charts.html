@@ -34,6 +34,12 @@
                 <small>Coef.</small>
             </button>
         </li>
+        <li>
+            <button hx-get="{% url 'vpd' %}" hx-target="#chart-content" class="nav-button">
+                <img src="{% static 'icons/vpd-icon.svg' %}" alt="VPD">
+                <small>VPD</small>
+            </button>
+        </li>
     </ul>
 </nav>
 {% endblock %}
