@@ -61,8 +61,9 @@
 
 /* Rectangular metric and online buttons */
 #toggle-buttons-metric .button,
-#toggle-buttons-online .button {
-    width: 80px; /* 1:2 aspect ratio (40px height × 2) */
+#toggle-buttons-online .button,
+.button-cluster .button {  /* Agregado selector para todos los botones en button-cluster */
+    width: 80px;
     height: 40px;
     padding: 0;
     display: flex;

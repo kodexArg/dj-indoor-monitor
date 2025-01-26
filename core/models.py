@@ -34,6 +34,10 @@ class SensorDataManager(models.Manager):
         qs = super().get_queryset()
         if getattr(settings, 'IGNORE_SENSORS', None):
             qs = qs.exclude(sensor__in=settings.IGNORE_SENSORS)
+
+        # ATENCIÓN: Los datos con temperatura y humedad 0 en la base de datos no se consideran en todo este sitio
+        qs = qs.exclude(t__lte=1, h__lte=1)
+
         return qs
 
 

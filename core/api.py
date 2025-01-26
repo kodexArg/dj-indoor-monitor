@@ -64,7 +64,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Método DRF sobreescrito: Define el queryset base aplicando filtros de tiempo según los parámetros recibidos"""
-        queryset = SensorData.objects.all().order_by('-timestamp')
+        queryset = SensorData.objects.order_by('-timestamp')
         
         end_date = self.request.query_params.get('end_date', None)
         start_date = self.request.query_params.get('start_date', None)
@@ -123,9 +123,12 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
         room = self.request.query_params.get('room', 'false').lower() == 'true'
         
-        # Generamos latest_data como siempre
+        # Agregar log para diagnóstico
+        print(f"Encontrados {base_queryset.count()} registros en las últimas 24h")
+        
         latest_data = []
         sensors = base_queryset.values_list('sensor', flat=True).distinct()
+        print(f"Sensores únicos encontrados: {list(sensors)}")
         
         for sensor in sensors:
             latest_record = base_queryset.filter(sensor=sensor).order_by('-timestamp').first()
@@ -138,38 +141,30 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                     'h': round(latest_record.h, 2)
                 })
 
-        # Si room es True, agrupamos por room
+        print(f"Registros latest_data: {len(latest_data)}")
+
         if room:
             rooms_data = {}
-            # Creamos mapeo de sensores a rooms
-            for room in Room.objects.all():
-                room_sensors = [s.strip() for s in room.sensors.split(',')]
-                for record in latest_data:
-                    if record['sensor'] in room_sensors:
-                        if room.name not in rooms_data:
-                            rooms_data[room.name] = {
-                                'values': [],
-                                'timestamp': record['timestamp'],
-                                'timestamp_pretty': record['timestamp_pretty']
-                            }
-                        else:
-                            # Actualizamos timestamp si es más reciente
-                            if record['timestamp'] > rooms_data[room.name]['timestamp']:
-                                rooms_data[room.name]['timestamp'] = record['timestamp']
-                                rooms_data[room.name]['timestamp_pretty'] = record['timestamp_pretty']
-                        rooms_data[room.name]['values'].append(record)
-
-            # Generamos el nuevo latest_data agrupado
-            latest_data = [
-                {
-                    'timestamp': data['timestamp'],
-                    'timestamp_pretty': data['timestamp_pretty'],
-                    'sensor': room_name,
-                    't': round(sum(v['t'] for v in data['values']) / len(data['values']), 1),
-                    'h': round(sum(v['h'] for v in data['values']) / len(data['values']), 1)
-                }
-                for room_name, data in rooms_data.items()
-            ]
+            for room_obj in Room.objects.all():
+                print(f"Procesando room: {room_obj.name} con sensores: {room_obj.sensors}")
+                
+                if not room_obj.sensors:
+                    continue
+                
+                room_sensors = [s.strip() for s in room_obj.sensors.split(',') if s.strip()]
+                room_records = [r for r in latest_data if r['sensor'] in room_sensors]
+                
+                if room_records:
+                    rooms_data[room_obj.name] = {
+                        'timestamp': max(r['timestamp'] for r in room_records),
+                        'timestamp_pretty': max(r['timestamp_pretty'] for r in room_records),
+                        't': round(sum(r['t'] for r in room_records) / len(room_records), 1),
+                        'h': round(sum(r['h'] for r in room_records) / len(room_records), 1),
+                        'sensor': room_obj.name
+                    }
+            
+            print(f"Rooms procesados: {list(rooms_data.keys())}")
+            latest_data = list(rooms_data.values())
 
         return Response(latest_data)
 

@@ -1,6 +1,7 @@
 # Python built-in
 from datetime import datetime, timedelta, timezone
 import requests
+import numpy as np  # Agregar import de numpy
 
 # Django y DRF
 from django.views.generic import TemplateView
@@ -121,20 +122,75 @@ class VPDView(TemplateView):
         context = super().get_context_data(**kwargs)
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
         
-        # Usar room=true según la API
-        params = {'room': 'true'}
-        response = requests.get(api_url, params=params)
-        data = response.json()
+        # Solo necesitamos una llamada para obtener datos individuales de sensores
+        params = {'room': 'false'}
+        response_sensors = requests.get(api_url, params=params)
+        sensor_data = response_sensors.json()
+
+        # Procesar datos de sensores individuales
+        temps = []
+        hums = []
+        valid_sensors = []  # Lista para mantener los sensores válidos
         
-        # Procesar datos usando el sensor como nombre de room
-        sensors_data = []
-        for item in data:
-            if item.get('t') is not None and item.get('h') is not None:
-                sensors_data.append((item['sensor'], item['t'], item['h']))
+        for sensor in sensor_data:
+            t = sensor.get('t')
+            h = sensor.get('h')
+            if (t is not None and h is not None and    t >= 1 and h >= 1): 
+                temps.append(t)
+                hums.append(h)
+                valid_sensors.append(sensor)
+    
+        # Obtener mapeo de sensores a rooms desde el modelo Room
+        sensor_to_room = {}
+        for room in Room.objects.all():
+            room_name = room.name
+            for sensor in room.sensors.split(','):
+                sensor = sensor.strip()  # Corregida la indentación
+                if sensor:
+                    sensor_data = next((s for s in valid_sensors if s['sensor'] == sensor), None)
+                    if sensor_data and sensor_data.get('t') is not None and sensor_data.get('h') is not None:
+                        sensor_to_room[sensor] = room_name  # Corregida la indentación
+                
+        # Cálculo vectorizado de VPD usando numpy
+        temps = np.array(temps)
+        hums = np.array(hums)
+        es = 0.6108 * np.exp((17.27 * temps) / (temps + 237.3))
+        vpds = es * (1 - (hums / 100))
         
-        chart_html = vpd_chart_generator(sensors_data)
-        context['chart'] = chart_html
+        # Construir estructura final de datos
+        sensors_info = []
+        for idx, sensor in enumerate(valid_sensors):  # Usar valid_sensors en lugar de sensor_data
+            sensors_info.append({
+                'room': sensor_to_room.get(sensor['sensor'], "Sin Asignar"),
+                'sensor': sensor['sensor'],
+                't': temps[idx],
+                'h': hums[idx],
+                'vpd': vpds[idx]
+            })
+
+        # Ordenar por room y luego por sensor
+        sensors_info = sorted(sensors_info, key=lambda x: (x['room'], x['sensor']))
         
+        # Calcular promedios por room para el gráfico
+        room_averages = {}
+        for sensor_info in sensors_info:
+            room = sensor_info['room']
+            if room not in room_averages:
+                room_averages[room] = {'t': [], 'h': []}
+            room_averages[room]['t'].append(sensor_info['t'])
+            room_averages[room]['h'].append(sensor_info['h'])
+
+        # Preparar datos para el gráfico usando promedios por room
+        chart_data = []
+        for room, values in room_averages.items():
+            avg_temp = sum(values['t']) / len(values['t'])
+            avg_hum = sum(values['h']) / len(values['h'])
+            chart_data.append((room, avg_temp, avg_hum))
+        
+        context.update({
+            'room_data': sensors_info,
+            'chart': vpd_chart_generator(chart_data)
+        })
         return context
 
 
