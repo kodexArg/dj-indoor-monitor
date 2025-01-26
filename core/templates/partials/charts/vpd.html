@@ -6,5 +6,58 @@
             {{ chart|safe }}
         </div>
     </article>
-
+    
+    <!-- MathJax CDN -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <article class="vpd-explanation">
+        <h2>¿Qué es el VPD?</h2>
+        
+        <p>El Déficit de Presión de Vapor (VPD, por sus siglas en inglés) es una medida crucial para evaluar el equilibrio hídrico en un entorno controlado de cultivo, como los utilizados para cannabis. El VPD indica la diferencia entre la presión de vapor en el aire y la presión de saturación que este podría contener a una temperatura específica. Este valor ayuda a determinar la capacidad del aire para absorber agua de las plantas, regulando así procesos fisiológicos como la transpiración y la fotosíntesis.</p>
+        
+        <p>El cálculo del VPD se basa en la ecuación:</p>
+        <div class="math-block">
+            \[VPD = e_s(T) \times (1 - RH/100)\]
+        </div>
+        
+        <p>donde \(e_s(T)\) es la presión de vapor de saturación (en kPa) calculada en función de la temperatura \(T\) en grados Celsius, y \(RH\) es la humedad relativa expresada como porcentaje. La fórmula para \(e_s(T)\) se define como:</p>
+        <div class="math-block">
+            \[e_s(T) = 0.6108 \times \exp\left(\frac{17.27 \times T}{T + 237.3}\right)\]
+        </div>
+        
+        <p>Un VPD adecuado es fundamental para el desarrollo del cannabis. Valores bajos (menores a 0.5 kPa) indican un exceso de humedad, lo que puede limitar la transpiración y aumentar el riesgo de enfermedades fúngicas. Valores altos (superiores a 1.5 kPa) implican un aire seco que puede generar estrés hídrico y reducir el rendimiento. Por ello, los sensores de temperatura y humedad proporcionan datos en tiempo real que se visualizan en gráficos, permitiendo a los cultivadores ajustar el ambiente a rangos ideales según las fases fenológicas de las plantas.</p>
+    </article>
 </section>
+
+<style>
+.vpd-explanation {
+    max-width: 800px;
+    margin: 2rem auto;
+    margin-top: 4rem;
+    padding: 0 1rem;
+    line-height: 1.6;
+}
+
+.vpd-explanation h3 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.vpd-explanation p {
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+.math-block {
+    overflow-x: auto;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .vpd-explanation {
+        padding: 0 0.5rem;
+    }
+}
+</style>

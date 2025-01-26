@@ -71,10 +71,10 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
     fig = go.Figure()
     plotted_points = 0
 
-    # Agrupar datos por sensor
+    # Agrupar datos por sensor (ahora sensor representa una room)
     sensors = {}
     for item in data:
-        sensor = item['sensor']
+        sensor = item['sensor']  # Ahora sensor puede ser un nombre de room
         if sensor not in sensors:
             sensors[sensor] = {'x': [], 'y': []}
         
@@ -82,7 +82,7 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
         timestamp = pd.to_datetime(item['timestamp']).tz_convert(local_tz)
         sensors[sensor]['x'].append(timestamp)
         
-        # Obtener el valor según la métrica
+        # Obtener el valor según la métrica (los datos ya vienen promediados por room)
         value = item['temperature']['mean'] if metric == 't' else item['humidity']['mean']
         sensors[sensor]['y'].append(value)
         plotted_points += 1

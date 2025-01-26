@@ -32,6 +32,7 @@ class OverviewView(TemplateView):
         # Obtener parámetros de la solicitud
         timeframe = self.request.GET.get('timeframe', '1h')
         metric = self.request.GET.get('metric', 't')
+        room = self.request.GET.get('room', 'true')
         
         # Calcular fechas antes de la petición API
         end_date = datetime.now(timezone.utc)
@@ -42,7 +43,8 @@ class OverviewView(TemplateView):
         params = {
             'timeframe': timeframe,
             'metric': metric,
-            'start_date': start_date.isoformat()
+            'start_date': start_date.isoformat(),
+            'room': room
         }
         
         # Realizar petición a la API
@@ -51,6 +53,7 @@ class OverviewView(TemplateView):
         
         # Actualizar contexto
         context.update({
+            'room': room.lower() == 'true',  # Agregar room al contexto como boolean
             'metadata': data.get('metadata', {}),
             'results': data.get('results', [])
         })
