@@ -3,6 +3,31 @@ from django.db import models
 from django.utils import timezone
 from django.conf import settings
 
+
+class SiteConfiguration(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField()
+
+    def __str__(self):
+        return f"{self.key}: {self.value}"
+
+    @classmethod
+    def get_all_parameters(cls):
+        """Devuelve todos los parámetros como un diccionario."""
+        return {config.key: config.value for config in cls.objects.all()}
+
+
+class Room(models.Model):
+    name = models.CharField(max_length=255)
+    sensors = models.TextField()
+
+    def __str__(self):
+        return self.name
+    
+    def get_sensor_list(self):
+        return [sensor.strip() for sensor in self.sensors.split(',')]
+
+
 class SensorDataManager(models.Manager):
     """Custom manager that automatically filters out ignored sensors"""
     def get_queryset(self):
@@ -10,6 +35,7 @@ class SensorDataManager(models.Manager):
         if getattr(settings, 'IGNORE_SENSORS', None):
             qs = qs.exclude(sensor__in=settings.IGNORE_SENSORS)
         return qs
+
 
 class SensorData(models.Model):
     """

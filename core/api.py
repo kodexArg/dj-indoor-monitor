@@ -9,7 +9,7 @@ from rest_framework.response import Response
 import pandas as pd
 
 # Local imports
-from .models import SensorData
+from .models import SensorData, Room
 from .serializers import SensorDataSerializer
 from .filters import SensorDataFilter
 from .utils import get_timedelta_from_timeframe, get_start_date, format_timestamp
@@ -102,22 +102,28 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def latest(self, request):
         """
-        Obtiene el último valor de cada sensor activo.
+        Obtiene el último valor de cada sensor activo o rooms.
         
-        Retorna una lista de lecturas recientes (últimos 7 días) por sensor:
+        Parámetros:
+        - room (bool): Agrupar por habitación y promediar valores (default: False)
+        
+        Retorna una lista de lecturas recientes (últimas 24h):
         [
             {
                 "timestamp": "2025-01-06T12:35:50.068720-03:00",
-                "sensor": "vege-d4",
-                "t": 19.4,
-                "h": 62.3
+                "timestamp_pretty": "06/01 12:35:50",
+                "sensor": "vege-d4",  # o nombre de room si room=True
+                "t": 19.4,  # promedio si es room
+                "h": 62.3   # promedio si es room
             },
             ...
         ]
         """
-        since = datetime.now(timezone.utc) - timedelta(days=1) #
+        since = datetime.now(timezone.utc) - timedelta(days=1)
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
+        room = self.request.query_params.get('room', 'false').lower() == 'true'
         
+        # Generamos latest_data como siempre
         latest_data = []
         sensors = base_queryset.values_list('sensor', flat=True).distinct()
         
@@ -132,6 +138,39 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                     'h': round(latest_record.h, 2)
                 })
 
+        # Si room es True, agrupamos por room
+        if room:
+            rooms_data = {}
+            # Creamos mapeo de sensores a rooms
+            for room in Room.objects.all():
+                room_sensors = [s.strip() for s in room.sensors.split(',')]
+                for record in latest_data:
+                    if record['sensor'] in room_sensors:
+                        if room.name not in rooms_data:
+                            rooms_data[room.name] = {
+                                'values': [],
+                                'timestamp': record['timestamp'],
+                                'timestamp_pretty': record['timestamp_pretty']
+                            }
+                        else:
+                            # Actualizamos timestamp si es más reciente
+                            if record['timestamp'] > rooms_data[room.name]['timestamp']:
+                                rooms_data[room.name]['timestamp'] = record['timestamp']
+                                rooms_data[room.name]['timestamp_pretty'] = record['timestamp_pretty']
+                        rooms_data[room.name]['values'].append(record)
+
+            # Generamos el nuevo latest_data agrupado
+            latest_data = [
+                {
+                    'timestamp': data['timestamp'],
+                    'timestamp_pretty': data['timestamp_pretty'],
+                    'sensor': room_name,
+                    't': round(sum(v['t'] for v in data['values']) / len(data['values']), 1),
+                    'h': round(sum(v['h'] for v in data['values']) / len(data['values']), 1)
+                }
+                for room_name, data in rooms_data.items()
+            ]
+
         return Response(latest_data)
 
     @action(detail=False, methods=['get'])
@@ -145,6 +184,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         - end_date (str): Fecha final en formato ISO (opcional)
         - sensor (str): ID del sensor para filtrar (opcional)
         - metadata (bool): Incluir metadatos en la respuesta (por defecto: true)
+        - room (bool): Agrupar por habitación en lugar de por sensor (por defecto: false)
         """
         # Parámetros de consulta
         end_date = self.request.query_params.get('end_date', None)
@@ -152,6 +192,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         timeframe = self.request.query_params.get('timeframe', '1h')
         sensor = self.request.query_params.get('sensor', None)
         include_metadata = self.request.query_params.get('metadata', 'true').lower() == 'true'
+        room = self.request.query_params.get('room', 'false').lower() == 'true'
 
         # Normalización de fechas
         if end_date:
@@ -174,9 +215,8 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 
         # Preparación del dataset
         queryset = self.filter_queryset(self.get_queryset())
-        if sensor:
-            queryset = queryset.filter(sensor=sensor)
-
+        
+        # Creamos el DataFrame base
         df = pd.DataFrame(list(queryset.values('timestamp', 'sensor', 't', 'h')))
         
         if df.empty:
@@ -187,11 +227,29 @@ class SensorDataViewSet(viewsets.ModelViewSet):
             return Response(response_data)
 
         df = df.sort_values('timestamp')
+        
+        if room:
+            # Creamos DataFrame de rooms y sus sensores
+            rooms_data = []
+            for room in Room.objects.all():
+                for sensor in room.sensors.split(','):
+                    rooms_data.append({
+                        'sensor': sensor.strip(),
+                        'room_name': room.name
+                    })
+            rooms_df = pd.DataFrame(rooms_data)
+            
+            # Merge con el DataFrame principal
+            df = df.merge(rooms_df, on='sensor', how='left')
+            # Usamos room_name como sensor si existe, sino mantenemos el sensor original
+            df['sensor'] = df['room_name'].fillna(df['sensor'])
+            df = df.drop('room_name', axis=1)
+
         df.set_index('timestamp', inplace=True)
         
         # Agregación de datos por timeframe
         grouped = df.groupby(['sensor', pd.Grouper(freq=timeframe)]).agg({
-            't': ['mean', 'min', 'max', 'count', 'first', 'last'],
+            't': ['mean', 'min', 'max', 'first', 'last'],
             'h': ['mean', 'min', 'max', 'first', 'last']
         }).round(2)
 
@@ -205,7 +263,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                     'mean': data[('t', 'mean')],
                     'min': data[('t', 'min')],
                     'max': data[('t', 'max')],
-                    'count': int(data[('t', 'count')]),
                     'first': data[('t', 'first')],
                     'last': data[('t', 'last')]
                 },

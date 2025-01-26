@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.conf import settings
 
 # Local
-from .models import SensorData
+from .models import SensorData, Room
 from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator, vpd_chart_generator
 
 
@@ -118,10 +118,16 @@ class VPDView(TemplateView):
         context = super().get_context_data(**kwargs)
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
         
-        response = requests.get(api_url)
+        # Usar room=true según la API
+        params = {'room': 'true'}
+        response = requests.get(api_url, params=params)
         data = response.json()
         
-        sensors_data = [(item['sensor'], item['t'], item['h']) for item in data]
+        # Procesar datos usando el sensor como nombre de room
+        sensors_data = []
+        for item in data:
+            if item.get('t') is not None and item.get('h') is not None:
+                sensors_data.append((item['sensor'], item['t'], item['h']))
         
         chart_html = vpd_chart_generator(sensors_data)
         context['chart'] = chart_html

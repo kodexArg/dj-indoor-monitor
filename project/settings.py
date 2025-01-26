@@ -21,6 +21,7 @@ INTERNAL_API_URL = 'http://nginx' if not IS_RUNSERVER else 'http://localhost'
 IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') if s.strip()]
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
     'django.contrib.contenttypes',
     'django.contrib.auth',
     'django.contrib.sessions',
