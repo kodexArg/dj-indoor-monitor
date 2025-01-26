@@ -415,7 +415,7 @@ def calculate_vpd(t, h):
     vpd = svp - vp  # Déficit de presión de vapor
     return vpd
 
-def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
+def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
     """
     Genera un gráfico de VPD optimizado para cultivo de cannabis con ejes invertidos.
     """
@@ -514,8 +514,8 @@ def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
     fig.update_layout(
         legend=dict(
             orientation='h',
-            yanchor='bottom',
-            y=1.1,
+            yanchor='top',
+            y=-0.1,  # Reducido de -0.15 a -0.1
             xanchor='center',
             x=0.5
         ),
@@ -524,19 +524,20 @@ def vpd_chart_generator(data, temp_min=15, temp_max=30, hum_min=0, hum_max=100):
             range=[hum_max, hum_min],
             dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)',
-            side='bottom'
+            side='bottom',  # Cambiado de 'top' a 'bottom'
+            tickfont=dict(size=10)  # Tamaño de fuente reducido para los números
         ),
         yaxis=dict(
             title='Temperatura (°C)',
             range=[temp_max, temp_min],
             dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)',
-            autorange='reversed',
             side='right',
-            title_standoff=0
+            title_standoff=0,
+            tickfont=dict(size=10)  # Tamaño de fuente reducido para los números
         ),
         plot_bgcolor='white',
-        margin=dict(l=50, r=50, t=50, b=50),
+        margin=dict(l=50, r=50, t=50, b=70),  # Reducido el margen inferior de 80 a 70
         height=600
     )
 
