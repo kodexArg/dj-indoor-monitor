@@ -20,6 +20,30 @@ INTERNAL_API_URL = 'http://nginx' if not IS_RUNSERVER else 'http://localhost'
 # Get IGNORE_SENSORS from env and split into list if not empty
 IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') if s.strip()]
 
+DOMAIN = os.getenv('DOMAIN')
+
+# SSL y Security Settings
+SECURE_SSL_REDIRECT = False  # Siempre False porque el SSL lo maneja el Load Balancer o el servidor web
+
+if os.getenv('BEHIND_SSL_PROXY') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+
+# Cookie Settings
+# Estos settings aseguran que las cookies solo se envíen por HTTPS en producción
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE') == 'True'  # Cookie de CSRF solo por HTTPS
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE') == 'True'  # Cookie de sesión solo por HTTPS
+
+# CSRF and CORS Settings
+CSRF_TRUSTED_ORIGINS = [
+    f'https://{DOMAIN}',  # Acepta CSRF desde HTTPS
+    f'http://{DOMAIN}',   # Acepta CSRF desde HTTP (desarrollo)
+    'http://localhost:8000',  # Para desarrollo local
+    'http://127.0.0.1:8000',  # Para desarrollo local
+]
+CORS_ALLOWED_ORIGINS = [f'https://{DOMAIN}', f'http://{DOMAIN}']
+CORS_ALLOW_CREDENTIALS = True
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.contenttypes',
@@ -30,6 +54,7 @@ INSTALLED_APPS = [
     'django_htmx',
     'rest_framework',
     'django_filters',
+    'corsheaders',
     'core',
     'plotly',
 ]
@@ -37,6 +62,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Add this before CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -114,9 +140,6 @@ STATICFILES_DIRS = [ BASE_DIR / 'core' / 'static' ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-MAX_DATA_MINUTES = int(os.getenv('MAX_DATA_MINUTES', 5))
-MAX_PLOT_RECORDS = int(os.getenv('MAX_PLOT_RECORDS', 1000))
-
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -124,5 +147,3 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
 }
-
-DEFAULT_QUERY_LIMIT = 1000
