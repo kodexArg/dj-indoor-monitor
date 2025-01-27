@@ -3,17 +3,6 @@
 <section id="overview-section" class="overview-section"
     hx-trigger="load">
     {% include 'partials/hx-indicator.html' %}
-    <!-- Artículo para el gráfico -->
-    <article id="chart-content">
-        <div class="chart-container" id="chart">
-            <div class="chart-placeholder htmx-indicator">
-                <div class="placeholder-text">Cargando datos...</div>
-                <div class="placeholder-animation"></div>
-            </div>
-            {{ chart_html|safe }}
-        </div>
-    </article>
-
     <!-- Artículo para los botones -->
     <article id="toggle-buttons-container">
         <div id="toggle-buttons" class="button-group">
@@ -71,6 +60,16 @@
         </div>
     </article>
 
+    <!-- Artículo para el gráfico -->
+    <article id="chart-content">
+        <div class="chart-container" id="chart">
+            <div class="chart-placeholder htmx-indicator">
+                <div class="placeholder-text">Cargando datos...</div>
+                <div class="placeholder-animation"></div>
+            </div>
+            {{ chart_html|safe }}
+        </div>
+    </article>
     <!-- Artículo para debug -->
     <article id="debug-info">
         <div class="debug-section">

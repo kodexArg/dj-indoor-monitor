@@ -106,29 +106,13 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         
         Parámetros:
         - room (bool): Agrupar por habitación y promediar valores (default: False)
-        
-        Retorna una lista de lecturas recientes (últimas 24h):
-        [
-            {
-                "timestamp": "2025-01-06T12:35:50.068720-03:00",
-                "timestamp_pretty": "06/01 12:35:50",
-                "sensor": "vege-d4",  # o nombre de room si room=True
-                "t": 19.4,  # promedio si es room
-                "h": 62.3   # promedio si es room
-            },
-            ...
-        ]
         """
         since = datetime.now(timezone.utc) - timedelta(days=1)
         base_queryset = SensorData.objects.filter(timestamp__gte=since)
         room = self.request.query_params.get('room', 'false').lower() == 'true'
         
-        # Agregar log para diagnóstico
-        print(f"Encontrados {base_queryset.count()} registros en las últimas 24h")
-        
         latest_data = []
         sensors = base_queryset.values_list('sensor', flat=True).distinct()
-        print(f"Sensores únicos encontrados: {list(sensors)}")
         
         for sensor in sensors:
             latest_record = base_queryset.filter(sensor=sensor).order_by('-timestamp').first()
@@ -141,13 +125,9 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                     'h': round(latest_record.h, 2)
                 })
 
-        print(f"Registros latest_data: {len(latest_data)}")
-
         if room:
             rooms_data = {}
             for room_obj in Room.objects.all():
-                print(f"Procesando room: {room_obj.name} con sensores: {room_obj.sensors}")
-                
                 if not room_obj.sensors:
                     continue
                 
@@ -163,7 +143,6 @@ class SensorDataViewSet(viewsets.ModelViewSet):
                         'sensor': room_obj.name
                     }
             
-            print(f"Rooms procesados: {list(rooms_data.keys())}")
             latest_data = list(rooms_data.values())
 
         return Response(latest_data)

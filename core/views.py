@@ -1,16 +1,25 @@
 # Python built-in
 from datetime import datetime, timedelta, timezone
 import requests
-import numpy as np  # Agregar import de numpy
+import numpy as np
 
 # Django y DRF
 from django.views.generic import TemplateView
+from django.views import View
 from django.urls import reverse
 from django.conf import settings
+from django.http import HttpResponse
 
 # Local
 from .models import SensorData, Room
-from .utils import old_devices_plot_generator, get_start_date, overview_plot_generator, sensor_plot_generator, vpd_chart_generator
+from .utils import (
+    old_devices_plot_generator,
+    get_start_date,
+    overview_plot_generator,
+    sensor_plot_generator,
+    vpd_chart_generator,
+    gauge_generator
+)
 
 
 class HomeView(TemplateView):
@@ -195,7 +204,55 @@ class VPDView(TemplateView):
 
 
 class GaugesView(TemplateView):
+    """Vista principal de gauges que obtiene datos iniciales"""
     template_name = "partials/charts/gauges.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
+        response = requests.get(api_url, params={'room': 'true'})
+        rooms_data = response.json()
+
+        gauges_data = []
+        for room in rooms_data:
+            gauges_data.append({
+                'room': room['sensor'],
+                'sensor': room.get('sensor_id', ''),  # sensor_id debe venir de la API
+                'value': room['t'],
+                'metric': 't'
+            })
+            gauges_data.append({
+                'room': room['sensor'],
+                'sensor': room.get('sensor_id', ''),
+                'value': room['h'],
+                'metric': 'h'
+            })
+
+        context['gauges'] = gauges_data
+        return context
+
+class GenerateGaugeView(View):
+    """Vista que genera y retorna el HTML de un gauge individual"""
+    def get(self, request, *args, **kwargs):
+        try:
+            value_str = request.GET.get('value', '0').replace(',', '.')
+            value = float(value_str)
+        except ValueError:
+            value = 0.0
+            
+        room = request.GET.get('room', '')
+        sensor = request.GET.get('sensor', '')
+        metric = request.GET.get('metric', '')
+        
+        gauge = gauge_generator(
+            value=value,
+            metric=metric,
+            room=room,
+            sensor=sensor
+        )
+        
+        return HttpResponse(gauge)
 
 class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'

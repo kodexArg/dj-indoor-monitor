@@ -37,7 +37,6 @@ logger.configure(
     ]
 )
 
-
 def overview_plot_generator(data, metric, start_date, end_date, selected_timeframe, div_id='chart'):
     """
     Genera HTML con gráfico estático Plotly usando datos pre-agrupados.
@@ -142,10 +141,9 @@ def overview_plot_generator(data, metric, start_date, end_date, selected_timefra
     # Logging
     if sensors:
         oldest_timestamp = min(min(s['x']) for s in sensors.values())
-        logger.debug(
-            f"Fecha de inicio solicitada: {format_timestamp(start_date)}, "
-            f"Fecha del registro más antiguo: {format_timestamp(oldest_timestamp)}, "
-            f"Cantidad de registros: {plotted_points}"
+        logger.info(
+            f"Overview plot generado. Rango: {format_timestamp(start_date)} - {format_timestamp(end_date)}. "
+            f"Registros: {plotted_points}"
         )
 
     html_chart = pio.to_html(
@@ -233,7 +231,6 @@ def old_devices_plot_generator(data, start_date, end_date):
         full_html=False,
         config={'staticPlot': True}
     )
-
 
 def sensor_plot_generator(data, sensor, start_date, end_date, selected_timeframe, div_id='chart'):
     filtered_data = [item for item in data if item['sensor'] == sensor]
@@ -342,7 +339,6 @@ def sensor_plot_generator(data, sensor, start_date, end_date, selected_timeframe
     )
     return html_chart, len(filtered_data)
 
-
 def get_timedelta_from_timeframe(timeframe):
     """
     Convierte un timeframe en su timedelta correspondiente.
@@ -357,7 +353,6 @@ def get_timedelta_from_timeframe(timeframe):
     }
     return time_windows[timeframe.upper()]
 
-
 def get_start_date(timeframe, end_date=None):
     """
     Calcula la fecha de inicio (usada 'por defecto') basada en el intervalo de tiempo seleccionado.
@@ -371,7 +366,6 @@ def get_start_date(timeframe, end_date=None):
     """
     window = get_timedelta_from_timeframe(timeframe)
     return end_date - window
-
 
 def format_timestamp(timestamp, include_seconds=False):
     """
@@ -407,7 +401,6 @@ def format_timestamp(timestamp, include_seconds=False):
     
     return f"{fecha} {hora}"
 
-
 # VPD
 def calculate_vpd(t, h):
     svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))  # Presión de vapor de saturación
@@ -416,6 +409,7 @@ def calculate_vpd(t, h):
     return vpd
 
 def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
+
     """
     Genera un gráfico de VPD optimizado para cultivo de cannabis con ejes invertidos.
     """
@@ -515,7 +509,7 @@ def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         legend=dict(
             orientation='h',
             yanchor='top',
-            y=-0.1,  # Reducido de -0.15 a -0.1
+            y=-0.1,
             xanchor='center',
             x=0.5
         ),
@@ -524,8 +518,8 @@ def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
             range=[hum_max, hum_min],
             dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)',
-            side='bottom',  # Cambiado de 'top' a 'bottom'
-            tickfont=dict(size=10)  # Tamaño de fuente reducido para los números
+            side='bottom',
+            tickfont=dict(size=10)
         ),
         yaxis=dict(
             title='Temperatura (°C)',
@@ -534,11 +528,106 @@ def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
             gridcolor='rgba(200, 200, 200, 0.2)',
             side='right',
             title_standoff=0,
-            tickfont=dict(size=10)  # Tamaño de fuente reducido para los números
+            tickfont=dict(size=10)
         ),
         plot_bgcolor='white',
-        margin=dict(l=50, r=50, t=50, b=70),  # Reducido el margen inferior de 80 a 70
+        margin=dict(l=50, r=50, t=50, b=70),
         height=600
     )
 
     return pio.to_html(fig, include_plotlyjs=False, full_html=False, config={'staticPlot': True})
+
+def gauge_generator(value, metric, room, sensor):
+    # Predefined configurations for each metric
+    GAUGE_CONFIGS = {
+        't': {
+            'steps': [[0, 18], [18, 24], [24, 35]],
+            'unit': '°C',
+            'title': 'Temperatura',
+            'colors': [
+                'rgba(135, 206, 235, 0.8)',  # Azul frío
+                'rgba(144, 238, 144, 0.6)',  # Verde claro (óptimo)
+                'rgba(255, 99, 71, 0.8)'     # Rojo-naranja (caliente)
+            ]
+        },
+        'h': {
+            'steps': [[0, 40], [40, 60], [60, 90]],
+            'unit': '%',
+            'title': 'Humedad',
+            'colors': [
+                'rgba(255, 198, 109, 0.8)',  # Amarillo-naranja (seco)
+                'rgba(152, 251, 152, 0.6)',  # Verde menta (óptimo)
+                'rgba(100, 149, 237, 0.8)'   # Azul (húmedo)
+            ]
+        }
+    }
+    
+    config = GAUGE_CONFIGS.get(metric)
+    steps = config['steps']
+    title = f"{config['title']} {room.title()}"
+    
+    fig = go.Figure()
+    
+    max_value = max(steps[2][1], value)
+    
+    fig.add_trace(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        domain={'x': [0, 1], 'y': [0.2, 1]},
+        number={
+            'font': {'size': 28, 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'}, 
+            'suffix': f" {config['unit']}",
+            'valueformat': '.1f'
+        },
+        gauge={
+            'axis': {
+                'range': [0, max_value],
+                'tickwidth': 1,
+                'tickcolor': "#888888",
+                'tickfont': {'size': 8, 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
+                'tickmode': 'linear',
+                'dtick': max_value/5
+            },
+            'bar': {'color': "rgba(150, 150, 150, 0.5)"},
+            'bgcolor': "white",
+            'borderwidth': 0,
+            'steps': [
+                {'range': steps[0], 'color': config['colors'][0]},
+                {'range': steps[1], 'color': config['colors'][1]},
+                {'range': steps[2], 'color': config['colors'][2]}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 2},
+                'thickness': 0.8,
+                'value': value
+            }
+        }
+    ))
+
+    fig.update_layout(
+        height=160,
+        width=220,
+        margin=dict(l=15, r=15, t=50, b=5),
+        paper_bgcolor="white",
+        font={'color': "#666666", 'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
+        showlegend=False,
+        title={
+            'text': title,
+            'y': 0.9,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': {
+                'size': 16,
+                'color': '#5f9b62',
+                'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'
+            }
+        }
+    )
+
+    return pio.to_html(
+        fig,
+        full_html=False,
+        include_plotlyjs=False,
+        config={'staticPlot': True, 'displayModeBar': False}
+    )

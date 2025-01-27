@@ -12,6 +12,7 @@ from .views import (
     OverviewView,
     SensorsView,
     GaugesView,
+    GenerateGaugeView,  # Eliminado GaugeComponentView, solo dejamos GenerateGaugeView
     VPDView,
 )
 
@@ -28,5 +29,7 @@ urlpatterns = [
     path('sensors/', SensorsView.as_view(), name='sensors'),
     path('vpd/', VPDView.as_view(), name='vpd'),
     path('timeframed/', SensorDataViewSet.as_view({'get': 'timeframed'}), name='timeframed'), # shortcut for /api/sensor-data/timeframed/
+    path('generate-gauge/', GenerateGaugeView.as_view(), name='generate-gauge'),
+    path('gauge-component/', GenerateGaugeView.as_view(), name='gauge-component'),
     path('', include(router.urls)),
 ]
