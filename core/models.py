@@ -1,4 +1,4 @@
-# Django
+# models.py
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
@@ -13,7 +13,6 @@ class SiteConfiguration(models.Model):
 
     @classmethod
     def get_all_parameters(cls):
-        """Devuelve todos los parámetros como un diccionario."""
         return {config.key: config.value for config in cls.objects.all()}
 
 
@@ -29,30 +28,35 @@ class Room(models.Model):
 
 
 class SensorDataManager(models.Manager):
-    """Custom manager that automatically filters out ignored sensors"""
     def get_queryset(self):
         qs = super().get_queryset()
         if getattr(settings, 'IGNORE_SENSORS', None):
             qs = qs.exclude(sensor__in=settings.IGNORE_SENSORS)
-
-        # ATENCIÓN: Los datos con temperatura y humedad 0 en la base de datos no se consideran en todo este sitio
         qs = qs.exclude(t__lte=1, h__lte=1)
-
         return qs
 
 
 class SensorData(models.Model):
-    """
-    Modelo para almacenar datos de sensores con timestamp, identificador del sensor,
-    temperatura (t) y humedad (h).
-    """
     timestamp = models.DateTimeField(default=timezone.now)
     sensor = models.CharField(max_length=255)
-    t = models.FloatField()
-    h = models.FloatField()
+    t = models.FloatField(null=True, blank=True)
+    h = models.FloatField(null=True, blank=True)
+    s = models.FloatField(null=True, blank=True)
+    l = models.FloatField(null=True, blank=True)
+    r = models.FloatField(null=True, blank=True)
 
-    # Replace default manager with custom manager
     objects = SensorDataManager()
 
     def __str__(self) -> str:
         return f"{self.sensor} at {self.timestamp}"
+
+
+class SensorDataLegacy(SensorData):
+    class Meta:
+        proxy = True 
+        verbose_name = "Legacy Sensor Data (t & h)"
+    
+    objects = SensorDataManager()
+
+    def get_queryset(self):
+        return super().get_queryset().only("timestamp", "sensor", "t", "h")
