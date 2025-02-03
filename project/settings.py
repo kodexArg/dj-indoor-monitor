@@ -15,7 +15,7 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
 IS_RUNSERVER = 'runserver' in sys.argv
 
 # Internal API settings
-INTERNAL_API_URL = 'http://nginx' if not IS_RUNSERVER else 'http://localhost'
+INTERNAL_API_URL = 'http://localhost:8000/api' if IS_RUNSERVER else 'http://nginx/api'
 
 # Get IGNORE_SENSORS from env and split into list if not empty
 IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') if s.strip()]

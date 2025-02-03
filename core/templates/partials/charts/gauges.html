@@ -1,19 +1,26 @@
 {% load static %}
 <span id="subtitle" hx-swap-oob="true">GAUGES</span>
 
-<div class="gauges-grid">
-    {% for gauge in gauges %}
-    <div class="gauge-container"
-         hx-get="{% url 'gauge-component' %}"
-         hx-trigger="load"
-         hx-swap="innerHTML"
-         hx-vals='{"value": "{{ gauge.value }}", 
-                  "metric": "{{ gauge.metric }}",
-                  "room": "{{ gauge.room }}",
-                  "sensor": "{{ gauge.sensor }}"}'
-         title="{{ gauge.room }} - {{ gauge.sensor }}">
-        <div class="loading">
-            <div class="placeholder-animation"></div>
+<div class="gauges-wrapper">
+    {% for metric_group in gauges_by_metric %}
+    <div class="metric-group">
+        <h2>{{ metric_group.title }}</h2>
+        <div class="gauges-grid">
+            {% for gauge in metric_group.gauges %}
+            <div class="gauge-container"
+                 hx-get="{% url 'gauge-component' %}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML"
+                 hx-vals='{"value": "{{ gauge.value }}", 
+                          "metric": "{{ gauge.metric }}",
+                          "room": "{{ gauge.room }}",
+                          "sensor": "{{ gauge.sensor }}"}'
+                 title="{{ gauge.room }} - {{ gauge.sensor }}">
+                <div class="loading">
+                    <div class="placeholder-animation"></div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
     </div>
     {% endfor %}

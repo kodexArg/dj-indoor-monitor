@@ -18,7 +18,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
-router.register(r'api/data-point', DataPointViewSet, basename='data-point')
+router.register(r'api/data-point', DataPointViewSet, basename='data-point') 
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),

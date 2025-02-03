@@ -201,32 +201,61 @@ class VPDView(TemplateView):
         return context
 
 class GaugesView(TemplateView):
-    """Vista principal de gauges que obtiene datos iniciales"""
-    template_name = "partials/charts/gauges.html"
-
+    template_name = 'partials/charts/gauges.html'
+    
+    METRIC_TITLES = {
+        't': 'Temperatura',
+        'h': 'Humedad',
+        's': 'Suelo',
+        'l': 'Luz',
+        'r': 'Lluvia'
+    }
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
-        response = requests.get(api_url, params={'room': 'true'})
-        rooms_data = response.json()
-
-        gauges_data = []
-        for room in rooms_data:
-            gauges_data.append({
-                'room': room['sensor'],
-                'sensor': room.get('sensor_id', ''),
-                'value': room['t'],
-                'metric': 't'
+        # Fetch latest data points usando la URL correcta
+        api_url = f"{settings.INTERNAL_API_URL}/data-point/latest/"
+        response = requests.get(api_url, timeout=5)
+        data_points = response.json()  # Aquí estaba el error, no se asignaba la respuesta
+        
+        # Get rooms configuration
+        rooms = {room.name: room for room in Room.objects.all()}
+        
+        # Process and group by metric
+        metrics_data = {}
+        for point in data_points:
+            metric = point['metric']
+            if metric not in metrics_data:
+                metrics_data[metric] = []
+            
+            # Find room for sensor
+            room_name = next(
+                (name for name, room in rooms.items() 
+                 if point['sensor'] in room.get_sensor_list()),
+                None
+            )
+            
+            metrics_data[metric].append({
+                'value': point['value'],
+                'metric': metric,
+                'room': room_name or 'Sin ubicación',
+                'sensor': point['sensor']
             })
-            gauges_data.append({
-                'room': room['sensor'],
-                'sensor': room.get('sensor_id', ''),
-                'value': room['h'],
-                'metric': 'h'
-            })
-
-        context['gauges'] = gauges_data
+        
+        # Format data for template
+        gauges_by_metric = []
+        for metric, gauges in metrics_data.items():
+            if gauges:  # Only include metrics with data
+                gauges_by_metric.append({
+                    'title': self.METRIC_TITLES.get(metric, metric.upper()),
+                    'gauges': sorted(gauges, key=lambda x: x['room'])
+                })
+        
+        # Sort by metric title
+        gauges_by_metric.sort(key=lambda x: x['title'])
+        
+        context['gauges_by_metric'] = gauges_by_metric
         return context
 
 class GenerateGaugeView(View):

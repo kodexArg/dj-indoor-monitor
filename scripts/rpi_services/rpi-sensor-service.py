@@ -72,16 +72,23 @@ class SensorDHT(SensorInterface):
             raise ValueError("Required hardware libraries not available")
             
         super().__init__(name, hardware_type, metrics)
-        self.dht_object = (adafruit_dht.DHT22(board.D4) 
-                          if hardware_type == "dht22" 
-                          else adafruit_dht.DHT11(board.D4))
+        # Use param as GPIO pin number
+        pin = getattr(board, f'D{param}')
+        if hardware_type == "dht22":
+            self.dht_object = adafruit_dht.DHT22(pin)
+        elif hardware_type == "dht11":
+            self.dht_object = adafruit_dht.DHT11(pin)
+        else:
+            raise ValueError(f"Unsupported hardware type: {hardware_type}")
     
     def read(self) -> Optional[dict]:
         try:
-            temperature = self.dht_object.temperature if 't' in self.metrics else None
-            humidity = self.dht_object.humidity if 'h' in self.metrics else None
-            return {k: v for k, v in {'t': temperature, 'h': humidity}.items() 
-                   if k in self.metrics and v is not None}
+            readings = {}
+            if 't' in self.metrics:
+                readings['t'] = self.dht_object.temperature
+            if 'h' in self.metrics:
+                readings['h'] = self.dht_object.humidity
+            return readings if readings else None
         except Exception as e:
             logger.error(f"Error reading {self.name}: {str(e)}")
             return None
@@ -96,7 +103,8 @@ class SensorMCP3008(SensorInterface):
     def read(self) -> Optional[dict]:
         try:
             value = self.mcp.value
-            return {self.metric_type: value} if self.metric_type in self.metrics else None
+            result = {self.metric_type: value} if self.metric_type in self.metrics else None
+            return result
         except Exception as e:
             logger.error(f"Error reading {self.name}: {str(e)}")
             return None
@@ -177,37 +185,31 @@ class SensorFactory:
     @staticmethod
     def create_sensor(config: dict) -> Optional[SensorInterface]:
         try:
-            if config["type"] in ["dht22", "dht11"]:
-                if not IS_ARM:
-                    logger.warning(f"Creating Fake sensor instead of {config['type']} in non-ARM environment")
-                    return SensorFake(
-                        name=config["name"],
-                        metrics=config["metrics"]
-                    )
+            if not IS_ARM:
+                logger.warning(f"Creating Fake sensor instead of {config['hardware_type']} in non-ARM environment")
+                return SensorFake(
+                    name=config["name"],
+                    metrics=config["metrics"]
+                )
+            if config["hardware_type"] in ["dht22", "dht11"]:
                 return SensorDHT(
                     name=config["name"],
-                    hardware_type=config["type"],
+                    hardware_type=config["hardware_type"],
                     param=config["param"],
                     metrics=config["metrics"]
                 )
-            elif config["type"] == "mcp3008":
-                if not IS_ARM:
-                    logger.warning(f"Creating Fake sensor instead of MCP3008 in non-ARM environment")
-                    return SensorFake(
-                        name=config["name"],
-                        metrics=config["metrics"]
-                    )
+            elif config["hardware_type"] == "mcp3008":
                 return SensorMCP3008(
                     name=config["name"],
                     param=config["param"],
                     metrics=config["metrics"]
                 )
-            elif config["type"] == "fake":
+            elif config["hardware_type"] == "fake":
                 return SensorFake(
                     name=config["name"],
                     metrics=config["metrics"]
                 )
-            logger.error(f"Unsupported sensor type: {config['type']}")
+            logger.error(f"Unsupported sensor type: {config['hardware_type']}")
             return None
         except Exception as e:
             logger.error(f"Error creating sensor {config['name']}: {str(e)}")
@@ -223,6 +225,7 @@ class SensorManager:
         self.sensor_intervals = {}
         
         for config in sensors_config:
+            # Acá se crea el sensor
             sensor = SensorFactory.create_sensor(config)
             if sensor:
                 self.sensors.append(sensor)
@@ -245,10 +248,10 @@ class SensorManager:
 # =================================================
 class SensorConfig(TypedDict):
     name: str
-    type: Literal['dht11', 'dht22', 'mcp3008']
+    hardware_type: Literal['dht11', 'dht22', 'mcp3008', 'fake']
     interval: int
-    param: Union[int, List[Union[int, str]]]
-    metrics: List[Literal['t', 'h', 's', 'l', 'r']]
+    param: int
+    metrics: List[Literal['t', 'h', 's', 'l']]
 
 class Config(TypedDict):
     raspberry_id: str
@@ -263,13 +266,13 @@ def load_config() -> Optional[Config]:
         
         # Validate each sensor configuration
         for sensor in config['sensors']:
-            if not all(k in sensor for k in ['name', 'type', 'interval', 'param', 'metrics']):
+            if not all(k in sensor for k in ['name', 'hardware_type', 'interval', 'param', 'metrics']):
                 raise ValueError(f"Missing required fields in sensor config: {sensor}")
             
-            if sensor['type'] not in ['dht11', 'dht22', 'mcp3008', 'fake']:
-                raise ValueError(f"Invalid sensor type: {sensor['type']}")
+            if sensor['hardware_type'] not in ['dht11', 'dht22', 'mcp3008', 'fake']:
+                raise ValueError(f"Invalid sensor type: {sensor['hardware_type']}")
             
-            if sensor['type'] == 'mcp3008':
+            if sensor['hardware_type'] == 'mcp3008':
                 if not (isinstance(sensor['param'], list) and len(sensor['param']) == 2):
                     raise ValueError(f"Invalid MCP3008 parameters for sensor {sensor['name']}")
             
