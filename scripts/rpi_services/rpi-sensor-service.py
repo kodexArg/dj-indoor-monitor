@@ -3,16 +3,33 @@ import asyncio
 import json
 import os
 from abc import ABC, abstractmethod
+import datetime
 
 # Third-party
-import adafruit_dht
-import board
-from gpiozero import MCP3008
 from loguru import logger
 import requests
-from typing import TypedDict, List, Union, Optional, Literal
+from typing import TypedDict, List, Union, Optional, Literal, Dict
 import yaml
 from yaml.error import YAMLError
+import random
+
+# Importaciones condicionales para hardware
+config_path = os.path.join(os.path.dirname(__file__), 'rpi-sensor-config.yaml')
+with open(config_path, 'r') as f:
+    IS_ARM = yaml.safe_load(f).get('arm', False)
+
+if IS_ARM:
+    try:
+        import adafruit_dht
+        import board
+        from gpiozero import MCP3008
+        HARDWARE_AVAILABLE = True
+    except ImportError:
+        HARDWARE_AVAILABLE = False
+        logger.warning("Hardware libraries not available")
+else:
+    HARDWARE_AVAILABLE = False
+    logger.info("Running in non-ARM mode, using fake sensors")
 
 # =================================================
 # INTERFACES
@@ -49,10 +66,15 @@ class TransmitterInterface(ABC):
 # =================================================
 class SensorDHT(SensorInterface):
     def __init__(self, name: str, hardware_type: str, param: int, metrics: List[str]):
+        if not IS_ARM:
+            raise ValueError("Cannot initialize DHT sensor in non-ARM environment")
+        if not HARDWARE_AVAILABLE:
+            raise ValueError("Required hardware libraries not available")
+            
         super().__init__(name, hardware_type, metrics)
-        self.dht_object = (adafruit_dht.DHT22(board.D{param}) 
+        self.dht_object = (adafruit_dht.DHT22(board.D4) 
                           if hardware_type == "dht22" 
-                          else adafruit_dht.DHT11(board.D{param}))
+                          else adafruit_dht.DHT11(board.D4))
     
     def read(self) -> Optional[dict]:
         try:
@@ -77,6 +99,40 @@ class SensorMCP3008(SensorInterface):
             return {self.metric_type: value} if self.metric_type in self.metrics else None
         except Exception as e:
             logger.error(f"Error reading {self.name}: {str(e)}")
+            return None
+
+class SensorFake(SensorInterface):
+    def __init__(self, name: str, metrics: List[str]):
+        super().__init__(name, "fake", metrics)
+    
+    def read(self) -> Optional[Dict[str, float]]:
+        try:
+            data = {}
+            for metric in self.metrics:
+                if metric == "t":  # Temperatura (15°C - 35°C)
+                    base_value = 25.0
+                    variation = random.uniform(-10, 10)
+                    data["t"] = round(base_value + variation, 2)
+                elif metric == "h":  # Humedad (30% - 90%)
+                    base_value = 60.0
+                    variation = random.uniform(-30, 30)
+                    data["h"] = round(base_value + variation, 2)
+                elif metric == "s":  # Humedad del suelo (0% - 100%)
+                    base_value = 70.0
+                    variation = random.uniform(-20, 20)
+                    data["s"] = round(base_value + variation, 2)
+                elif metric == "l":  # Luz (0% - 100%)
+                    hour = datetime.datetime.now().hour
+                    if 6 <= hour <= 18:  # Día
+                        base_value = 80.0
+                        variation = random.uniform(-20, 20)
+                    else:  # Noche
+                        base_value = 5.0
+                        variation = random.uniform(-5, 5)
+                    data["l"] = round(max(0, min(100, base_value + variation)), 2)
+            return data
+        except Exception as e:
+            logger.error(f"Error simulating {self.name}: {str(e)}")
             return None
 
 # =================================================
@@ -122,6 +178,12 @@ class SensorFactory:
     def create_sensor(config: dict) -> Optional[SensorInterface]:
         try:
             if config["type"] in ["dht22", "dht11"]:
+                if not IS_ARM:
+                    logger.warning(f"Creating Fake sensor instead of {config['type']} in non-ARM environment")
+                    return SensorFake(
+                        name=config["name"],
+                        metrics=config["metrics"]
+                    )
                 return SensorDHT(
                     name=config["name"],
                     hardware_type=config["type"],
@@ -129,9 +191,20 @@ class SensorFactory:
                     metrics=config["metrics"]
                 )
             elif config["type"] == "mcp3008":
+                if not IS_ARM:
+                    logger.warning(f"Creating Fake sensor instead of MCP3008 in non-ARM environment")
+                    return SensorFake(
+                        name=config["name"],
+                        metrics=config["metrics"]
+                    )
                 return SensorMCP3008(
                     name=config["name"],
                     param=config["param"],
+                    metrics=config["metrics"]
+                )
+            elif config["type"] == "fake":
+                return SensorFake(
+                    name=config["name"],
                     metrics=config["metrics"]
                 )
             logger.error(f"Unsupported sensor type: {config['type']}")
@@ -193,7 +266,7 @@ def load_config() -> Optional[Config]:
             if not all(k in sensor for k in ['name', 'type', 'interval', 'param', 'metrics']):
                 raise ValueError(f"Missing required fields in sensor config: {sensor}")
             
-            if sensor['type'] not in ['dht11', 'dht22', 'mcp3008']:
+            if sensor['type'] not in ['dht11', 'dht22', 'mcp3008', 'fake']:
                 raise ValueError(f"Invalid sensor type: {sensor['type']}")
             
             if sensor['type'] == 'mcp3008':
