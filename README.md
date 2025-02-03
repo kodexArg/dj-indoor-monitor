@@ -33,9 +33,9 @@ Esta misma infraestructura funciona en entorno local, usando el mismo docker db 
 
 ## 3. API
 
-API basada en Django REST Framework. Función CRUD completa: Los Raspberry Pi utilizan también la API para la inserción de datos.
+La API está basada en Django REST Framework y expone los siguientes endpoints:
 
-Los datos se exponen a través de tres endpoints principales:
+### 3.1 Sensor Data API (Legacy)
 
 Base endpoint para operaciones CRUD estándar:
 ```bash
@@ -116,6 +116,107 @@ Timeframes recomendados según uso:
 - Monitoreo: 5s - 1T
 - Visualización: 30T - 1h
 - Análisis: 4h - 1D
+
+### 3.2 Data-Point API
+
+Base endpoint para operaciones CRUD estándar:
+```bash
+/api/data-point/
+```
+
+Últimas lecturas por sensor:
+```bash
+/api/data-point/latest/
+```
+
+Datos agregados por intervalos:
+```bash
+/api/data-point/timeframed/
+/timeframed/ #shortcut
+```
+
+### Operaciones CRUD
+
+```bash
+GET /api/data-point/
+```
+```json
+{
+    "results": [{"timestamp": "2024-01-15T14:30:00Z", "sensor": "rpi-001", "t": 24.5, "h": 65.3}],
+    "count": 1
+}
+```
+
+```bash
+POST /api/data-point/
+{"sensor": "rpi-001", "t": 24.5, "h": 65.3}
+```
+
+### Agregación Temporal
+
+El endpoint `/timeframed/` implementa agregaciones. Por ejemplo para obtener los datos agrupados cada 30 minutos, desde 2025:
+
+```bash
+GET /api/data-point/timeframed/?timeframe=30T&start_date=2025-01-01
+```
+
+> **Nota**: Los timeframes se especifican utilizando un número seguido de una unidad de tiempo. Por ejemplo, `30T` se refiere a 30 minutos, `1h` a 1 hora, `4h` a 4 horas, y `1D` a 1 día.
+
+Parámetros:
+- `timeframe`: Intervalo de agregación [5s|1T|30T|1h|4h|1D]
+- `window_minutes`: Ventana temporal en minutos
+- `sensor`: ID del sensor (opcional)
+- `metric`: Métrica específica [t|h] (opcional)
+- `metadata`: Incluir metadatos [true|false]
+
+Respuesta:
+```json
+{
+    "results": [{
+        "timestamp": "2024-01-15T14:30:00Z",
+        "sensor": "rpi-001",
+        "temperature": {"mean": 24.5, "min": 23.1, "max": 25.8, "count": 12},
+        "humidity": {"mean": 65.3, "min": 62.1, "max": 68.4}
+    }],
+    "metadata": {
+        "timeframe": "30T",
+        "groups": 48,
+        "query_duration_s": 0.145
+    }
+}
+```
+
+### 3.3 RPI Sensor Service
+
+El servicio de sensores RPI se encarga de la recolección de datos de los sensores y su envío a la API. Está implementado en Python y se ejecuta en los dispositivos Raspberry Pi.
+
+#### Instalación
+
+1. Clonar el repositorio en el Raspberry Pi:
+```bash
+git clone https://github.com/usuario/rpi-sensor-service.git
+cd rpi-sensor-service
+```
+
+2. Instalar las dependencias:
+```bash
+pip install -r requirements.txt
+```
+
+3. Configurar las variables de entorno:
+```env
+# API
+API_URL=http://localhost:8000/api/data-point/
+API_KEY=your_api_key
+
+# Sensor
+SENSOR_ID=rpi-001
+```
+
+4. Ejecutar el servicio:
+```bash
+python sensor_service.py
+```
 
 ## 4. Instalación
 
