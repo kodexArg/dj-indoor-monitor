@@ -52,14 +52,14 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         return {
             'timeframe': timeframe,
             'metric': metric,
-            'window_minutes': int(time_window.total_seconds() / 60),  # Convertir a minutos
+            'window_minutes': int(time_window.total_seconds() / 60),
             'start_date': start_date.isoformat(),
             'end_date': end_date.isoformat(),
             'start_pretty': format_timestamp(start_date),
             'end_pretty': format_timestamp(end_date),
             'record_count': queryset.count(),
             'sensor_ids': sorted(list(set(queryset.values_list('sensor', flat=True)))),
-            'query_duration_s': round(perf_counter() - self._query_start_time, 3)  # Expresar en segundos
+            'query_duration_s': round(perf_counter() - self._query_start_time, 3) 
         }
 
     def get_queryset(self):

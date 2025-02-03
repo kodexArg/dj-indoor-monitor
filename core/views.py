@@ -63,7 +63,7 @@ class OverviewView(TemplateView):
         
         # Actualizar contexto
         context.update({
-            'room': room.lower() == 'true',  # Agregar room al contexto como boolean
+            'room': room.lower() == 'true', 
             'metadata': data.get('metadata', {}),
             'results': data.get('results', [])
         })
@@ -103,7 +103,7 @@ class SensorsView(TemplateView):
         context.update({
             'metadata': data.get('metadata', {}),
             'results': data.get('results', []),
-            'selected_timeframe': timeframe  # Add selected timeframe to context
+            'selected_timeframe': timeframe 
         })
 
         sensor_ids = context['metadata'].get('sensor_ids', [])
@@ -122,8 +122,6 @@ class SensorsView(TemplateView):
         context['charts'] = charts
         return context
 
-
-
 class VPDView(TemplateView):
     template_name = "partials/charts/vpd.html"
 
@@ -139,7 +137,7 @@ class VPDView(TemplateView):
         # Procesar datos de sensores individuales
         temps = []
         hums = []
-        valid_sensors = []  # Lista para mantener los sensores válidos
+        valid_sensors = [] 
         
         for sensor in sensor_data:
             t = sensor.get('t')
@@ -154,11 +152,11 @@ class VPDView(TemplateView):
         for room in Room.objects.all():
             room_name = room.name
             for sensor in room.sensors.split(','):
-                sensor = sensor.strip()  # Corregida la indentación
+                sensor = sensor.strip()
                 if sensor:
                     sensor_data = next((s for s in valid_sensors if s['sensor'] == sensor), None)
                     if sensor_data and sensor_data.get('t') is not None and sensor_data.get('h') is not None:
-                        sensor_to_room[sensor] = room_name  # Corregida la indentación
+                        sensor_to_room[sensor] = room_name 
                 
         # Cálculo vectorizado de VPD usando numpy
         temps = np.array(temps)
@@ -168,7 +166,7 @@ class VPDView(TemplateView):
         
         # Construir estructura final de datos
         sensors_info = []
-        for idx, sensor in enumerate(valid_sensors):  # Usar valid_sensors en lugar de sensor_data
+        for idx, sensor in enumerate(valid_sensors):  
             sensors_info.append({
                 'room': sensor_to_room.get(sensor['sensor'], "Sin Asignar"),
                 'sensor': sensor['sensor'],
@@ -202,7 +200,6 @@ class VPDView(TemplateView):
         })
         return context
 
-
 class GaugesView(TemplateView):
     """Vista principal de gauges que obtiene datos iniciales"""
     template_name = "partials/charts/gauges.html"
@@ -218,7 +215,7 @@ class GaugesView(TemplateView):
         for room in rooms_data:
             gauges_data.append({
                 'room': room['sensor'],
-                'sensor': room.get('sensor_id', ''),  # sensor_id debe venir de la API
+                'sensor': room.get('sensor_id', ''),
                 'value': room['t'],
                 'metric': 't'
             })
