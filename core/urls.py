@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 # Local
-from .api import SensorDataViewSet
+from .api import SensorDataViewSet, DataPointViewSet
 from .views import (
     HomeView,
     DevelopmentView,
@@ -18,6 +18,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r'api/sensor-data', SensorDataViewSet, basename='sensor-data')
+router.register(r'api/data-point', DataPointViewSet, basename='data-point')
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),

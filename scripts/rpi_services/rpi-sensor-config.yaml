@@ -1,0 +1,72 @@
+# Identificación del dispositivo
+raspberry_id: "rpi1"
+
+# URLs de las APIs
+api_urls:
+  - "https://kcbd.grupoalvs.com/api/sensor-data/"
+  - "https://kcbd-monitor.grupoalvs.com/api/sensor-data/"
+  - "http://localhost/api/sensor-data/"
+
+# Configuración de sensores
+sensors:
+  - name: "greenhouse-1"
+    type: "dht22"
+    interval: 10
+    param: 4
+    metrics: ["t", "h"]
+
+  - name: "greenhouse-2"
+    type: "dht22"
+    interval: 10
+    param: 22
+    metrics: ["t", "h"]
+
+  - name: "soil-1"
+    type: "mcp3008"
+    interval: 5
+    param: [0, "s"]
+    metrics: ["s"]
+
+  - name: "soil-2"
+    type: "mcp3008"
+    interval: 5
+    param: [1, "s"]
+    metrics: ["s"]
+
+  - name: "light-1"
+    type: "mcp3008"
+    interval: 5
+    param: [2, "l"]
+    metrics: ["l"]
+
+  # ============================================
+  # EJEMPLOS DE CONFIGURACIÓN DE SENSORES
+  # ============================================
+  
+  # Ejemplo de sensor DHT (temperatura y humedad)
+  # - name: nombre único del sensor
+  # - type: "dht11" o "dht22"
+  # - interval: tiempo entre lecturas en segundos
+  # - param: número del pin GPIO (sin el 'D')
+  # - metrics: métricas que reporta ["t" y/o "h"]
+  #
+  # - name: "example-dht"
+  #   type: "dht22"  # o "dht11"
+  #   interval: 10
+  #   param: 17      # conectado a GPIO17
+  #   metrics: ["t", "h"]  # temperatura y humedad
+
+  # Ejemplo de sensor MCP3008 (analógico)
+  # - name: nombre único del sensor
+  # - type: siempre "mcp3008"
+  # - interval: tiempo entre lecturas en segundos
+  # - param: [canal, tipo]
+  #   - canal: 0-7 (número de canal del MCP3008)
+  #   - tipo: "s" (suelo) o "l" (luz)
+  # - metrics: métrica que reporta ["s"] o ["l"]
+  #
+  # - name: "example-soil"
+  #   type: "mcp3008"
+  #   interval: 5
+  #   param: [3, "s"]  # canal 3, sensor de suelo
+  #   metrics: ["s"]   # métrica de suelo

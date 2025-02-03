@@ -60,3 +60,13 @@ class SensorDataLegacy(SensorData):
 
     def get_queryset(self):
         return super().get_queryset().only("timestamp", "sensor", "t", "h")
+
+
+class DataPoint(models.Model):
+    timestamp = models.DateTimeField(default=timezone.now)
+    sensor = models.CharField(max_length=255)
+    metric = models.CharField(max_length=1) # t, h, s, l
+    value = models.FloatField()
+
+    def __str__(self):
+        return f"{self.sensor} at {self.timestamp}"

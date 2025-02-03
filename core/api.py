@@ -3,14 +3,14 @@ from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
 # Django & DRF imports
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import pandas as pd
 
 # Local imports
-from .models import SensorData, Room
-from .serializers import SensorDataSerializer
+from .models import SensorData, Room, DataPoint
+from .serializers import SensorDataSerializer, DataPointSerializer
 from .filters import SensorDataFilter
 from .utils import get_timedelta_from_timeframe, get_start_date, format_timestamp
 
@@ -262,3 +262,102 @@ class SensorDataViewSet(viewsets.ModelViewSet):
         response_data['results'] = results
 
         return Response(response_data)
+
+
+class DataPointViewSet(viewsets.ViewSet):
+    """
+    API para gestionar puntos de datos.
+    
+    GET: Obtiene todos los registros de las últimas 24 horas
+    POST: Crea un nuevo registro. Campos requeridos: sensor, metric, value.
+          El timestamp es opcional, si no se proporciona se usa la hora actual.
+    """
+    def list(self, request):
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        points = DataPoint.objects.filter(
+            timestamp__gte=since
+        ).order_by('-timestamp')
+        
+        serializer = DataPointSerializer(points, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def latest(self, request):
+        """
+        Obtiene el último valor por sensor y métrica en las últimas 24 horas
+        
+        Parámetros:
+        - sensor: Opcional, filtrar por sensor específico
+        """
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        base_queryset = DataPoint.objects.filter(timestamp__gte=since)
+        
+        if 'sensor' in request.query_params:
+            base_queryset = base_queryset.filter(sensor=request.query_params['sensor'])
+        
+        latest_data = []
+        # Obtener el último registro para cada combinación de sensor y métrica
+        for sensor in base_queryset.values_list('sensor', flat=True).distinct():
+            latest_points = []
+            for metric in ['t', 'h', 's', 'l', 'r']:
+                point = (base_queryset
+                    .filter(sensor=sensor, metric=metric)
+                    .order_by('-timestamp')
+                    .first())
+                
+                if point:
+                    latest_points.append({
+                        'timestamp': point.timestamp.isoformat(),
+                        'sensor': point.sensor,
+                        'metric': point.metric,
+                        'value': round(point.value, 2)
+                    })
+            
+            if latest_points:
+                latest_data.extend(latest_points)
+
+        return Response(latest_data)
+
+    def create(self, request):
+        required_fields = ['sensor', 'metric', 'value']
+        
+        # Validar campos requeridos
+        if not all(field in request.data for field in required_fields):
+            return Response(
+                {'error': f'Missing required fields. Required: {", ".join(required_fields)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Obtener timestamp o usar now() si no existe
+            if 'timestamp' in request.data:
+                timestamp = datetime.fromisoformat(request.data['timestamp'])
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            else:
+                timestamp = datetime.now(timezone.utc)
+            
+            # Validar valor numérico
+            value = float(request.data['value'])
+            
+            # Crear punto de datos
+            data_point = DataPoint.objects.create(
+                timestamp=timestamp,
+                sensor=request.data['sensor'],
+                metric=request.data['metric'],
+                value=value
+            )
+            
+            serializer = DataPointSerializer(data_point)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except ValueError as e:
+            return Response(
+                {'error': f'Invalid data format: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Error creating data point: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
