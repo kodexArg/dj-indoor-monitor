@@ -11,19 +11,15 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS').split(',')
 
-# Detect if running with runserver, checking all arguments
 IS_RUNSERVER = 'runserver' in sys.argv
 
-# Internal API settings
 INTERNAL_API_URL = 'http://localhost:8000/api' if IS_RUNSERVER else 'http://nginx/api'
 
-# Get IGNORE_SENSORS from env and split into list if not empty
 IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') if s.strip()]
 
 DOMAIN = os.getenv('DOMAIN')
 
-# SSL y Security Settings
-SECURE_SSL_REDIRECT = False  # Siempre False porque el SSL lo maneja el Load Balancer o el servidor web
+SECURE_SSL_REDIRECT = False # using AWS Load Balancer + Certs
 
 if os.getenv('BEHIND_SSL_PROXY') == 'True':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -106,7 +102,7 @@ DATABASES = {
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_LOCAL') if IS_RUNSERVER else os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'PORT': '5432',
     }
 }
 

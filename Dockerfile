@@ -19,7 +19,7 @@ COPY . /app/
 RUN mkdir -p /app/staticfiles
 RUN chmod -R 755 /app/staticfiles
 
-COPY scripts/entrypoint.sh /app/
+COPY ./scripts/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 CMD ["/app/entrypoint.sh"]
