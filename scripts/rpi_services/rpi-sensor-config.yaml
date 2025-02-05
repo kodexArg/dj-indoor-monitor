@@ -1,56 +1,60 @@
-# Indica si estamos en una Raspberry Pi (ARM)
-arm: false
-
-# Identificación del dispositivo
-raspberry_id: "rpi1"
-
-# URLs de las APIs
+# use false for development (x86) and true for production (raspberry pi)
+arm: true
+ 
+raspberry_id: "rpi4"
+ 
+# api_urls: list of endpoints to send data to
 api_urls:
-  # - "https://kcbd.grupoalvs.com/api/sensor-data/"
-  # - "https://kcbd-monitor.grupoalvs.com/api/sensor-data/"
   - "http://localhost:8000/api/data-point/"
-
-# Configuración de sensores
+  # - "http://another-endpoint.com/api/data-point/"
+ 
+# implemented hardware_type: dht22, dht11, mcp3008, fake
+# dht22 and dht11 params: gpio (int)
+# mcp3008 params: channel (int), min_v (float) <- used for calibration
+# implemented metrics: t (temperature), h (humidity), s (soil moisture), l (light)
 sensors:
-  - name: "greenhouse-1"
-    hardware_type: "fake"
+  - name: "vege-oeste"
+    hardware_type: "dht22"
     interval: 10
-    param: 4
+    params:
+      - gpio: 4
     metrics: ["t", "h"]
-
-  - name: "greenhouse-2"
-    hardware_type: "fake"
+ 
+  - name: "vege-este"
+    hardware_type: "dht22"
     interval: 10
-    param: 22
+    params:
+      - gpio: 22
     metrics: ["t", "h"]
-
-  - name: "soil-1"
-    hardware_type: "fake"
+ 
+  - name: "subs-1"
+    hardware_type: "mcp3008"
     interval: 5
-    param: 0
+    params:
+      - channel: 0
+      - min_v: 1.68
     metrics: ["s"]
-
-  - name: "soil-2"
-    hardware_type: "fake"
+ 
+  - name: "subs-2"
+    hardware_type: "mcp3008"
     interval: 5
-    param: 1
+    params:
+      - channel: 1
+      - min_v: 1.67
     metrics: ["s"]
-
-  - name: "light-1"
-    hardware_type: "fake"
+ 
+  - name: "subs-3"
+    hardware_type: "mcp3008"
     interval: 5
-    param: 2
+    params:
+      - channel: 2
+      - min_v: 1.50
+    metrics: ["s"]
+ 
+  - name: "ldr-1"
+    hardware_type: "mcp3008"
+    interval: 5
+    params:
+      - channel: 7
+      - min_v: 0.5
     metrics: ["l"]
-
-  # Ejemplo de sensor DHT (temperatura y humedad)
-  # - name: nombre único del sensor
-  # - hardware_type: "dht11" o "dht22"
-  # - interval: tiempo entre lecturas en segundos
-  # - param: número del pin GPIO (sin el 'D')
-  # - metrics: métricas que reporta ["t" y/o "h"]
-  #
-  # - name: "example-dht"
-  #   hardware_type: "dht22"  # o "dht11"
-  #   interval: 10
-  #   param: 17      # conectado a GPIO17
-  #   metrics: ["t", "h"]  # temperatura y humedad

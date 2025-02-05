@@ -1,4 +1,19 @@
-# Python
+"""
+Este script gestiona la lectura de sensores y la transmisión de datos en dispositivos Raspberry Pi.
+
+Funcionalidad:
+- Lee datos de sensores DHT (dht11, dht22), MCP3008 (para sustrato y luz) y sensores simulados ("fake").
+- Configura los sensores mediante un archivo YAML, especificando tipo de sensor, intervalos de lectura, pines o canales, y métricas (temperatura, humedad, humedad del suelo, luz).
+- Envía los datos obtenidos a uno o más endpoints API para centralizar la información de monitoreo.
+
+Uso:
+1. Personalizar el archivo de configuración 'rpi-sensor-config.yaml' para definir los sensores y sus parámetros.
+2. En entornos ARM (Raspberry Pi), se inicializan las librerías específicas de hardware; en otros entornos se utilizan sensores simulados.
+3. Ejecutar este script para iniciar el ciclo continuo de lectura de sensores y transmisión de datos a la API.
+
+Este script está diseñado para desplegarse en múltiples Raspberry Pi, cada uno con diferentes configuraciones de sensores, permitiendo un monitoreo distribuido y centralizado a través de una API.
+"""
+
 import asyncio
 import json
 import os
@@ -65,15 +80,15 @@ class TransmitterInterface(ABC):
 # IMPLEMENTACION DE SENSORES (Sensores DHT y MCP3008)
 # =================================================
 class SensorDHT(SensorInterface):
-    def __init__(self, name: str, hardware_type: str, param: int, metrics: List[str]):
+    def __init__(self, name: str, hardware_type: str, params: List[dict], metrics: List[str]):
         if not IS_ARM:
             raise ValueError("Cannot initialize DHT sensor in non-ARM environment")
         if not HARDWARE_AVAILABLE:
             raise ValueError("Required hardware libraries not available")
-            
         super().__init__(name, hardware_type, metrics)
-        # Use param as GPIO pin number
-        pin = getattr(board, f'D{param}')
+        # Extraer el número de GPIO usando índice directo
+        gpio_num = params[0]['gpio']
+        pin = getattr(board, f'D{gpio_num}')
         if hardware_type == "dht22":
             self.dht_object = adafruit_dht.DHT22(pin)
         elif hardware_type == "dht11":
@@ -94,17 +109,35 @@ class SensorDHT(SensorInterface):
             return None
 
 class SensorMCP3008(SensorInterface):
-    def __init__(self, name: str, param: List[Union[int, str]], metrics: List[str]):
+    def __init__(self, name: str, params: List[dict], metrics: List[str]):
         super().__init__(name, "mcp3008", metrics)
-        self.channel = param[0]
-        self.metric_type = param[1]
+        # Acceder a channel y min_v mediante índices directos
+        self.channel = params[0]['channel']
+        self.min_v = params[1]['min_v']
+        self.max_v = 3.3
+        self.metric_type = metrics[0]
         self.mcp = MCP3008(channel=self.channel)
-    
+        # Agregar constante para sensor de luz
+        self.lux_max = 1000 if self.metric_type == 'l' else None
+
+    def voltage_to_lux(self, voltage):
+        """Convierte voltaje a lux para sensores de luz"""
+        if voltage <= self.min_v:
+            return self.lux_max
+        if voltage >= self.max_v:
+            return 0
+        lux = self.lux_max * (self.max_v - voltage) / (self.max_v - self.min_v)
+        return lux
+
     def read(self) -> Optional[dict]:
         try:
-            value = self.mcp.value
-            result = {self.metric_type: value} if self.metric_type in self.metrics else None
-            return result
+            voltage = self.mcp.value * self.max_v
+            if self.metric_type == 's':  # Sensor de sustrato
+                value = ((self.max_v - voltage) / (self.max_v - self.min_v)) * 100
+                value = max(0, min(100, value))
+            elif self.metric_type == 'l':  # Sensor de luz
+                value = self.voltage_to_lux(voltage)
+            return {self.metric_type: round(value, 2)}
         except Exception as e:
             logger.error(f"Error reading {self.name}: {str(e)}")
             return None
@@ -195,13 +228,13 @@ class SensorFactory:
                 return SensorDHT(
                     name=config["name"],
                     hardware_type=config["hardware_type"],
-                    param=config["param"],
+                    params=config["params"],
                     metrics=config["metrics"]
                 )
             elif config["hardware_type"] == "mcp3008":
                 return SensorMCP3008(
                     name=config["name"],
-                    param=config["param"],
+                    params=config["params"],
                     metrics=config["metrics"]
                 )
             elif config["hardware_type"] == "fake":
@@ -246,12 +279,19 @@ class SensorManager:
 # =================================================
 # MAIN DISPATCHER
 # =================================================
+class DHTParams(TypedDict):
+    gpio: int
+
+class MCP3008Params(TypedDict):
+    channel: int
+    min_v: float
+
 class SensorConfig(TypedDict):
     name: str
     hardware_type: Literal['dht11', 'dht22', 'mcp3008', 'fake']
     interval: int
-    param: int
-    metrics: List[Literal['t', 'h', 's', 'l']]
+    params: List[Union[DHTParams, MCP3008Params]]  # Lista de parámetros según el YAML
+    metrics: List[Literal['t', 'h', 's', 'l']>
 
 class Config(TypedDict):
     raspberry_id: str
@@ -263,25 +303,36 @@ def load_config() -> Optional[Config]:
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        
-        # Validate each sensor configuration
+        # Validar cada sensor
         for sensor in config['sensors']:
-            if not all(k in sensor for k in ['name', 'hardware_type', 'interval', 'param', 'metrics']):
-                raise ValueError(f"Missing required fields in sensor config: {sensor}")
-            
+            required_fields = {'name', 'hardware_type', 'interval', 'params', 'metrics'}
+            if not all(field in sensor for field in required_fields):
+                missing = required_fields - sensor.keys()
+                raise ValueError(f"Campos faltantes en {sensor['name']}: {missing}")
             if sensor['hardware_type'] not in ['dht11', 'dht22', 'mcp3008', 'fake']:
-                raise ValueError(f"Invalid sensor type: {sensor['hardware_type']}")
-            
-            if sensor['hardware_type'] == 'mcp3008':
-                if not (isinstance(sensor['param'], list) and len(sensor['param']) == 2):
-                    raise ValueError(f"Invalid MCP3008 parameters for sensor {sensor['name']}")
-            
-            if not all(m in ['t', 'h', 's', 'l', 'r'] for m in sensor['metrics']):
-                raise ValueError(f"Invalid metrics for sensor {sensor['name']}")
-        
+                raise ValueError(f"Tipo de sensor inválido en {sensor['name']}: {sensor['hardware_type']}")
+            if sensor['hardware_type'] in ['dht11', 'dht22']:
+                if not isinstance(sensor['params'], list) or len(sensor['params']) != 1:
+                    raise ValueError(f"Parámetros inválidos para sensor DHT {sensor['name']}")
+                dht_params = sensor['params'][0]
+                if not isinstance(dht_params, dict) or 'gpio' not in dht_params:
+                    raise ValueError(f"Parámetro 'gpio' faltante en sensor DHT {sensor['name']}")
+                if not isinstance(dht_params['gpio'], int):
+                    raise ValueError(f"El parámetro 'gpio' debe ser un número entero en sensor {sensor['name']}")
+            elif sensor['hardware_type'] == 'mcp3008':
+                if not isinstance(sensor['params'], list) or len(sensor['params']) != 2:
+                    raise ValueError(f"Parámetros inválidos para MCP3008 {sensor['name']}")
+                required_params = {'channel', 'min_v'}
+                params_keys = {key for param in sensor['params'] for key in param.keys()}
+                if not required_params.issubset(params_keys):
+                    raise ValueError(f"Parámetros faltantes en {sensor['name']}: {required_params - params_keys}")
+            valid_metrics = {'t', 'h', 's', 'l'}
+            if not all(m in valid_metrics for m in sensor['metrics']):
+                invalid = set(sensor['metrics']) - valid_metrics
+                raise ValueError(f"Métricas inválidas en {sensor['name']}: {invalid}")
         return config
     except (YAMLError, ValueError) as e:
-        logger.error(f"Error in configuration: {str(e)}")
+        logger.error(f"Error en configuración: {str(e)}")
         return None
 
 def main():
