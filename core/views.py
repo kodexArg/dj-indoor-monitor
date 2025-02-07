@@ -1,16 +1,14 @@
-# Python built-in
 from datetime import datetime, timedelta, timezone
 import requests
 import numpy as np
 
-# Django y DRF
 from django.views.generic import TemplateView
 from django.views import View
 from django.urls import reverse
 from django.conf import settings
 from django.http import HttpResponse
+from django.core.cache import cache
 
-# Local
 from .models import SensorData, Room
 from .utils import (
     old_devices_plot_generator,
@@ -21,13 +19,10 @@ from .utils import (
     gauge_generator
 )
 
-
 class HomeView(TemplateView):
-    """Vista principal de la aplicación"""
     template_name = 'home.html'
 
 class DevelopmentView(TemplateView):
-    """Vista de desarrollo para pruebas"""
     template_name = 'development.html'
 
 class ChartsView(TemplateView):
@@ -38,17 +33,11 @@ class OverviewView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Obtener parámetros de la solicitud
         timeframe = self.request.GET.get('timeframe', '1h')
         metric = self.request.GET.get('metric', 't')
         room = self.request.GET.get('room', 'true')
-        
-        # Calcular fechas antes de la petición API
         end_date = datetime.now(timezone.utc)
         start_date = get_start_date(timeframe, end_date)
-
-        # Construir URL usando INTERNAL_API_URL
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-timeframed')}"
         params = {
             'timeframe': timeframe,
@@ -56,18 +45,21 @@ class OverviewView(TemplateView):
             'start_date': start_date.isoformat(),
             'room': room
         }
-        
-        # Realizar petición a la API
-        response = requests.get(api_url, params=params)
-        data = response.json()
-        
-        # Actualizar contexto
+        data = requests.get(api_url, params=params).json()
+        filtered_results = [
+            {
+                'timestamp': r.get('timestamp'),
+                'sensor': r.get('sensor'),
+                't': r.get('t'),
+                'h': r.get('h')
+            }
+            for r in data.get('results', [])
+        ]
         context.update({
-            'room': room.lower() == 'true', 
+            'room': room.lower() == 'true',
             'metadata': data.get('metadata', {}),
-            'results': data.get('results', [])
+            'results': filtered_results
         })
-        
         chart_html, plotted_points = overview_plot_generator(
             context['results'],
             metric,
@@ -80,7 +72,6 @@ class OverviewView(TemplateView):
             'chart_html': chart_html,
             'plotted_points': plotted_points
         })
-        
         return context
 
 class SensorsView(TemplateView):
@@ -91,7 +82,6 @@ class SensorsView(TemplateView):
         timeframe = self.request.GET.get('timeframe', '4H')
         end_date = datetime.now(timezone.utc)
         start_date = get_start_date(timeframe, end_date)
-        
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-timeframed')}"
         params = {
             'timeframe': timeframe,
@@ -99,13 +89,11 @@ class SensorsView(TemplateView):
         }
         response = requests.get(api_url, params=params)
         data = response.json()
-
         context.update({
             'metadata': data.get('metadata', {}),
             'results': data.get('results', []),
             'selected_timeframe': timeframe 
         })
-
         sensor_ids = context['metadata'].get('sensor_ids', [])
         charts = {}
         for sensor in sensor_ids:
@@ -118,7 +106,6 @@ class SensorsView(TemplateView):
                 div_id=f"chart_{sensor}"
             )
             charts[sensor] = chart_html
-
         context['charts'] = charts
         return context
 
@@ -128,26 +115,19 @@ class VPDView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         api_url = f"{settings.INTERNAL_API_URL}{reverse('sensor-data-latest')}"
-        
-        # Solo necesitamos una llamada para obtener datos individuales de sensores
         params = {'room': 'false'}
         response_sensors = requests.get(api_url, params=params)
         sensor_data = response_sensors.json()
-
-        # Procesar datos de sensores individuales
         temps = []
         hums = []
         valid_sensors = [] 
-        
         for sensor in sensor_data:
             t = sensor.get('t')
             h = sensor.get('h')
-            if (t is not None and h is not None and    t >= 1 and h >= 1): 
+            if (t is not None and h is not None and t >= 1 and h >= 1): 
                 temps.append(t)
                 hums.append(h)
                 valid_sensors.append(sensor)
-    
-        # Obtener mapeo de sensores a rooms desde el modelo Room
         sensor_to_room = {}
         for room in Room.objects.all():
             room_name = room.name
@@ -157,14 +137,10 @@ class VPDView(TemplateView):
                     sensor_data = next((s for s in valid_sensors if s['sensor'] == sensor), None)
                     if sensor_data and sensor_data.get('t') is not None and sensor_data.get('h') is not None:
                         sensor_to_room[sensor] = room_name 
-                
-        # Cálculo vectorizado de VPD usando numpy
         temps = np.array(temps)
         hums = np.array(hums)
         es = 0.6108 * np.exp((17.27 * temps) / (temps + 237.3))
         vpds = es * (1 - (hums / 100))
-        
-        # Construir estructura final de datos
         sensors_info = []
         for idx, sensor in enumerate(valid_sensors):  
             sensors_info.append({
@@ -174,11 +150,7 @@ class VPDView(TemplateView):
                 'h': hums[idx],
                 'vpd': vpds[idx]
             })
-
-        # Ordenar por room y luego por sensor
         sensors_info = sorted(sensors_info, key=lambda x: (x['room'], x['sensor']))
-        
-        # Calcular promedios por room para el gráfico
         room_averages = {}
         for sensor_info in sensors_info:
             room = sensor_info['room']
@@ -186,14 +158,11 @@ class VPDView(TemplateView):
                 room_averages[room] = {'t': [], 'h': []}
             room_averages[room]['t'].append(sensor_info['t'])
             room_averages[room]['h'].append(sensor_info['h'])
-
-        # Preparar datos para el gráfico usando promedios por room
         chart_data = []
         for room, values in room_averages.items():
             avg_temp = sum(values['t']) / len(values['t'])
             avg_hum = sum(values['h']) / len(values['h'])
             chart_data.append((room, avg_temp, avg_hum))
-        
         context.update({
             'room_data': sensors_info,
             'chart': vpd_chart_generator(chart_data)
@@ -213,72 +182,66 @@ class GaugesView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Fetch latest data points usando la URL correcta
-        api_url = f"{settings.INTERNAL_API_URL}/data-point/latest/"
+        api_url = f"{settings.INTERNAL_API_URL}/sensor-data/latest/"
         response = requests.get(api_url, timeout=5)
-        data_points = response.json()  # Aquí estaba el error, no se asignaba la respuesta
-        
-        # Get rooms configuration
-        rooms = {room.name: room for room in Room.objects.all()}
-        
-        # Process and group by metric
+        data_points = response.json()
+
         metrics_data = {}
         for point in data_points:
-            metric = point['metric']
-            if metric not in metrics_data:
-                metrics_data[metric] = []
-            
-            # Find room for sensor
-            room_name = next(
-                (name for name, room in rooms.items() 
-                 if point['sensor'] in room.get_sensor_list()),
-                None
-            )
-            
-            metrics_data[metric].append({
-                'value': point['value'],
-                'metric': metric,
-                'room': room_name or 'Sin ubicación',
-                'sensor': point['sensor']
-            })
-        
-        # Format data for template
+            for metric in ['t', 'h']:
+                value = point.get(metric)
+                if value is not None:
+                    if metric not in metrics_data:
+                        metrics_data[metric] = []
+                    metrics_data[metric].append({
+                        'value': value,
+                        'metric': metric,
+                        'sensor': point['sensor']
+                    })
+
         gauges_by_metric = []
         for metric, gauges in metrics_data.items():
-            if gauges:  # Only include metrics with data
+            if gauges:
                 gauges_by_metric.append({
                     'title': self.METRIC_TITLES.get(metric, metric.upper()),
-                    'gauges': sorted(gauges, key=lambda x: x['room'])
+                    'gauges': gauges
                 })
-        
-        # Sort by metric title
+
         gauges_by_metric.sort(key=lambda x: x['title'])
-        
         context['gauges_by_metric'] = gauges_by_metric
         return context
 
 class GenerateGaugeView(View):
-    """Vista que genera y retorna el HTML de un gauge individual"""
     def get(self, request, *args, **kwargs):
-        try:
-            value_str = request.GET.get('value', '0').replace(',', '.')
-            value = float(value_str)
-        except ValueError:
-            value = 0.0
-            
-        room = request.GET.get('room', '')
         sensor = request.GET.get('sensor', '')
         metric = request.GET.get('metric', '')
-        
-        gauge = gauge_generator(
-            value=value,
-            metric=metric,
-            room=room,
-            sensor=sensor
-        )
-        
-        return HttpResponse(gauge)
+        cache_key = f'last_value_{sensor}_{metric}'
+
+        try:
+            value_str = request.GET.get('value', '').replace(',', '.')
+            value = float(value_str)
+            
+            if value == 0:
+                value = cache.get(cache_key)
+                if value is None:
+                    return HttpResponse('')
+            else:
+                cache.set(cache_key, value, timeout=60 * 10) 
+
+        except ValueError:
+            value = cache.get(cache_key)
+            if value is None:
+                return HttpResponse('')
+
+        if value is not None:
+            gauge = gauge_generator(
+                value=value,
+                metric=metric,
+                sensor=sensor
+            )
+            return HttpResponse(gauge)
+        else:
+            return HttpResponse('') 
 
 class OldDevicesChartView(TemplateView):
     template_name = 'old-devices.html'
@@ -287,19 +250,14 @@ class OldDevicesChartView(TemplateView):
         context = super().get_context_data(**kwargs)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=24)
-        
-        # Obtener datos del período
         data = SensorData.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date
         ).values('timestamp', 'sensor', 't', 'h') 
-        
-        # Generar gráfico dual
         chart_html = old_devices_plot_generator(
             list(data),
             start_date,
             end_date
         )
-        
         context['chart'] = chart_html
         return context

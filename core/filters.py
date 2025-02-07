@@ -13,9 +13,6 @@ class SensorDataFilter(filters.FilterSet):
             'sensor': ['exact', 'contains'],
             't': ['gt', 'lt', 'exact'],
             'h': ['gt', 'lt', 'exact'],
-            's': ['gt', 'lt', 'exact'],
-            'l': ['gt', 'lt', 'exact'],
-            'r': ['gt', 'lt', 'exact'],
         }
 
     def filter_queryset(self, queryset: QuerySet[SensorData]) -> QuerySet[SensorData]:

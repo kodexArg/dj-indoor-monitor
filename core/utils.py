@@ -537,13 +537,13 @@ def vpd_chart_generator(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
 
     return pio.to_html(fig, include_plotlyjs=False, full_html=False, config={'staticPlot': True})
 
-def gauge_generator(value, metric, room, sensor):
+def gauge_generator(value, metric, sensor):
     # Predefined configurations for each metric
     GAUGE_CONFIGS = {
         't': {
             'steps': [[0, 18], [18, 24], [24, 35]],
             'unit': '°C',
-            'title': 'Temperatura',
+            'title': '',
             'colors': [
                 'rgba(135, 206, 235, 0.8)',  # Azul frío
                 'rgba(144, 238, 144, 0.6)',  # Verde claro (óptimo)
@@ -553,7 +553,7 @@ def gauge_generator(value, metric, room, sensor):
         'h': {
             'steps': [[0, 40], [40, 60], [60, 90]],
             'unit': '%',
-            'title': 'Humedad',
+            'title': '',
             'colors': [
                 'rgba(255, 198, 109, 0.8)',  # Amarillo-naranja (seco)
                 'rgba(152, 251, 152, 0.6)',  # Verde menta (óptimo)
@@ -564,7 +564,7 @@ def gauge_generator(value, metric, room, sensor):
     
     config = GAUGE_CONFIGS.get(metric)
     steps = config['steps']
-    title = f"{config['title']} {room.title()}"
+    title = f"{config['title']} {sensor}"
     
     fig = go.Figure()
     
@@ -606,7 +606,7 @@ def gauge_generator(value, metric, room, sensor):
 
     fig.update_layout(
         height=160,
-        width=220,
+        width=320,
         margin=dict(l=15, r=15, t=50, b=5),
         paper_bgcolor="white",
         font={'color': "#666666", 'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
