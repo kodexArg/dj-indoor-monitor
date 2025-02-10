@@ -1,12 +1,7 @@
 from django.contrib import admin
-from .models import SiteConfiguration, Room
+from .models import SiteConfigurations, Room, Sensor
 
-@admin.register(SiteConfiguration)
-class SiteConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('key', 'value')
-    search_fields = ('key', 'value')
+admin.site.register(SiteConfigurations)
+admin.site.register(Room)
+admin.site.register(Sensor)
 
-@admin.register(Room)
-class RoomAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sensors')
-    search_fields = ('name', 'sensors')

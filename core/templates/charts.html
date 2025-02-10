@@ -11,15 +11,15 @@
 <nav id="chart-nav-bar">
     <ul>
         <li>
-            <button hx-get="{% url 'chart' %}" hx-target="#chart-content" class="nav-button">
+            <button hx-get="{% url 'overview' %}" hx-target="#chart-content" class="nav-button">
                 <img src="{% static 'icons/chart-line.svg' %}" alt="Gráfico de Monitoreo">
                 <small>Monitor</small>
             </button>
         </li>
         <li>
-            <button hx-get="{% url 'dual-chart' %}" hx-target="#chart-content" class="nav-button">
+            <button hx-get="{% url 'sensors' %}" hx-target="#chart-content" class="nav-button">
                 <img src="{% static 'icons/chart-line-2.svg' %}" alt="Gráfico Dual">
-                <small>Dual</small>
+                <small>Sensores</small>
             </button>
         </li>
         <li>
