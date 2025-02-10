@@ -1,18 +1,13 @@
 # dj-indoor-monitor
 
-![Captura de pantalla](./core/static/images/captura.png)
+## 1. Sobre el sistema
 
 Sistema de monitoreo de sensores para cultivos indoor mediante dispositivos Raspberry Pi.
 
-## 1. Sobre el sistema
-
-Backend para procesamiento y exposición de datos de sensores ambientales. Sirve un sitio web con gráficos interactivos, estadísticas en tiempo real y una *API REST* para integración con otros sistemas (Power BI, Grafana, etc.). Los datos se procesan mediante pandas para ofrecer agregaciones temporales (timeframe) optimizadas, con un payload muy eficiente y metadata, permitiendo tanto monitoreo básico como análisis detallado.
-
-Actualmente el sistema se encuentra en producción implementado por KCBD (empresa de Grupo ALVS) y puede visitarse en https://kcbd.grupoalvs.com
+**Actualmente el sitio web se encuentra en mantenimiento y la visualización de datos ha sido suspendida temporalmente.** La API REST sigue operativa para la recolección y consulta de datos.
 
 ### Tecnologías Empleadas
 - **Framework**: Django, DRF
-- **Visualización**: HTMX, Plotly
 - **Base de Datos**: PostgreSQL, TimescaleDB
 - **Infraestructura**: Docker, Gunicorn, Nginx
 - **Testing**: Pytest
@@ -29,95 +24,12 @@ Esta misma infraestructura funciona en entorno local, usando el mismo docker db 
 ### Flujo de Datos
 1. Sensores -> API
 2. Almacenamiento -> TimescaleDB (PostreSQL)
-3. Visualización -> Frontend (HTMX + Plotly)
 
 ## 3. API
 
 La API está basada en Django REST Framework y expone los siguientes endpoints:
 
-### 3.1 Sensor Data API (Legacy)
-
-Base endpoint para operaciones CRUD estándar:
-```bash
-/api/sensor-data/
-```
-
-Últimas lecturas por sensor:
-```bash
-/api/sensor-data/latest/
-```
-
-Datos agregados por intervalos:
-```bash
-/api/sensor-data/timeframed/
-/timeframed/ #shortcut
-```
-
-### Operaciones CRUD
-
-```bash
-GET /api/sensor-data/
-```
-```json
-{
-    "results": [{"timestamp": "2024-01-15T14:30:00Z", "sensor": "rpi-001", "t": 24.5, "h": 65.3}],
-    "count": 1
-}
-```
-
-```bash
-POST /api/sensor-data/
-{"sensor": "rpi-001", "t": 24.5, "h": 65.3}
-```
-
-### Agregación Temporal
-
-El endpoint `/timeframed/` implementa agregaciones. Por ejemplo para obtener los datos agrupados cada 30 minutos, desde 2025:
-
-```bash
-GET /api/sensor-data/timeframed/?timeframe=30T&start_date=2025-01-01
-```
-
-> **Nota**: Los timeframes se especifican utilizando un número seguido de una unidad de tiempo. Por ejemplo, `30T` se refiere a 30 minutos, `1h` a 1 hora, `4h` a 4 horas, y `1D` a 1 día.
-
-Parámetros:
-- `timeframe`: Intervalo de agregación [5s|1T|30T|1h|4h|1D]
-- `window_minutes`: Ventana temporal en minutos
-- `sensor`: ID del sensor (opcional)
-- `metric`: Métrica específica [t|h] (opcional)
-- `metadata`: Incluir metadatos [true|false]
-
-Respuesta:
-```json
-{
-    "results": [{
-        "timestamp": "2024-01-15T14:30:00Z",
-        "sensor": "rpi-001",
-        "temperature": {"mean": 24.5, "min": 23.1, "max": 25.8, "count": 12},
-        "humidity": {"mean": 65.3, "min": 62.1, "max": 68.4}
-    }],
-    "metadata": {
-        "timeframe": "30T",
-        "groups": 48,
-        "query_duration_s": 0.145
-    }
-}
-```
-
-### Optimización
-
-La implementación utiliza:
-- Operaciones vectorizadas de Pandas
-- Manejo nativo de timestamps
-- Agregaciones multi-nivel por sensor/tiempo
-- Chunks para optimización de memoria
-
-Timeframes recomendados según uso:
-- Monitoreo: 5s - 1T
-- Visualización: 30T - 1h
-- Análisis: 4h - 1D
-
-### 3.2 Data-Point API
+### 3.1 Data-Point API
 
 Base endpoint para operaciones CRUD estándar:
 ```bash
@@ -142,14 +54,14 @@ GET /api/data-point/
 ```
 ```json
 {
-    "results": [{"timestamp": "2024-01-15T14:30:00Z", "sensor": "rpi-001", "t": 24.5, "h": 65.3}],
+    "results": [{"timestamp": "2024-01-15T14:30:00Z", "sensor": "rpi-001", "metric": "t", "value": 24.5}],
     "count": 1
 }
 ```
 
 ```bash
 POST /api/data-point/
-{"sensor": "rpi-001", "t": 24.5, "h": 65.3}
+{"sensor": "rpi-001", "metric": "t", "value": 24.5}
 ```
 
 ### Agregación Temporal
@@ -164,29 +76,58 @@ GET /api/data-point/timeframed/?timeframe=30T&start_date=2025-01-01
 
 Parámetros:
 - `timeframe`: Intervalo de agregación [5s|1T|30T|1h|4h|1D]
-- `window_minutes`: Ventana temporal en minutos
-- `sensor`: ID del sensor (opcional)
-- `metric`: Métrica específica [t|h] (opcional)
+- `start_date`: Fecha de inicio para la agregación
+- `end_date`: Fecha de fin para la agregación
+- `sensors`: Lista de IDs de sensor (opcional)
+- `metric`: Métrica específica [t|h|s|l] (opcional)
+- `aggregations`: Si es True, devuelve min, max, first, last, mean. Por defecto False (devuelve solo mean)
 - `metadata`: Incluir metadatos [true|false]
 
-Respuesta:
+Respuesta (sin aggregations):
 ```json
 {
-    "results": [{
+    "data": [{
         "timestamp": "2024-01-15T14:30:00Z",
         "sensor": "rpi-001",
-        "temperature": {"mean": 24.5, "min": 23.1, "max": 25.8, "count": 12},
-        "humidity": {"mean": 65.3, "min": 62.1, "max": 68.4}
+        "metric": "t",
+        "value": 24.5
     }],
     "metadata": {
-        "timeframe": "30T",
-        "groups": 48,
-        "query_duration_s": 0.145
+        "start_time": "2024-01-15T14:00:00Z",
+        "elapsed_time": 0.123,
+        "start_date": "2025-01-01",
+        "end_date": "2025-01-02",
+        "timeframe": "30T"
     }
 }
 ```
 
-### 3.3 RPI Sensor Service
+Respuesta (con aggregations):
+```json
+{
+    "data": [{
+        "timestamp": "2024-01-15T14:30:00Z",
+        "sensor": "rpi-001",
+        "metric": "t",
+        "value": {
+            "mean": 24.5,
+            "min": 23.1,
+            "max": 25.8,
+            "first": 23.5,
+            "last": 25.5
+        }
+    }],
+    "metadata": {
+        "start_time": "2024-01-15T14:00:00Z",
+        "elapsed_time": 0.123,
+        "start_date": "2025-01-01",
+        "end_date": "2025-01-02",
+        "timeframe": "30T"
+    }
+}
+```
+
+### 3.2 RPI Sensor Service
 
 El servicio de sensores RPI se encarga de la recolección de datos de los sensores y su envío a la API. Está implementado en Python y se ejecuta en los dispositivos Raspberry Pi.
 
