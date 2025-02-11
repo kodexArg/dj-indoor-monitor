@@ -85,6 +85,10 @@ class DataPointQueryProcessor(ABC):
             }
 
     def apply_filters(self, query_parameters):
+        VALID_RANGES = {
+            't': {'min': 2, 'max': 70},
+            'h': {'min': 2, 'max': 100}
+        }
         queryset = self.queryset
         
         if 'start_date' in query_parameters:
@@ -102,7 +106,24 @@ class DataPointQueryProcessor(ABC):
         if 'sensors' in query_parameters:
             queryset = queryset.filter(sensor__in=query_parameters['sensors'])
         
-        return queryset
+        # Aplicamos filtros de rango por tipo de sensor
+        valid_ranges_filter = None
+        for metric, ranges in self.VALID_RANGES.items():
+            metric_filter = (
+                queryset.filter(metric=metric)
+                .filter(value__gte=ranges['min'])
+                .filter(value__lte=ranges['max'])
+            )
+            
+            # Para métricas que no están en VALID_RANGES
+            other_metrics_filter = queryset.exclude(metric=metric)
+            
+            if valid_ranges_filter is None:
+                valid_ranges_filter = metric_filter | other_metrics_filter
+            else:
+                valid_ranges_filter = valid_ranges_filter | metric_filter | other_metrics_filter
+        
+        return valid_ranges_filter if valid_ranges_filter is not None else queryset
 
     def get_room_for_sensor(self, sensor_name):
         """Helper method to get room name for a sensor"""
