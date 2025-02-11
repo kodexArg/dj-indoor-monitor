@@ -8,40 +8,7 @@
 {% endblock %}
 
 {% block navbar %}
-<nav id="chart-nav-bar">
-    <ul>
-        <li>
-            <button hx-get="{% url 'overview' %}" hx-target="#chart-content" class="nav-button">
-                <img src="{% static 'icons/chart-line.svg' %}" alt="Gráfico de Monitoreo">
-                <small>Monitor</small>
-            </button>
-        </li>
-        <li>
-            <button hx-get="{% url 'sensors' %}" hx-target="#chart-content" class="nav-button">
-                <img src="{% static 'icons/chart-line-2.svg' %}" alt="Gráfico Dual">
-                <small>Sensores</small>
-            </button>
-        </li>
-        <li>
-            <button hx-get="{% url 'gauges' %}" hx-target="#chart-content" class="nav-button">
-                <img src="{% static 'icons/gauge.svg' %}" alt="Gauges">
-                <small>Gauges</small>
-            </button>
-        </li>
-        <li>
-            <button hx-get="{% url 'table-coef' %}" hx-target="#chart-content" class="nav-button">
-                <img src="{% static 'icons/chart-grid-dots.svg' %}" alt="Tabla de Coeficientes">
-                <small>Coef.</small>
-            </button>
-        </li>
-        <li>
-            <button hx-get="{% url 'vpd' %}" hx-target="#chart-content" class="nav-button">
-                <img src="{% static 'icons/vpd-icon.svg' %}" alt="VPD">
-                <small>VPD</small>
-            </button>
-        </li>
-    </ul>
-</nav>
+    {% include 'partials/navbar.html' with is_charts_page=False %}
 {% endblock %}
 
 {% block content %}

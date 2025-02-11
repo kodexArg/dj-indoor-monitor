@@ -1,6 +1,17 @@
+{% extends "layouts/base.html" %}
 {% load static %}
-<span id="subtitle" hx-swap-oob="true">GAUGES</span>
 
+{% block subtitle %}GAUGES{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+{% endblock %}
+
+{% block navbar %}
+    {% include 'partials/navbar.html' with is_charts_page=True %}
+{% endblock %}
+
+{% block content %}
 <div class="gauges-wrapper">
     {% for metric_group in gauges_by_metric %}
     <div class="metric-group">
@@ -8,13 +19,6 @@
         <div class="gauges-grid">
             {% for gauge in metric_group.gauges %}
             <div class="gauge-container"
-                 hx-get="{% url 'gauge-component' %}"
-                 hx-trigger="load"
-                 hx-swap="innerHTML"
-                 hx-vals='{"value": "{{ gauge.value }}", 
-                          "metric": "{{ gauge.metric }}",
-                          "room": "{{ gauge.room }}",
-                          "sensor": "{{ gauge.sensor }}"}'
                  title="{{ gauge.room }} - {{ gauge.sensor }}">
                 <div class="loading">
                     <div class="placeholder-animation"></div>
@@ -25,3 +29,4 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}

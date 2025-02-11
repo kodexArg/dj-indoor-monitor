@@ -1,52 +1,67 @@
 {% load static %}
 <div class="navbar">
-  {% if request.path == '/charts/' %}
-    {% include 'partials/hx-indicator.html' %}
-    <button class="nav-button" 
-            hx-get="{% url 'overview' %}" 
-            hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML"
-            hx-indicator="#loading-spinner">
+  {% if request.path == "/" %}
+    <div class="separator"></div>
+    <a href="/charts/" class="nav-button">
+      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Graficos">
+      <small>GRÁFICOS</small>
+    </a>
+    <a href="/" class="nav-button active">
+      <img src="{% static 'icons/home.svg' %}" alt="Home">
+      <small>HOME</small>
+    </a>
+  {% elif request.path == "/charts/" %}
+    <a href="{% url 'overview' %}" class="nav-button">
       <img src="{% static 'icons/chart-line.svg' %}" alt="Overview">
       <small>OVERVIEW</small>
-    </button>
-    <button class="nav-button" 
-            hx-get="{% url 'sensors' %}" 
-            hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML"
-            hx-indicator="#loading-spinner">
+    </a>
+    <a href="{% url 'sensors' %}" class="nav-button">
       <img src="{% static 'icons/chart-line-2.svg' %}" alt="Sensors">
       <small>SENSORES</small>
-    </button>
-    <button class="nav-button" 
-            hx-get="{% url 'gauges' %}" 
-            hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML"
-            hx-indicator="#loading-spinner">
+    </a>
+    <a href="{% url 'gauges' %}" class="nav-button">
       <img src="{% static 'icons/gauge.svg' %}" alt="Gauges">
       <small>GAUGES</small>
-    </button>
-    <button class="nav-button" 
-            hx-get="{% url 'vpd' %}" 
-            hx-target="#chart-content"
-            hx-swap-oob="true #subtitle:innerHTML"
-            hx-indicator="#loading-spinner">
-      <img src="{% static 'icons/layout-dashboard.svg' %}" alt="VPD">
+    </a>
+    <a href="{% url 'vpd' %}" class="nav-button">
+      <img src="{% static 'icons/chart-grid-dots.svg' %}" alt="VPD">
       <small>VPD</small>
-    </button>
+    </a>
     <div class="separator"></div>
-    <button class="nav-button" onclick="window.location.href='/'">
+    <a href="/charts/" class="nav-button active">
+      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Graficos">
+      <small>GRÁFICOS</small>
+    </a>
+    <a href="/" class="nav-button">
       <img src="{% static 'icons/home.svg' %}" alt="Home">
       <small>HOME</small>
-    </button>
+    </a>
   {% else %}
-    <button class="nav-button" onclick="window.location.href='{% url 'charts' %}'">
-      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Monitor">
-      <small>MONITOR</small>
-    </button>
-    <button class="nav-button" onclick="window.location.href='/'">
+    <!-- Para páginas de gráficos (subrutas de /charts/) -->
+    <a href="{% url 'overview' %}" class="nav-button {% if request.path == '/charts/overview/' %}active{% endif %}">
+      <img src="{% static 'icons/chart-line.svg' %}" alt="Overview">
+      <small>OVERVIEW</small>
+    </a>
+    <a href="{% url 'sensors' %}" class="nav-button {% if request.path == '/charts/sensors/' %}active{% endif %}">
+      <img src="{% static 'icons/chart-line-2.svg' %}" alt="Sensors">
+      <small>SENSORES</small>
+    </a>
+    <a href="{% url 'gauges' %}" class="nav-button {% if request.path == '/charts/gauges/' %}active{% endif %}">
+      <img src="{% static 'icons/gauge.svg' %}" alt="Gauges">
+      <small>GAUGES</small>
+    </a>
+    <a href="{% url 'vpd' %}" class="nav-button {% if request.path == '/charts/vpd/' %}active{% endif %}">
+      <img src="{% static 'icons/chart-grid-dots.svg' %}" alt="VPD">
+      <small>VPD</small>
+    </a>
+    <div class="separator"></div>
+    <a href="/charts/" class="nav-button">
+      <img src="{% static 'icons/chart-histogram.svg' %}" alt="Graficos">
+      <small>GRÁFICOS</small>
+    </a>
+    <a href="/" class="nav-button">
       <img src="{% static 'icons/home.svg' %}" alt="Home">
       <small>HOME</small>
-    </button>
+    </a>
   {% endif %}
 </div>

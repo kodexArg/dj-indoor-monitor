@@ -1,0 +1,34 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block subtitle %}SENSORES{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+{% endblock %}
+
+{% block navbar %}
+  {% include 'partials/navbar.html' with is_charts_page=True %}
+{% endblock %}
+
+{% block content %}
+<div class="chart-content">
+  <article id="toggle-buttons-container">
+    <div id="toggle-buttons" class="button-group">
+      <div id="toggle-buttons-timeframe" class="button-cluster">
+        <a class="button {% if selected_timeframe == '5S' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=5S"><small>5"</small></a>
+        <a class="button {% if selected_timeframe == '1T' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1T">1'</a>
+        <a class="button {% if selected_timeframe == '30T' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=30T">30'</a>
+        <a class="button {% if selected_timeframe == '1H' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1H">1h</a>
+        <a class="button {% if selected_timeframe == '4H' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=4H">4h</a>
+        <a class="button {% if selected_timeframe == '1D' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1D">1d</a>
+      </div>
+    </div>
+  </article>
+  {% for sensor, chart_html in charts.items %}
+    <div class="chart-container" id="sensor-{{ sensor }}" style="margin-bottom: 2rem;">
+      {{ chart_html|safe }}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

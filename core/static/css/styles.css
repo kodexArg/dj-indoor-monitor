@@ -1,5 +1,6 @@
 :root {
   --brand-green-dark: #5f9b62;
+  --brand-green-dark-50: #5f9b6250;
   --brand-green: #92c594;
   --brand-green-light: #d4edda;
   --brand-bg: #f8faf8;
@@ -89,6 +90,10 @@ body::-webkit-scrollbar-track {
   gap: 0.5rem;
 }
 
+.navbar a.nav-button {
+  text-decoration: none;
+}
+
 .separator {
   width: 1px;
   background-color: var(--brand-gray-light);
@@ -104,6 +109,9 @@ body::-webkit-scrollbar-track {
   cursor: pointer;
   padding: 0.3rem;
   font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  width: 38px; 
+  height: 38px; 
+  justify-content: center; 
 }
 
 .nav-button img {
@@ -116,6 +124,20 @@ body::-webkit-scrollbar-track {
   font-size: 0.7rem;
   color: var(--brand-gray);
   line-height: 1;
+}
+
+.nav-button.active {
+    box-shadow: 0 0 6px 1px var(--brand-green-dark-50);
+    border-radius: 8px;
+    color: var(--brand-green-dark);
+}
+
+.nav-button.active img {
+  filter: invert(41%) sepia(45%) saturate(498%) hue-rotate(84deg) brightness(93%) contrast(91%);
+}
+
+.nav-button.active small {
+    color: var(--brand-green-dark);
 }
 
 .footer {
@@ -169,39 +191,6 @@ body::-webkit-scrollbar-track {
     padding: 0 0.5rem;
     margin: 1rem auto;
   }
-}
-
-#debug-info {
-  margin: 20px;
-}
-
-.debug-pre {
-  font-family: monospace;
-  font-size: 0.9em;
-  white-space: pre;
-  border-radius: 4px;
-  border: 1px solid var(--brand-gray-light);
-  background-color: var(--brand-bg);
-  color: var(--brand-gray-dark);
-  margin: 0;
-  line-height: 1.2;
-  padding: 0.5rem;
-  text-align: left;
-  white-space: pre-wrap;
-}
-
-.debug-pre strong {
-  color: var(--brand-green-dark);
-  font-weight: 600;
-}
-
-.debug-section {
-  margin-bottom: 1.5rem;
-}
-
-.debug-section h4 {
-  color: var(--brand-gray-dark);
-  margin-bottom: 0.5rem;
 }
 
 .htmx-indicator {
@@ -371,7 +360,6 @@ body::-webkit-scrollbar-track {
   padding: 4px 8px;
 }
 
-/* Heading styles */
 h3 {
   font-size: 1em;
   font-weight: bold;
@@ -428,5 +416,89 @@ h1 {
 .gauge-container .loading {
   color: var(--brand-gray);
   font-size: 0.9em;
+}
+
+.button-group {
+  margin: 10px 0;
+  display: flex;
+  gap: 6px; /* Reduced gap between buttons */
+  flex-wrap: wrap; /* Permite saltar de línea si es necesario */
+}
+
+#toggle-buttons-timeframe {
+  display: flex;
+  flex-wrap: nowrap; /* Mantiene los botones en una línea */
+  flex-shrink: 0; /* Evita que los botones se compriman */
+}
+
+#toggle-buttons-metric,
+#toggle-buttons-online {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.vertical-separator {
+  border-left: 1px solid var(--brand-gray-light);
+  height: 30px;
+  margin: 0 6px; /* Match the new gap */
+}
+
+/* Base button styles */
+.button-group .button {
+  font-size: 1.2rem; /* Slightly larger font */
+  border: 1px solid var(--brand-green-light);  /* Changed: lighter border */
+  border-radius: 4px;
+  background-color: transparent;  /* Changed: transparent background */
+  color: var(--brand-gray-dark);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 300;  /* Added: thin font */
+  margin: 2px;  /* Added: small margin for separation */
+}
+
+/* Square timeframe buttons */
+#toggle-buttons-timeframe .button {
+  width: 40px; /* Slightly smaller square */
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Rectangular metric and online buttons */
+#toggle-buttons-metric .button,
+#toggle-buttons-online .button,
+.button-cluster .button {  /* Agregado selector para todos los botones en button-cluster */
+  width: 80px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Button states */
+.button-group .button:hover {
+  background-color: var(--brand-green-light);
+  border-color: var(--brand-green);
+  color: var(--brand-gray-dark);
+}
+
+.button-group .button.active {
+  background-color: var(--brand-green-light);  /* Cambio: fondo más claro */
+  color: var(--brand-green-dark);
+  border-color: var(--brand-green);
+  font-weight: 600;  /* Added: bold font */
+}
+
+.button-group .button[disabled] {
+  background-color: transparent;  /* Changed: transparent */
+  color: var(--brand-green-light);  /* Changed: lighter text */
+  border-color: var(--brand-green-light);  /* Changed: lighter border */
+  cursor: not-allowed;
+  opacity: 0.7;
+  font-weight: 300;  /* Added: thin font */
 }
 

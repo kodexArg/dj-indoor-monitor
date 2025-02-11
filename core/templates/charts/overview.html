@@ -1,0 +1,60 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block subtitle %}OVERVIEW{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+{% endblock %}
+
+{% block navbar %}
+  {% include 'partials/navbar.html' with is_charts_page=True %}
+{% endblock %}
+
+{% block content %}
+<section id="overview-section" class="overview-section">
+  <!-- Botones de selección convertidos a links -->
+  <article id="toggle-buttons-container">
+    <div id="toggle-buttons" class="button-group">
+      <div id="toggle-buttons-timeframe" class="button-cluster">
+        <a class="button {% if metadata.timeframe == '5s' %}active{% endif %}" href="{% url 'overview' %}?timeframe=5s&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}"><small>5"</small></a>
+        <a class="button {% if metadata.timeframe == '1T' %}active{% endif %}" href="{% url 'overview' %}?timeframe=1T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1'</a>
+        <a class="button {% if metadata.timeframe == '30T' %}active{% endif %}" href="{% url 'overview' %}?timeframe=30T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">30'</a>
+        <a class="button {% if metadata.timeframe == '1h' %}active{% endif %}" href="{% url 'overview' %}?timeframe=1h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1h</a>
+        <a class="button {% if metadata.timeframe == '4h' %}active{% endif %}" href="{% url 'overview' %}?timeframe=4h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">4h</a>
+        <a class="button {% if metadata.timeframe == '1D' %}active{% endif %}" href="{% url 'overview' %}?timeframe=1D&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1d</a>
+      </div>
+      <div id="toggle-buttons-metric" class="button-cluster">
+        <a class="button metric {% if metadata.metric == 't' %}active{% endif %}" href="{% url 'overview' %}?metric=t">Temp</a>
+        <a class="button metric {% if metadata.metric == 'h' %}active{% endif %}" href="{% url 'overview' %}?metric=h">Hum</a>
+      </div>
+      <div class="button-cluster">
+        <a class="button {% if room %}active{% endif %}" href="{% url 'overview' %}?timeframe={{ metadata.timeframe }}&metric={{ metadata.metric }}&room={% if room %}false{% else %}true{% endif %}">Salas</a>
+      </div>
+    </div>
+  </article>
+
+  <!-- Gráfico y debug -->
+  <article id="chart-content">
+    <div class="chart-container" id="chart">
+      {{ chart_html|safe }}
+    </div>
+  </article>
+  <article id="debug-info">
+    <div class="debug-section">
+      <h3>Metadata</h3>
+      <pre class="debug-pre">
+<strong>Período actual</strong>: {{ metadata.start_pretty }} → {{ metadata.end_pretty }}
+<strong>Registros</strong>: {{ metadata.record_count }}
+<strong>Puntos graficados</strong>: {{ plotted_points }}
+<strong>Sensores</strong>: {{ metadata.sensor_ids|join:", " }}
+<strong>Timeframe</strong>: {{ metadata.timeframe }}
+<strong>Ventana</strong>: {{ metadata.window_minutes }} min
+<strong>Métrica</strong>: {{ metadata.metric }}
+<strong>Uso Servidor</strong>: {{ metadata.query_duration_s }} s
+<strong>Tiempo Total</strong>: <span id="total-time"></span>
+      </pre>
+    </div>
+  </article>
+</section>
+{% endblock %}
