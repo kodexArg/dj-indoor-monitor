@@ -3,7 +3,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from abc import ABC, abstractmethod
-from .models import DataPoint
+from .models import DataPoint, Sensor, Room
 from .serializers import DataPointSerializer
 from .utils import TIMEFRAME_MAP, get_timedelta_from_timeframe, get_start_date, to_bool
 import pandas as pd
@@ -16,14 +16,26 @@ class DataPointViewSet(viewsets.ModelViewSet):
     Este módulo expone endpoints para consultar datos a partir del modelo DataPoint.
     Se pueden aplicar filtros por fecha de inicio (start_date), fecha fin (end_date) y lista de sensores.
     La respuesta puede incluir metadatos (como tiempo de procesamiento y rango de fechas usado) si se especifica el parámetro 'metadata'.
+    También puede incluir información del room asociado a cada sensor si se especifica include_room=true.
 
     Endpoints:
       - GET /api/data-point/         : Listado/creación de DataPoint.
       - GET /api/data-point/latest   : Últimos registros por sensor.
       - GET /api/data-point/timeframed : Registros dentro de un intervalo definido (ej., '1h', '4h', etc.).
+
+    Parámetros comunes:
+        - start_date: Fecha de inicio en formato ISO8601
+        - end_date: Fecha fin en formato ISO8601
+        - sensors: Lista de nombres de sensores
+        - metadata: Booleano para incluir metadatos en la respuesta
+        - include_room: Booleano para incluir el room asociado a cada sensor
     """
     queryset = DataPoint.objects.all()
     serializer_class = DataPointSerializer
+
+    def list(self, request, *args, **kwargs):
+        processor = ListData(queryset=self.queryset, query_parameters=request.query_params)
+        return Response(processor.process())
 
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
@@ -34,12 +46,13 @@ class DataPointViewSet(viewsets.ModelViewSet):
         Retorna el último registro de cada sensor.
 
         Parámetros (opcional, vía query string):
-            - start_date: Fecha de inicio en formato ISO8601.
-            - end_date: Fecha fin en formato ISO8601.
-            - sensors: Lista de nombres de sensores.
-            - metadata: Booleano para incluir metadatos en la respuesta.
+            - start_date: Fecha de inicio en formato ISO8601
+            - end_date: Fecha fin en formato ISO8601
+            - sensors: Lista de nombres de sensores
+            - metadata: Booleano para incluir metadatos en la respuesta
+            - include_room: Booleano para incluir el room asociado a cada sensor
         """
-        processor = LatestData(queryset=self.get_queryset(), query_parameters=request.GET)
+        processor = LatestData(queryset=self.queryset, query_parameters=request.GET)
         return Response(processor.process())
 
     @action(detail=False, methods=['get'])
@@ -48,14 +61,15 @@ class DataPointViewSet(viewsets.ModelViewSet):
         Retorna registros agrupados por intervalos de tiempo.
 
         Parámetros (opcional, vía query string):
-            - start_date: Fecha de inicio en formato ISO8601.
-            - end_date: Fecha fin en formato ISO8601.
-            - sensors: Lista de nombres de sensores.
-            - timeframe: Intervalo de tiempo ('5S', '1T', '30T', '1H', '4H', '1D').
+            - start_date: Fecha de inicio en formato ISO8601
+            - end_date: Fecha fin en formato ISO8601
+            - sensors: Lista de nombres de sensores
+            - timeframe: Intervalo de tiempo ('5S', '1T', '30T', '1H', '4H', '1D')
             - aggregations: Si es True, devuelve min, max, first, last, mean. Por defecto False (devuelve solo mean)
-            - metadata: Booleano para incluir metadata en la respuesta.
+            - metadata: Booleano para incluir metadata en la respuesta
+            - include_room: Booleano para incluir el room asociado a cada sensor
         """
-        processor = TimeframedData(queryset=self.get_queryset(), query_parameters=request.GET)
+        processor = TimeframedData(queryset=self.queryset, query_parameters=request.GET)
         return Response(processor.process())
 
 
@@ -63,9 +77,16 @@ class DataPointQueryProcessor(ABC):
     def __init__(self, queryset, query_parameters=None):
         self.queryset = queryset
         self.query_parameters = query_parameters if query_parameters is not None else {}
+        self.include_room = to_bool(query_parameters.get('include_room', False)) if query_parameters else False
+        if self.include_room:
+            self.sensor_room_map = {
+                sensor.name: sensor.room.name 
+                for sensor in Sensor.objects.select_related('room').all()
+            }
 
     def apply_filters(self, query_parameters):
         queryset = self.queryset
+        
         if 'start_date' in query_parameters:
             try:
                 queryset = queryset.filter(timestamp__gte=query_parameters['start_date'])
@@ -79,9 +100,30 @@ class DataPointQueryProcessor(ABC):
                 print(f"Error al filtrar por end_date: {e}")
 
         if 'sensors' in query_parameters:
-            queryset = queryset.filter(sensor__in(query_parameters['sensors']))
+            queryset = queryset.filter(sensor__in=query_parameters['sensors'])
         
         return queryset
+
+    def get_room_for_sensor(self, sensor_name):
+        """Helper method to get room name for a sensor"""
+        return self.sensor_room_map.get(sensor_name, '')
+
+    def insert_room_in_response(self, item):
+        """
+        Inserts room field in the response item.
+        Maintains the order: timestamp -> room -> remaining fields
+        """
+        room = self.get_room_for_sensor(item['sensor'])
+        item_copy = item.copy()
+        item.clear()
+        item['timestamp'] = item_copy['timestamp']
+        item['room'] = room
+        item.update({k: v for k, v in item_copy.items() if k != 'timestamp'})
+        return item
+
+    def get_values_list(self):
+        """Helper method to get the list of fields to query"""
+        return ['timestamp', 'sensor', 'metric', 'value']
 
     @abstractmethod
     def get(self):
@@ -117,23 +159,33 @@ class DataPointQueryProcessor(ABC):
         return result
 
 
-class LatestData(DataPointQueryProcessor):
-    def __init__(self, queryset, query_parameters=None):
-        super().__init__(queryset, query_parameters)
-        self.query_parameters = query_parameters if query_parameters is not None else {}
+class ListData(DataPointQueryProcessor):
+    def get(self):
+        queryset_filtered = self.apply_filters(self.query_parameters)
+        data = DataPointSerializer(queryset_filtered, many=True).data
+        
+        if self.include_room:
+            data = [self.insert_room_in_response(item) for item in data]
+        
+        return data
 
+class LatestData(ListData):
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
         queryset_latest = queryset_filtered.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
-        return DataPointSerializer(queryset_latest, many=True).data
+        data = DataPointSerializer(queryset_latest, many=True).data
+        
+        if self.include_room:
+            data = [self.insert_room_in_response(item) for item in data]
+        
+        return data
 
 
-class TimeframedData(DataPointQueryProcessor):
+class TimeframedData(ListData):
     def __init__(self, queryset, query_parameters=None):
         super().__init__(queryset, query_parameters)
         self.timeframe = query_parameters.get('timeframe', '1H').upper() if query_parameters else '1H'
         self.aggregations = to_bool(query_parameters.get('aggregations', False)) if query_parameters else False
-        self.query_parameters = query_parameters if query_parameters is not None else {}
 
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
@@ -141,41 +193,65 @@ class TimeframedData(DataPointQueryProcessor):
         start_date = get_start_date(self.timeframe, end_date)
         queryset_timeframed = queryset_filtered.filter(timestamp__gte=start_date, timestamp__lte=end_date)
 
-        df = pd.DataFrame(list(queryset_timeframed.values('timestamp', 'sensor', 'metric', 'value')))
+        df = pd.DataFrame(list(queryset_timeframed.values(*self.get_values_list())))
         if df.empty:
             return []
 
         df['timestamp'] = pd.to_datetime(df['timestamp'])
+        if self.include_room:
+            df['room'] = df['sensor'].map(self.sensor_room_map)
+            df['room'] = df['room'].fillna('')
         df = df.set_index('timestamp').sort_index()
 
+        group_cols = ['sensor', 'metric']
+        if self.include_room:
+            group_cols.append('room')
+
         if self.aggregations:
-            agg_funcs = ['mean', 'min', 'max', 'first', 'last']
-            grouped = df.groupby(['sensor', 'metric', pd.Grouper(freq=TIMEFRAME_MAP[self.timeframe])])['value'].agg(agg_funcs).reset_index()
-            grouped = grouped.rename(columns={'timestamp': 'timeframed_timestamp'})
-            results = []
-            for _, row in grouped.iterrows():
-                results.append({
-                    'timestamp': row['timeframed_timestamp'].isoformat(),
-                    'sensor': row['sensor'],
-                    'metric': row['metric'],
-                    'value': {
-                        'mean': round(row['mean'], 2),
-                        'min': round(row['min'], 2),
-                        'max': round(row['max'], 2),
-                        'first': round(row['first'], 2),
-                        'last': round(row['last'], 2)
-                    }
-                })
-            return results
-        else:
-            grouped = df.groupby(['sensor', 'metric', pd.Grouper(freq=TIMEFRAME_MAP[self.timeframe])])['value'].mean().reset_index()
-            grouped = grouped.rename(columns={'timestamp': 'timeframed_timestamp', 'value': 'mean_value'})
-            results = []
-            for _, row in grouped.iterrows():
-                results.append({
-                    'timestamp': row['timeframed_timestamp'].isoformat(),
-                    'sensor': row['sensor'],
-                    'metric': row['metric'],
-                    'value': round(row['mean_value'], 2)
-                })
-            return results
+            return self._process_with_aggregations(df, group_cols)
+        return self._process_without_aggregations(df, group_cols)
+
+    def _process_with_aggregations(self, df, group_cols):
+        agg_funcs = ['mean', 'min', 'max', 'first', 'last']
+        grouped = df.groupby([*group_cols, pd.Grouper(freq=TIMEFRAME_MAP[self.timeframe])])['value'].agg(agg_funcs).reset_index()
+        grouped = grouped.rename(columns={'timestamp': 'timeframed_timestamp'})
+        
+        results = []
+        for _, row in grouped.iterrows():
+            result_dict = {
+                'timestamp': row['timeframed_timestamp'].isoformat(),
+            }
+            if self.include_room:
+                result_dict['room'] = row['room']
+            result_dict.update({
+                'sensor': row['sensor'],
+                'metric': row['metric'],
+                'value': {
+                    'mean': round(row['mean'], 2),
+                    'min': round(row['min'], 2),
+                    'max': round(row['max'], 2),
+                    'first': round(row['first'], 2),
+                    'last': round(row['last'], 2)
+                }
+            })
+            results.append(result_dict)
+        return results
+
+    def _process_without_aggregations(self, df, group_cols):
+        grouped = df.groupby([*group_cols, pd.Grouper(freq=TIMEFRAME_MAP[self.timeframe])])['value'].mean().reset_index()
+        grouped = grouped.rename(columns={'timestamp': 'timeframed_timestamp', 'value': 'mean_value'})
+        
+        results = []
+        for _, row in grouped.iterrows():
+            result_dict = {
+                'timestamp': row['timeframed_timestamp'].isoformat(),
+            }
+            if self.include_room:
+                result_dict['room'] = row['room']
+            result_dict.update({
+                'sensor': row['sensor'],
+                'metric': row['metric'],
+                'value': round(row['mean_value'], 2)
+            })
+            results.append(result_dict)
+        return results
