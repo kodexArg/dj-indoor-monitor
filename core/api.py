@@ -84,12 +84,30 @@ class DataPointQueryProcessor(ABC):
                 for sensor in Sensor.objects.select_related('room').all()
             }
 
+    def _filter_by_metric_range(self, queryset):
+        t_min, t_max = 2, 70
+        h_min, h_max = 2, 99
+        s_min, s_max = 2, 99
+
+        # Efficiently filter using Q objects
+        from django.db.models import Q
+        queryset = queryset.filter(
+            Q(metric='t', value__range=(t_min, t_max)) |
+            Q(metric='h', value__range=(h_min, h_max)) |
+            Q(metric='s', value__range=(s_min, s_max)) |
+            ~Q(metric__in=['t', 'h', 's'])
+        )
+        return queryset
+
     def apply_filters(self, query_parameters):
         VALID_RANGES = {
             't': {'min': 2, 'max': 70},
             'h': {'min': 2, 'max': 100}
         }
         queryset = self.queryset
+
+        queryset = self._filter_by_metric_range(queryset)
+
         
         if 'start_date' in query_parameters:
             try:
