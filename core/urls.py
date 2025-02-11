@@ -21,9 +21,9 @@ urlpatterns = [
     path('', HomeView.as_view(), name='home'),
     path('development/', DevelopmentView.as_view(), name='development'),
     path('charts/', ChartsView.as_view(), name='charts'),
-    path('overview/', OverviewView.as_view(), name='overview'),
-    path('sensors/', SensorsView.as_view(), name='sensors'),
-    path('vpd/', VPDView.as_view(), name='vpd'),
+    path('charts/overview/', OverviewView.as_view(), name='overview'),
+    path('charts/sensors/', SensorsView.as_view(), name='sensors'),
+    path('charts/vpd/', VPDView.as_view(), name='vpd'),
     path('charts/gauges/', GaugesView.as_view(), name='gauges'),
     path('', include(router.urls)),
 ]
