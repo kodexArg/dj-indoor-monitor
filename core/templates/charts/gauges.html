@@ -19,7 +19,10 @@
         <div class="gauges-grid">
             {% for gauge in metric_group.gauges %}
             <div class="gauge-container"
-                 title="{{ gauge.room }} - {{ gauge.sensor }}">
+                 title="{{ gauge.room }} - {{ gauge.sensor }}"
+                 data-sensor="{{ gauge.sensor }}"
+                 data-metric="{{ gauge.metric }}"
+                 data-value="{{ gauge.value }}">
                 <div class="loading">
                     <div class="placeholder-animation"></div>
                 </div>
@@ -29,4 +32,31 @@
     </div>
     {% endfor %}
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.gauge-container').each(function() {
+            var container = $(this);
+            var sensor = container.data('sensor');
+            var metric = container.data('metric');
+            var value = container.data('value');
+            
+            $.ajax({
+                url: '/generate_gauge/',
+                data: {
+                    sensor: sensor,
+                    metric: metric,
+                    value: value
+                },
+                success: function(data) {
+                    container.html(data);
+                },
+                error: function() {
+                    container.html('<p>Error loading gauge</p>');
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

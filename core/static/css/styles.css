@@ -97,7 +97,7 @@ body::-webkit-scrollbar-track {
 .separator {
   width: 1px;
   background-color: var(--brand-gray-light);
-  margin: 0 10px;
+  margin: 0 2px;
 }
 
 .nav-button {

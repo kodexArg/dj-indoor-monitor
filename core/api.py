@@ -100,7 +100,7 @@ class DataPointQueryProcessor(ABC):
         return queryset
 
     def apply_filters(self, query_parameters):
-        VALID_RANGES = {
+        self.VALID_RANGES = {
             't': {'min': 2, 'max': 70},
             'h': {'min': 2, 'max': 100}
         }
@@ -122,7 +122,7 @@ class DataPointQueryProcessor(ABC):
                 print(f"Error al filtrar por end_date: {e}")
 
         if 'sensors' in query_parameters:
-            queryset = queryset.filter(sensor__in=query_parameters['sensors'])
+            queryset = queryset.filter(sensor__in(query_parameters['sensors']))
         
         # Aplicamos filtros de rango por tipo de sensor
         valid_ranges_filter = None
@@ -146,19 +146,6 @@ class DataPointQueryProcessor(ABC):
     def get_room_for_sensor(self, sensor_name):
         """Helper method to get room name for a sensor"""
         return self.sensor_room_map.get(sensor_name, '')
-
-    def insert_room_in_response(self, item):
-        """
-        Inserts room field in the response item.
-        Maintains the order: timestamp -> room -> remaining fields
-        """
-        room = self.get_room_for_sensor(item['sensor'])
-        item_copy = item.copy()
-        item.clear()
-        item['timestamp'] = item_copy['timestamp']
-        item['room'] = room
-        item.update({k: v for k, v in item_copy.items() if k != 'timestamp'})
-        return item
 
     def get_values_list(self):
         """Helper method to get the list of fields to query"""
@@ -201,22 +188,16 @@ class DataPointQueryProcessor(ABC):
 class ListData(DataPointQueryProcessor):
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
-        data = DataPointSerializer(queryset_filtered, many=True).data
-        
-        if self.include_room:
-            data = [self.insert_room_in_response(item) for item in data]
-        
+        context = {'include_room': self.include_room, 'sensor_room_map': self.sensor_room_map if self.include_room else {}}
+        data = DataPointSerializer(queryset_filtered, many=True, context=context).data
         return data
 
 class LatestData(ListData):
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
         queryset_latest = queryset_filtered.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
-        data = DataPointSerializer(queryset_latest, many=True).data
-        
-        if self.include_room:
-            data = [self.insert_room_in_response(item) for item in data]
-        
+        context = {'include_room': self.include_room, 'sensor_room_map': self.sensor_room_map if self.include_room else {}}
+        data = DataPointSerializer(queryset_latest, many=True, context=context).data
         return data
 
 
