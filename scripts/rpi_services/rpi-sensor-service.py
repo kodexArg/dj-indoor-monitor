@@ -291,7 +291,7 @@ class SensorConfig(TypedDict):
     hardware_type: Literal['dht11', 'dht22', 'mcp3008', 'fake']
     interval: int
     params: List[Union[DHTParams, MCP3008Params]]  # Lista de parámetros según el YAML
-    metrics: List[Literal['t', 'h', 's', 'l']>
+    metrics: List[Literal['t', 'h', 's', 'l']]
 
 class Config(TypedDict):
     raspberry_id: str

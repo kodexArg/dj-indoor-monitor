@@ -124,7 +124,7 @@ class LatestData(DataPointQueryProcessor):
 
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
-        queryset_latest = queryset_filtered.order_by('sensor', '-timestamp').distinct('sensor')
+        queryset_latest = queryset_filtered.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
         return DataPointSerializer(queryset_latest, many=True).data
 
 
