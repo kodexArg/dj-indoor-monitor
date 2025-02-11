@@ -12,6 +12,7 @@ from .views import (
     SensorsView,
     VPDView,
     GaugesView,
+    GenerateGaugeView 
 )
 
 router = DefaultRouter()
@@ -25,5 +26,6 @@ urlpatterns = [
     path('charts/sensors/', SensorsView.as_view(), name='sensors'),
     path('charts/vpd/', VPDView.as_view(), name='vpd'),
     path('charts/gauges/', GaugesView.as_view(), name='gauges'),
+    path('generate_gauge/', GenerateGaugeView.as_view(), name='generate-gauge'), 
     path('', include(router.urls)),
 ]

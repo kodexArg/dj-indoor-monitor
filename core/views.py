@@ -3,9 +3,10 @@ from django.views import View
 from django.http import HttpResponse
 from django.conf import settings
 import requests
+from django.db.models import Max
 
 # Local
-from .models import DataPoint
+from .models import DataPoint, Sensor  # Import Sensor
 from .charts import gauge_generator
 from .serializers import DataPointSerializer
 
@@ -38,23 +39,31 @@ class GaugesView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        api_url = f"{settings.INTERNAL_API_URL}/data-point/latest/"
-        response = requests.get(api_url, timeout=5)
-        data_points = response.json()
-        
-        serialized_data = DataPointSerializer(data_points, many=True).data
+
+        # Fetch the latest DataPoint for each sensor and metric
+        latest_data_points = DataPoint.objects.values('sensor', 'metric').annotate(
+            last_timestamp=Max('timestamp')
+        ).values('sensor', 'metric', 'last_timestamp')
 
         metrics_data = {}
-        for point in serialized_data:
-            if point['metric'] in ['t', 'h']:
-                metric = point['metric']
+        for item in latest_data_points:
+            data_point = DataPoint.objects.get(
+                sensor=item['sensor'],
+                metric=item['metric'],
+                timestamp=item['last_timestamp']
+            )
+
+            sensor = Sensor.objects.get(name=data_point.sensor)
+
+            if data_point.metric in ['t', 'h']:
+                metric = data_point.metric
                 if metric not in metrics_data:
                     metrics_data[metric] = []
                 metrics_data[metric].append({
-                    'value': point['value'],
-                    'metric': metric,
-                    'sensor': point['sensor'],
-                    'room': point['room']
+                    'value': data_point.value,
+                    'metric': data_point.metric,
+                    'sensor': data_point.sensor,
+                    'room': sensor.room.name if sensor.room else None 
                 })
 
         gauges_by_metric = []
