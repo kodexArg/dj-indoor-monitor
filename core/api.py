@@ -1,5 +1,5 @@
 from django.utils import timezone
-from rest_framework import viewsets
+from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from abc import ABC, abstractmethod
@@ -34,7 +34,7 @@ class DataPointViewSet(viewsets.ModelViewSet):
     serializer_class = DataPointSerializer
 
     def list(self, request, *args, **kwargs):
-        processor = ListData(queryset=self.queryset, query_parameters=request.query_params)
+        processor = ListData(queryset=self.queryset, query_parameters=request.query_params, request=request)
         return Response(processor.process())
 
     def create(self, request, *args, **kwargs):
@@ -52,7 +52,7 @@ class DataPointViewSet(viewsets.ModelViewSet):
             - metadata: Booleano para incluir metadatos en la respuesta
             - include_room: Booleano para incluir el room asociado a cada sensor
         """
-        processor = LatestData(queryset=self.queryset, query_parameters=request.GET)
+        processor = LatestData(queryset=self.queryset, query_parameters=request.GET, request=request)
         return Response(processor.process())
 
     @action(detail=False, methods=['get'])
@@ -69,15 +69,18 @@ class DataPointViewSet(viewsets.ModelViewSet):
             - metadata: Booleano para incluir metadata en la respuesta
             - include_room: Booleano para incluir el room asociado a cada sensor
         """
-        processor = TimeframedData(queryset=self.queryset, query_parameters=request.GET)
+        processor = TimeframedData(queryset=self.queryset, query_parameters=request.GET, request=request)
         return Response(processor.process())
 
 
-class DataPointQueryProcessor(ABC):
-    def __init__(self, queryset, query_parameters=None):
+class DataPointQueryProcessor(generics.GenericAPIView, ABC):
+    def __init__(self, queryset, query_parameters=None, request=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.queryset = queryset
         self.query_parameters = query_parameters if query_parameters is not None else {}
-        self.include_room = to_bool(query_parameters.get('include_room', False)) if query_parameters else False
+        self.request = request
+        self.include_room = to_bool(self.query_parameters.get('include_room', False))
+        self.paginate = to_bool(self.query_parameters.get('paginate', True))  # Default to True
         if self.include_room:
             self.sensor_room_map = {
                 sensor.name: sensor.room.name 
@@ -167,6 +170,12 @@ class DataPointQueryProcessor(ABC):
             end_date = timezone.now().isoformat()
 
         result = self.get()
+
+        if self.request and hasattr(self, 'paginate_queryset') and self.paginate:
+            paginated = self.paginate_queryset(result)
+            if paginated is not None:
+                result = self.get_paginated_response(paginated).data
+
         elapsed_time = (timezone.now() - start_time).total_seconds()
 
         if to_bool(self.query_parameters.get('metadata', False)):
