@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from abc import ABC, abstractmethod
 from .models import DataPoint, Sensor, Room
-from .serializers import DataPointSerializer
+from .serializers import DataPointSerializer, DataPointRoomSensorSerializer, DataPointRoomSerializer
 from .utils import TIMEFRAME_MAP, get_timedelta_from_timeframe, get_start_date, to_bool
 import pandas as pd
 
@@ -197,16 +197,28 @@ class DataPointQueryProcessor(generics.GenericAPIView, ABC):
 class ListData(DataPointQueryProcessor):
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
-        context = {'include_room': self.include_room, 'sensor_room_map': self.sensor_room_map if self.include_room else {}}
-        data = DataPointSerializer(queryset_filtered, many=True, context=context).data
+        context = {
+            'include_room': self.include_room, 
+            'sensor_room_map': self.sensor_room_map if self.include_room else {}
+        }
+        if self.include_room:
+            data = DataPointRoomSensorSerializer(queryset_filtered, many=True, context=context).data
+        else:
+            data = DataPointSerializer(queryset_filtered, many=True, context=context).data
         return data
 
 class LatestData(ListData):
     def get(self):
         queryset_filtered = self.apply_filters(self.query_parameters)
         queryset_latest = queryset_filtered.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
-        context = {'include_room': self.include_room, 'sensor_room_map': self.sensor_room_map if self.include_room else {}}
-        data = DataPointSerializer(queryset_latest, many=True, context=context).data
+        context = {
+            'include_room': self.include_room, 
+            'sensor_room_map': self.sensor_room_map if self.include_room else {}
+        }
+        if self.include_room:
+            data = DataPointRoomSensorSerializer(queryset_latest, many=True, context=context).data
+        else:
+            data = DataPointSerializer(queryset_latest, many=True, context=context).data
         return data
 
 
@@ -232,13 +244,19 @@ class TimeframedData(ListData):
             df['room'] = df['room'].fillna('')
         df = df.set_index('timestamp').sort_index()
 
-        group_cols = ['sensor', 'metric']
         if self.include_room:
-            group_cols.append('room')
+            group_cols = ['room', 'metric']
+        else:
+            group_cols = ['sensor', 'metric']
 
         if self.aggregations:
-            return self._process_with_aggregations(df, group_cols)
-        return self._process_without_aggregations(df, group_cols)
+            results = self._process_with_aggregations(df, group_cols)
+        else:
+            results = self._process_without_aggregations(df, group_cols)
+
+        if self.include_room:
+            return DataPointRoomSerializer(results, many=True).data
+        return DataPointSerializer(results, many=True).data
 
     def _process_with_aggregations(self, df, group_cols):
         agg_funcs = ['mean', 'min', 'max', 'first', 'last']

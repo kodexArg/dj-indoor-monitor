@@ -2,23 +2,44 @@ from rest_framework import serializers
 from django.utils.timezone import localtime
 from .models import DataPoint
 
+# Removed BaseDataPointSerializer; each serializer now implements its own timestamp field.
+
 class DataPointSerializer(serializers.ModelSerializer):
     timestamp = serializers.SerializerMethodField()
-    room = serializers.SerializerMethodField()
-
+    
+    def get_timestamp(self, obj):
+        return localtime(obj.timestamp).isoformat()
+    
     class Meta:
         model = DataPoint
-        fields = ['timestamp', 'sensor', 'metric', 'value', 'room']
+        fields = ['timestamp', 'sensor', 'metric', 'value']
 
-    def get_timestamp(self, obj: DataPoint) -> str:
+class DataPointRoomSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
+    room = serializers.SerializerMethodField()
+    
+    def get_timestamp(self, obj):
         return localtime(obj.timestamp).isoformat()
+    
+    def get_room(self, obj):
+        sensor_room_map = self.context.get('sensor_room_map', {})
+        return sensor_room_map.get(obj.sensor, '')
+    
+    class Meta:
+        model = DataPoint
+        fields = ['timestamp', 'room', 'metric', 'value']
 
-    def get_room(self, obj: DataPoint) -> str:
-        """
-        Returns the room name if include_room is True in the context, otherwise returns None.
-        """
-        if self.context.get('include_room'):
-
-            sensor_room_map = self.context.get('sensor_room_map', {})
-            return sensor_room_map.get(obj.sensor, '')
-        return None
+class DataPointRoomSensorSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
+    room = serializers.SerializerMethodField()
+    
+    def get_timestamp(self, obj):
+        return localtime(obj.timestamp).isoformat()
+    
+    def get_room(self, obj):
+        sensor_room_map = self.context.get('sensor_room_map', {})
+        return sensor_room_map.get(obj.sensor, '')
+    
+    class Meta:
+        model = DataPoint
+        fields = ['timestamp', 'room', 'sensor', 'metric', 'value']
