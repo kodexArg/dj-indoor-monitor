@@ -4,7 +4,7 @@
 {% block subtitle %}GAUGES{% endblock %}
 
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+    <link rel="stylesheet" href="{% static 'css/charts.css' %}">
 {% endblock %}
 
 {% block navbar %}
@@ -13,23 +13,25 @@
 
 {% block content %}
 <div class="gauges-wrapper">
-    {% for metric_group in gauges_by_metric %}
-    <div class="metric-group">
-        <h2>{{ metric_group.title }}</h2>
-        <div class="gauges-grid">
-            {% for gauge in metric_group.gauges %}
-            <div class="gauge-container"
-                 title="{{ gauge.room }} - {{ gauge.sensor }}"
-                 data-sensor="{{ gauge.sensor }}"
-                 data-metric="{{ gauge.metric }}"
-                 data-value="{{ gauge.value }}">
-                <div class="loading">
-                    <div class="placeholder-animation"></div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+    {% for room_name, gauges in gauges_by_room.items %}
+    <div class="room-title-wrapper">
+        <h2 class="room-title">Sala {{ room_name }}</h2>
     </div>
+    <div class="gauges-grid">
+        {% for gauge_data in gauges %}
+        <div class="gauge-container"
+             title="{{ room_name }} - {{ gauge_data.sensor_name }}"
+             data-sensor="{{ gauge_data.sensor_name }}"
+             data-metric="{{ gauge_data.metric }}"
+             data-value="{{ gauge_data.value }}">
+            <div class="loading">
+                <div class="placeholder-animation"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% empty %}
+    <p>No data available.</p>
     {% endfor %}
 </div>
 
@@ -42,7 +44,7 @@
             var sensor = container.data('sensor');
             var metric = container.data('metric');
             var value = container.data('value');
-            
+
             $.ajax({
                 url: '/generate_gauge/',
                 data: {

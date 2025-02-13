@@ -1,69 +1,90 @@
-# charts.py
-
-"""
-Funciones para la generación de gráficos y visualizaciones.
-"""
 import plotly.graph_objects as go
 import plotly.io as pio
 
 def gauge_generator(value, metric, sensor):
-    # Configuraciones predeterminadas para métricas de 't' y 'h'
     GAUGE_CONFIGS = {
         't': {
-            'steps': [[0, 18], [18, 24], [24, 35]],
+            'steps': [(0, 18), (18, 24), (24, 40)],
             'unit': '°C',
-            'title': '',
+            'title': 'Temperatura',
             'colors': [
-                'rgba(135, 206, 235, 0.8)',  # Azul frío
-                'rgba(144, 238, 144, 0.6)',  # Verde claro (óptimo)
-                'rgba(255, 99, 71, 0.8)'     # Rojo-naranja (caliente)
+                'rgba(135, 206, 235, 0.8)',
+                'rgba(144, 238, 144, 0.6)',
+                'rgba(255, 99, 71, 0.8)',
             ]
         },
         'h': {
-            'steps': [[0, 40], [40, 60], [60, 90]],
+            'steps': [(0, 40), (40, 55), (55, 100)],
             'unit': '%',
-            'title': '',
+            'title': 'Humedad',
             'colors': [
-                'rgba(255, 198, 109, 0.8)',  # Amarillo-naranja (seco)
-                'rgba(152, 251, 152, 0.6)',  # Verde menta (óptimo)
-                'rgba(100, 149, 237, 0.8)'   # Azul (húmedo)
+                'rgba(255, 198, 109, 0.8)',
+                'rgba(152, 251, 152, 0.6)',
+                'rgba(100, 149, 237, 0.8)',
+            ]
+        },
+        'l': {
+            'steps': [(0, 900), (900, 1000)],
+            'unit': 'lum',
+            'title': 'Luz',
+            'colors': [
+                'rgba(105, 105, 105, 0.2)',
+                'rgba(255, 255, 153, 0.6)'
+            ]
+        },
+        's': {
+            'steps': [(0, 30), (30, 60), (60, 100)],
+            'unit': '%',
+            'title': 'Sustrato',
+            'colors': [
+                'rgba(255, 198, 109, 0.8)',
+                'rgba(152, 251, 152, 0.6)',
+                'rgba(100, 149, 237, 0.8)',
             ]
         }
     }
-    
+
     config = GAUGE_CONFIGS.get(metric)
+    if not config:
+        return "<div>Invalid metric</div>"
+
     steps = config['steps']
-    title = f"{config['title']} {sensor}"
-    
+
+    # Título principal: Título de la métrica
+    main_title = config['title']
+
+    # Subtítulo: Nombre del sensor (convertido a Title Case)
+    sensor_name = str(sensor).title()
+
+
     fig = go.Figure()
-    
-    max_value = max(steps[2][1], value)
-    
+    max_value = steps[-1][1]
+
     fig.add_trace(go.Indicator(
         mode="gauge+number",
         value=value,
-        domain={'x': [0, 1], 'y': [0.2, 1]},
+        domain={'x': [0, 1], 'y': [0.15, 1]}, 
         number={
-            'font': {'size': 28, 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'}, 
+            'font': {'size': 26,
+                     'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
             'suffix': f" {config['unit']}",
-            'valueformat': '.1f'
+            'valueformat': '.1f' if metric != 'l' else '.0f'
         },
         gauge={
             'axis': {
                 'range': [0, max_value],
                 'tickwidth': 1,
                 'tickcolor': "#888888",
-                'tickfont': {'size': 8, 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
+                'tickfont': {'size': 8,
+                             'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
                 'tickmode': 'linear',
-                'dtick': max_value/5
+                'dtick': max_value / 5
             },
             'bar': {'color': "rgba(150, 150, 150, 0.5)"},
             'bgcolor': "white",
             'borderwidth': 0,
             'steps': [
-                {'range': steps[0], 'color': config['colors'][0]},
-                {'range': steps[1], 'color': config['colors'][1]},
-                {'range': steps[2], 'color': config['colors'][2]}
+                {'range': step, 'color': config['colors'][i]} for i, step in enumerate(steps)
             ],
             'threshold': {
                 'line': {'color': "black", 'width': 2},
@@ -74,24 +95,26 @@ def gauge_generator(value, metric, sensor):
     ))
 
     fig.update_layout(
-        height=160,
-        width=320,
-        margin=dict(l=15, r=15, t=50, b=5),
+        height=180,
+        width=220,
+        margin=dict(l=20, r=20, t=50, b=0),
         paper_bgcolor="white",
-        font={'color': "#666666", 'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
+        font={'color': "#666666",
+                 'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
         showlegend=False,
         title={
-            'text': title,
-            'y': 0.9,
+            'text': f"<b>{main_title}</b><br><span style='font-size:0.7em;'>sensor {sensor_name}</span>",  # Título y subtítulo
+            'y': 0.90,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top',
             'font': {
-                'size': 16,
+                'size': 14,
                 'color': '#5f9b62',
                 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'
             }
-        }
+        },
+
     )
 
     return pio.to_html(

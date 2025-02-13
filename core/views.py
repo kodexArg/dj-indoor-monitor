@@ -1,15 +1,9 @@
-from django.views.generic import TemplateView
-from django.views import View
+from django.views.generic import TemplateView, View
 from django.http import HttpResponse
-from django.conf import settings
-import requests
-from django.db.models import Max
-
-# Local
-from .models import DataPoint, Sensor  # Import Sensor
-from .charts import gauge_generator
-from .serializers import DataPointSerializer
-
+from django.db.models import F, Window
+from django.db.models.functions import RowNumber
+from .models import DataPoint, Sensor, Room
+from .charts import gauge_generator  # Correct import
 
 class HomeView(TemplateView):
     template_name = 'development.html'
@@ -31,70 +25,61 @@ class VPDView(TemplateView):
 
 class GaugesView(TemplateView):
     template_name = 'charts/gauges.html'
-    
-    METRIC_TITLES = {
-        't': 'Temperatura',
-        'h': 'Humedad',
-    }
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Fetch the latest DataPoint for each sensor and metric
-        latest_data_points = DataPoint.objects.values('sensor', 'metric').annotate(
-            last_timestamp=Max('timestamp')
-        ).values('sensor', 'metric', 'last_timestamp')
-
-        metrics_data = {}
-        for item in latest_data_points:
-            data_point = DataPoint.objects.get(
-                sensor=item['sensor'],
-                metric=item['metric'],
-                timestamp=item['last_timestamp']
+        latest_data_points = DataPoint.objects.annotate(
+            row_number=Window(
+                expression=RowNumber(),
+                partition_by=[F('sensor'), F('metric')],
+                order_by=F('timestamp').desc(),
             )
+        ).filter(row_number=1)
 
-            sensor = Sensor.objects.get(name=data_point.sensor)
+        sensors_dict = {sensor.name: sensor for sensor in Sensor.objects.select_related('room').all()}
 
-            if data_point.metric in ['t', 'h']:
-                metric = data_point.metric
-                if metric not in metrics_data:
-                    metrics_data[metric] = []
-                metrics_data[metric].append({
+        # Agrupar por sala (room)
+        gauges_by_room = {}
+        for data_point in latest_data_points:
+            sensor = sensors_dict.get(data_point.sensor)
+            if sensor:
+                room_name = sensor.room.name if sensor.room else "No Room"  # Default if no room
+                if room_name not in gauges_by_room:
+                    gauges_by_room[room_name] = []
+
+                gauges_by_room[room_name].append({
                     'value': data_point.value,
                     'metric': data_point.metric,
-                    'sensor': data_point.sensor,
-                    'room': sensor.room.name if sensor.room else None 
+                    'sensor_name': data_point.sensor,
                 })
 
-        gauges_by_metric = []
-        for metric, gauges in metrics_data.items():
-            if gauges:
-                gauges_by_metric.append({
-                    'title': self.METRIC_TITLES.get(metric, metric.upper()),
-                    'gauges': gauges
-                })
+        # Ordenar cada lista de gauges dentro de cada sala
+        for room_name, gauges in gauges_by_room.items():
+            gauges.sort(key=lambda x: (x['metric'], x['sensor_name']))
 
-        context['gauges_by_metric'] = gauges_by_metric
+        # Ensure "I+D" room is last
+        if "I+D" in gauges_by_room:
+            gauges_by_room["I+D"] = gauges_by_room.pop("I+D")
+
+        context['gauges_by_room'] = gauges_by_room
         return context
+
 
 class GenerateGaugeView(View):
     def get(self, request, *args, **kwargs):
-        sensor = request.GET.get('sensor', '')
+        sensor_name = request.GET.get('sensor', '')
         metric = request.GET.get('metric', '')
 
         try:
             value_str = request.GET.get('value', '').replace(',', '.')
             value = float(value_str)
-
         except ValueError:
             return HttpResponse('')
 
-        if value is not None:
-            gauge = gauge_generator(
-                value=value,
-                metric=metric,
-                sensor=sensor
-            )
-            return HttpResponse(gauge)
-        else:
-            return HttpResponse('')
+        gauge_html = gauge_generator(
+            value=value,
+            metric=metric,
+            sensor=sensor_name
+        )
+        return HttpResponse(gauge_html)
