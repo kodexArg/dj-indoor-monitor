@@ -3,6 +3,43 @@ import plotly.io as pio
 import pandas as pd
 import pytz
 from django.conf import settings
+import logging
+import os
+from pathlib import Path
+
+# Get project root directory
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'core.views': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
 METRICS_CFG = {
     't': {
@@ -58,7 +95,7 @@ def gauge_generator(value, metric, sensor):
     steps = metric_cfg['steps']
 
     # Título principal: Título de la métrica
-    main_title = metric_cfg['title']
+    main_title = f"{metric_cfg['title']} en {metric_cfg['unit']}"
 
     # Subtítulo: Nombre del sensor (convertido a Title Case)
     sensor_name = str(sensor).title()
@@ -141,56 +178,170 @@ def gauge_generator(value, metric, sensor):
         config={'staticPlot': True, 'displayModeBar': False}
     )
 
-def lineplot_generator(values, sensor, metric, start_date, end_date):
-    if not values:
-        return f'<div>No hay datos para {sensor} - {metric}</div>', 0
-    x_vals = [x for x, y in values]
-    y_vals = [y for x, y in values]
-    metric_cfg = METRICS_CFG.get(metric, {'brand_color': '#808080', 'title': metric.title()})
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=x_vals,
-            y=y_vals,
-            mode='lines',
-            name=metric_cfg['title'],
-            line=dict(color=metric_cfg['brand_color'])
+def lineplot_generator(timestamps, values, sensor, metric):
+    try:
+        logger.info(f"Generando gráfico para {sensor} - {metric}")
+        logger.info(f"Timestamps: {timestamps[:5]}...")
+        logger.info(f"Values: {values[:5]}...")
+        
+        if not values or not timestamps:
+            logger.warning("No hay datos para procesar")
+            return f'<div>No hay datos para {sensor} - {metric}</div>', 0
+        
+        # Asegurar que todos los valores son numéricos
+        processed_values = []
+        processed_timestamps = []
+        for t, v in zip(timestamps, values):
+            try:
+                v_float = float(v)
+                processed_values.append(round(v_float, 1))
+                processed_timestamps.append(t)
+            except (TypeError, ValueError):
+                continue
+        
+        if not processed_values:
+            logger.warning("No hay valores válidos después del procesamiento")
+            return f'<div>No hay datos válidos para {sensor} - {metric}</div>', 0
+            
+        metric_cfg = METRICS_CFG.get(metric, {'brand_color': '#808080', 'title': metric.title()})
+        
+        fig = go.Figure()
+        
+        if "steps" in metric_cfg:
+            steps = metric_cfg["steps"]
+            colors = metric_cfg["color_bars_gradient"]
+            shapes = []
+            if steps[0] != 0:
+                shapes.append({
+                    "type": "rect",
+                    "xref": "paper",
+                    "yref": "y",
+                    "x0": 0,
+                    "x1": 1,
+                    "y0": 0,
+                    "y1": steps[0],
+                    "fillcolor": colors[0],
+                    "opacity": 0.07,
+                    "line": {"width": 0},
+                })
+            for i in range(1, len(steps)):
+                shapes.append({
+                    "type": "rect",
+                    "xref": "paper",
+                    "yref": "y",
+                    "x0": 0,
+                    "x1": 1,
+                    "y0": steps[i-1],
+                    "y1": steps[i],
+                    "fillcolor": colors[i],
+                    "opacity": 0.07, 
+                    "line": {"width": 0},
+                })
+            min_y = (0 + steps[0]) / 2
+            if len(steps) > 1:
+                max_y = (steps[-2] + steps[-1]) / 2
+            else:
+                max_y = steps[0] * 1.5 
+            y_range = [min_y, max_y]
+        else:
+            shapes = []
+            y_range = None
+        
+        fig.add_trace(
+            go.Scatter(
+                x=processed_timestamps,
+                y=processed_values,
+                mode='lines',
+                name=metric_cfg['title'],
+                line=dict(color=metric_cfg['brand_color']),
+                hovertemplate='%{y:.1f}'
+            )
         )
-    )
+        
+        fig.update_layout(
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+            shapes=shapes,
+            showlegend=False,
+            height=None,
+            width=None,
+            autosize=True,
+            margin=dict(l=90, r=20, t=20, b=20), 
+            xaxis={
+                'fixedrange': True,
+                'tickmode': 'auto',
+                'showgrid': True,
+                'gridcolor': 'lightgrey',
+                'gridwidth': 0.5,
+                'griddash': 'dot',
+                'visible': True
+            },
+            yaxis={
+                'fixedrange': True,
+                'range': y_range,
+                'tickmode': 'auto',
+                'showgrid': True,
+                'gridcolor': 'lightgrey',
+                'gridwidth': 0.5,
+                'griddash': 'dot',
+                'visible': True
+            },
+            hovermode='x unified',
+            annotations=[
+                {
+                    "x": -0.1,
+                    "y": 0.5,
+                    "xref": "paper",
+                    "yref": "paper",
+                    "text": f"<b>{metric_cfg['title']} en {metric_cfg['unit']}</b><br><span style='font-size:0.8em;'>sensor {sensor.title()}</span>",
+                    "showarrow": False,
+                    "textangle": -90,
+                    "xanchor": "left",
+                    "yanchor": "middle",
+                    "font": {
+                        "size": 16,
+                        "color": "#5f9b62",
+                        "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"
+                    }
+                }
+            ]
+        )
+        
+        return pio.to_html(
+            fig,
+            include_plotlyjs=False,
+            full_html=False,
+            config={'staticPlot': True, 'displayModeBar': False, 'responsive': True}
+        ), len(processed_values)
+        
+    except Exception as e:
+        logger.error(f"Error en lineplot_generator: {str(e)}")
+        return f'<div>Error generando el gráfico: {str(e)}</div>', 0
+
+def scatter_generator(timestamps, data_values, sensor_name, metric):
+    """
+    Genera un gráfico scatter para un solo punto válido.
+    """
+    # Ejemplo básico con plotly, asumiendo que plotly está siendo usado
+    import plotly.graph_objects as go
+    
+    # Filtrar el único punto no nulo
+    for t, v in zip(timestamps, data_values):
+        if v is not None:
+            point_time = t
+            point_value = v
+            break
+
+    fig = go.Figure(data=go.Scatter(
+        x=[point_time],
+        y=[point_value],
+        mode='markers',
+        marker=dict(size=10)
+    ))
     fig.update_layout(
-        paper_bgcolor='white',
-        plot_bgcolor='white',
-        showlegend=False,
-        height=180,
-        width=540,
-        margin=dict(l=20, r=20, t=80, b=0),
-        title={
-            'text': f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>sensor {sensor.title()}</span>",
-            'y': 0.90,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': {'size': 16, 'color': '#5f9b62', 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'}
-        },
-        xaxis={
-            'range': [start_date, end_date],
-            'fixedrange': True,
-            'gridcolor': 'lightgrey',
-            'gridwidth': 0.2,
-            'griddash': 'dot',
-            'visible': False
-        },
-        yaxis={
-            'gridcolor': 'lightgrey',
-            'gridwidth': 0.2,
-            'griddash': 'dot',
-            'visible': False
-        },
-        hovermode='x unified'
+        title=f"{sensor_name} - {metric}",
+        xaxis_title="Time",
+        yaxis_title=metric,
     )
-    return pio.to_html(
-        fig,
-        include_plotlyjs=False,
-        full_html=False,
-        config={'staticPlot': True, 'displayModeBar': False}
-    ), len(values)
+    # Retornar el HTML del gráfico y el número de puntos
+    return fig.to_html(full_html=False), 1

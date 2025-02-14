@@ -58,13 +58,23 @@
                 var sensor = container.data('sensor');
                 var metric = container.data('metric');
                 var values = container.data('values');
+                
+                // Ensure values is treated as an array of tuples
+                var processedValues = [];
+                for (var i = 0; i < values.length; i++) {
+                    processedValues.push([
+                        values[i][0].toString(),
+                        values[i][1]
+                    ]);
+                }
 
                 $.ajax({
                     url: '/generate_sensor/',
+                    method: 'POST',
                     data: {
                         sensor: sensor,
                         metric: metric,
-                        values: JSON.stringify(values)
+                        values: JSON.stringify(processedValues)
                     },
                     success: function(data) {
                         container.html(data);
