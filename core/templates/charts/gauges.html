@@ -12,54 +12,55 @@
 {% endblock %}
 
 {% block content %}
-<div class="gauges-wrapper">
-    {% for room_name, gauges in gauges_by_room.items %}
-    <div class="room-title-wrapper">
-        <h2 class="room-title">Sala {{ room_name }}</h2>
-    </div>
-    <div class="gauges-grid">
-        {% for gauge_data in gauges %}
-        <div class="gauge-container"
-             title="{{ room_name }} - {{ gauge_data.sensor_name }}"
-             data-sensor="{{ gauge_data.sensor_name }}"
-             data-metric="{{ gauge_data.metric }}"
-             data-value="{{ gauge_data.value }}">
-            <div class="loading">
-                <div class="placeholder-animation"></div>
+    <div class="gauges-wrapper">
+        {% for room_name, gauges in gauges_by_room.items %}
+            <div class="room-title-wrapper">
+                <h2 class="room-title">Sala {{ room_name }}</h2>
             </div>
-        </div>
+            <div class="chart-grid gauges-grid">
+                {% for gauge_data in gauges %}
+                    <div class="chart-container gauge-container"
+                        data-sensor="{{ gauge_data.sensor_name }}"
+                        data-metric="{{ gauge_data.metric }}"
+                        data-value="{{ gauge_data.value }}">
+                        <div class="loading">
+                            <div class="placeholder-animation"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% empty %}
+            <p>No data available.</p>
         {% endfor %}
     </div>
-    {% empty %}
-    <p>No data available.</p>
-    {% endfor %}
-</div>
+{% endblock %}
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.plot.ly/plotly-2.27.1.min.js" charset="utf-8"></script>
-<script>
-    $(document).ready(function() {
-        $('.gauge-container').each(function() {
-            var container = $(this);
-            var sensor = container.data('sensor');
-            var metric = container.data('metric');
-            var value = container.data('value');
+{% block scripts %}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.1.min.js" charset="utf-8"></script>
+    <script>
+        $(document).ready(function() {
+            $('.chart-container').each(function() {
+                var container = $(this);
+                var sensor = container.data('sensor');
+                var metric = container.data('metric');
+                var value = container.data('value');
 
-            $.ajax({
-                url: '/generate_gauge/',
-                data: {
-                    sensor: sensor,
-                    metric: metric,
-                    value: value
-                },
-                success: function(data) {
-                    container.html(data);
-                },
-                error: function() {
-                    container.html('<p>Error loading gauge</p>');
-                }
+                $.ajax({
+                    url: '/generate_gauge/',
+                    data: {
+                        sensor: sensor,
+                        metric: metric,
+                        value: value
+                    },
+                    success: function(data) {
+                        container.html(data);
+                    },
+                    error: function() {
+                        container.html('<p>Error loading gauge</p>');
+                    }
+                });
             });
         });
-    });
-</script>
+    </script>
 {% endblock %}
