@@ -30,7 +30,8 @@
 /* Gauge specific styles */
 .chart-container {
   position: relative;
-  width: 100%;
+  width: auto;
+  height: auto;
   max-width: none;
   border: 1px solid var(--brand-green-light);
   border-radius: 8px;

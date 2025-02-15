@@ -1,61 +1,127 @@
-.gauges-grid {
-  display: flex;
-  flex-direction: column; /* Stack items vertically */
-  align-items: stretch; /* Make items stretch to fill the container width */
-  gap: 1rem;
-  padding: 1rem;
+/* Wrappers para las diferentes vistas de gráficos */
+.sensors-wrapper,
+.gauges-wrapper {
+  width: 100%;
+  padding: 0.5rem;
 }
 
-.gauge-container {
-  aspect-ratio: 1;
-  height: 190px; /* hardcoded charts.py 180 */
-  width: 230px; /* hardcoded charts.py 220 */
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(111, 191, 115, 0.15);
+/* Grid containers */
+.chart-grid {
+  display: flex;
+  max-width: auto;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: center; /* Agregado para centrar verticalmente */
+}
+
+.sensors-grid {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.gauges-grid {
+  flex-flow: row wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  margin: 0; 
+  width: auto; 
+}
+
+/* Gauge specific styles */
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: none;
   border: 1px solid var(--brand-green-light);
-  margin: 0;
+  border-radius: 8px;
+  background-color: var(--brand-bg);
+  box-shadow: 0 2px 8px var(--shadow-green-10);
+  margin-top: 1rem;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  transition: transform 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  transition: transform 0.2s ease;
 }
 
-.gauge-container:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(111, 191, 115, 0.2);
-}
-
-.gauge-container .loading {
-  color: var(--brand-gray);
-  font-size: 0.9em;
-}
-
-/* Specific styles for sensor charts in the SensorsView */
-.chart-content .chart-container {
-  aspect-ratio: 3 / 1; /* Enforce 3:1 aspect ratio */
-  width: 100%; /* Make the chart container responsive */
-  height: auto; /* Let the height adjust based on the width and aspect ratio */
-  margin: 1rem auto; /* Center the charts */
-}
-
-.chart-container {
+.gauge-container {
+  flex: 0 0 auto;
+  height: 190px;
+  width: 200px;
   position: relative;
-  width: 100%; /* Make the chart container fill available width */
-  max-width: none; /* Remove max-width restriction */
+  background-color: #fff;
 }
 
-.chart-container::before {
-  content: "";
-  display: block;
-  padding-bottom: 33.33%; /* 1:3 aspect ratio */
-}
-
-.chart-container > * {
+.gauge-container > * {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gauge-container:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 16px var(--shadow-green-20);
+  z-index: 2;
+}
+
+/* Sensor chart containers */
+.sensor-container {
+  background-color: #fff;
+
+}
+
+.sensor-container::before {
+  content: "";
+  display: block;
+  padding-bottom: 33.33%;
+}
+
+.sensor-container > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Loading states */
+.loading {
+  color: var(--brand-gray);
+  font-size: 0.9em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid var(--brand-green-light);
+  border-radius: 50%;
+  border-top-color: var(--brand-green);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Asegurar que los mensajes de error se centren */
+.gauge-container p,
+.sensor-container p {
+  position: relative; /* sobrescribir posicionamiento absoluto */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
 }

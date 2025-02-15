@@ -479,7 +479,7 @@ h1 {
 }
 
 .room-title {
-    color: var(--brand-green-dark);
+    color: var(--brand-green);
 
     display: table-cell;
     vertical-align: middle;
