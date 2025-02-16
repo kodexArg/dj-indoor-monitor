@@ -1,11 +1,8 @@
 import plotly.graph_objects as go
 import plotly.io as pio
-import pandas as pd
-import pytz
-from django.conf import settings
-import logging
 import os
 from pathlib import Path
+from loguru import logger
 
 # Get project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -178,30 +175,16 @@ def gauge_generator(value, metric, sensor):
         config={'staticPlot': True, 'displayModeBar': False}
     )
 
-def lineplot_generator(timestamps, values, sensor, metric):
+def lineplot_generator(df, sensor, metric):
     try:
         logger.info(f"Generando gráfico para {sensor} - {metric}")
-        logger.info(f"Timestamps: {timestamps[:5]}...")
-        logger.info(f"Values: {values[:5]}...")
         
-        if not values or not timestamps:
-            logger.warning("No hay datos para procesar")
+        if df.empty:
+            logger.warning("DataFrame vacío")
             return f'<div>No hay datos para {sensor} - {metric}</div>', 0
         
-        # Asegurar que todos los valores son numéricos
-        processed_values = []
-        processed_timestamps = []
-        for t, v in zip(timestamps, values):
-            try:
-                v_float = float(v)
-                processed_values.append(round(v_float, 1))
-                processed_timestamps.append(t)
-            except (TypeError, ValueError):
-                continue
-        
-        if not processed_values:
-            logger.warning("No hay valores válidos después del procesamiento")
-            return f'<div>No hay datos válidos para {sensor} - {metric}</div>', 0
+        processed_values = df['value'].tolist()
+        processed_timestamps = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S').tolist()
             
         metric_cfg = METRICS_CFG.get(metric, {'brand_color': '#808080', 'title': metric.title()})
         

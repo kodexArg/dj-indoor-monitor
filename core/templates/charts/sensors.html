@@ -34,8 +34,7 @@
                     <div class="chart-container sensor-container"
                          title="{{ room_name }} - {{ sensor_data.sensor_name }}"
                          data-sensor="{{ sensor_data.sensor_name }}"
-                         data-metric="{{ sensor_data.metric }}"
-                         data-values='{{ sensor_data.values|safe }}'>
+                         data-room="{{ room_name }}">
                         <div class="loading">
                             <div class="placeholder-animation"></div>
                         </div>
@@ -56,26 +55,12 @@
             $('.chart-container').each(function() {
                 var container = $(this);
                 var sensor = container.data('sensor');
-                var metric = container.data('metric');
-                var values = container.data('values');
-                
-                // Ensure values is treated as an array of tuples
-                var processedValues = [];
-                for (var i = 0; i < values.length; i++) {
-                    processedValues.push([
-                        values[i][0].toString(),
-                        values[i][1]
-                    ]);
-                }
+                var room = container.data('room');
+                var timeframe = "{{ selected_timeframe }}";
 
                 $.ajax({
-                    url: '/generate_sensor/',
-                    method: 'POST',
-                    data: {
-                        sensor: sensor,
-                        metric: metric,
-                        values: JSON.stringify(processedValues)
-                    },
+                    url: '/generate_sensor/?sensor=' + sensor + '&timeframe=' + timeframe,
+                    method: 'GET',
                     success: function(data) {
                         container.html(data);
                     },
