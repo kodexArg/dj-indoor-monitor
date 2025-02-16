@@ -120,7 +120,6 @@ class GenerateSensorView(View):
         timeframe = request.GET.get('timeframe', '1h')
         
         try:
-            sensor = Sensor.objects.get(name=sensor_name)
             end_date = timezone.now()
             start_date = get_start_date(timeframe, end_date)
 
