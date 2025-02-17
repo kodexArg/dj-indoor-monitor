@@ -25,24 +25,28 @@
         </div>
     </div>
     <div class="sensors-wrapper">
-        {% for room_name, sensors in sensors_by_room.items %}
+        {% for room, metrics in data.items %}
             <div class="room-title-wrapper">
-                <h2 class="room-title">Sala {{ room_name }}</h2>
+                <h2 class="room-title">Sala {{ room }}</h2>
             </div>
-            <div class="chart-grid sensors-grid">
-                {% for sensor_data in sensors %}
+            {% for metric_obj in metrics.values %}
+                <div class="metric-title-wrapper">
+                    <h3 class="metric-title">Métrica: {{ metric_obj.metric_name }}</h3>
+                </div>
+                {% for sensor in metric_obj.sensors %}
                     <div class="chart-container sensor-container"
-                         title="{{ room_name }} - {{ sensor_data.sensor_name }}"
-                         data-sensor="{{ sensor_data.sensor_name }}"
-                         data-room="{{ room_name }}">
+                         title="{{ room }} - {{ sensor }} ({{ metric_obj.metric_name }})"
+                         hx-post="/generate_sensor/"
+                         hx-trigger="load"
+                         hx-target="this"
+                         hx-swap="innerHTML"
+                         hx-vals='{"sensor": "{{ sensor }}", "timeframe": "{{ timeframe }}", "metric": "{{ metric_obj.metric }}"}'>
                         <div class="loading">
                             <div class="placeholder-animation"></div>
                         </div>
                     </div>
                 {% endfor %}
-            </div>
-        {% empty %}
-            <p>No data available.</p>
+            {% endfor %}
         {% endfor %}
     </div>
 {% endblock %}
@@ -50,25 +54,4 @@
 {% block scripts %}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.1.min.js" charset="utf-8"></script>
-    <script>
-        $(document).ready(function() {
-            $('.chart-container').each(function() {
-                var container = $(this);
-                var sensor = container.data('sensor');
-                var room = container.data('room');
-                var timeframe = "{{ selected_timeframe }}";
-
-                $.ajax({
-                    url: '/generate_sensor/?sensor=' + sensor + '&timeframe=' + timeframe,
-                    method: 'GET',
-                    success: function(data) {
-                        container.html(data);
-                    },
-                    error: function() {
-                        container.html('<p>Error loading chart</p>');
-                    }
-                });
-            });
-        });
-    </script>
 {% endblock %}

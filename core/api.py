@@ -125,7 +125,7 @@ class DataPointQueryProcessor(generics.GenericAPIView, ABC):
                 print(f"Error al filtrar por end_date: {e}")
 
         if 'sensors' in query_parameters:
-            queryset = queryset.filter(sensor__in(query_parameters['sensors']))
+            queryset = queryset.filter(sensor=query_parameters['sensors'])
         
         # Aplicamos filtros de rango por tipo de sensor
         valid_ranges_filter = None

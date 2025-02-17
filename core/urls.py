@@ -28,6 +28,6 @@ urlpatterns = [
     path('charts/vpd/', VPDView.as_view(), name='vpd'),
     path('charts/gauges/', GaugesView.as_view(), name='gauges'),
     path('generate_gauge/', GenerateGaugeView.as_view(), name='generate-gauge'),
-    path('generate_sensor/', GenerateSensorView.as_view(http_method_names=['get']), name='generate-sensor'),
+    path('generate_sensor/', GenerateSensorView.as_view(), name='generate_sensor'),
     path('', include(router.urls)),
 ]

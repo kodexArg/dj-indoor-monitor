@@ -3,17 +3,13 @@ from django.http import HttpResponse
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
 from django.utils import timezone
-import pandas as pd
-from collections import defaultdict
 
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import DataPoint, Sensor
-from .charts import gauge_generator, lineplot_generator
-from .utils import  get_start_date
-import logging
-
-logger = logging.getLogger(__name__)
+from .charts import gauge_generator, sensor_plot
+from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe, METRIC_MAP
+from collections import OrderedDict
 
 class HomeView(TemplateView):
     template_name = 'development.html'
@@ -91,70 +87,106 @@ class GenerateGaugeView(View):
 
 class SensorsView(TemplateView):
     template_name = 'charts/sensors.html'
+    metric_map = METRIC_MAP
 
     def get_context_data(self, **kwargs):
+        """
+        Prealiza una consulta al modelo Sensor para obtener cada sensor,
+        agrupado por habitación y cada métrica disponible.
+        
+        Template recibe un diccionario anidado 'data' con el siguiente formato:
+        {
+            'RoomName': {
+                'metric_code': {
+                    'metric': <letra>,
+                    'metric_name': <nombre completo>,
+                    'sensors': [sensor1, sensor2, ...]
+                },
+                ...
+            },
+            ...
+        }
+        """
         context = super().get_context_data(**kwargs)
+        timeframe = self.request.GET.get('timeframe', '1h').lower()
+        context['timeframe'] = timeframe
+
+        data = {}
         sensors = Sensor.objects.select_related('room').all()
-        sensors_by_room = defaultdict(list)
+        from .models import DataPoint  # Ensure DataPoint is imported if needed.
         for sensor in sensors:
             if not sensor.room:
                 continue
             room_name = sensor.room.name
-            sensors_by_room[room_name].append({
-                'sensor_name': sensor.name,
-                'room_name': room_name,
-            })
+            if room_name not in data:
+                data[room_name] = {}
 
-        for room, sensor_list in sensors_by_room.items():
-            sensor_list.sort(key=lambda x: x['sensor_name'])
+            # Query DataPoint filtering by sensor name.
+            sensor_metrics = DataPoint.objects.filter(sensor=sensor.name).values_list('metric', flat=True).distinct()
 
-        context['sensors_by_room'] = sensors_by_room
-        context['timeframe'] = self.request.GET.get('timeframe', '1h')
+            # Custom metric ordering
+            metric_order = ['t', 'h', 'l', 's']
+            ordered_metrics = OrderedDict()
+
+            for metric_code in metric_order:
+                if metric_code in sensor_metrics:
+                    ordered_metrics[metric_code] = None
+
+            for metric_code in sorted(sensor_metrics):
+                if metric_code not in ordered_metrics:
+                    ordered_metrics[metric_code] = None
+
+            for metric_code in ordered_metrics:
+                metric_name = self.metric_map.get(metric_code, metric_code)
+                if metric_code not in data[room_name]:
+                    data[room_name][metric_code] = {
+                        'metric': metric_code,
+                        'metric_name': metric_name,
+                        'sensors': []
+                    }
+                if sensor.name not in data[room_name][metric_code]['sensors']:
+                    data[room_name][metric_code]['sensors'].append(sensor.name)
+
+        # Reorder metrics based on metric_order
+        for room_name, room_data in data.items():
+            ordered_data = OrderedDict()
+            for metric_code in metric_order:
+                if metric_code in room_data:
+                    ordered_data[metric_code] = room_data[metric_code]
+            for metric_code in room_data:
+                if metric_code not in ordered_data:
+                    ordered_data[metric_code] = room_data[metric_code]
+            data[room_name] = ordered_data
+
+        context['data'] = data
+
+        print(100 * '-')
+        print(context)
+        print(100 * '-')
         return context
-
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GenerateSensorView(View):
-    def get(self, request, *args, **kwargs):
-        sensor_name = request.GET.get('sensor', '')
-        timeframe = request.GET.get('timeframe', '1h')
+    def post(self, request):
+        sensor = request.POST.get('sensor')
+        timeframe = request.POST.get('timeframe', '1h').lower()
+        metric = request.POST.get('metric', '')
         
-        try:
-            end_date = timezone.now()
-            start_date = get_start_date(timeframe, end_date)
-
-            data_points = DataPoint.objects.filter(
-                sensor=sensor_name,
-                timestamp__gte=start_date,
-                timestamp__lte=end_date
-            ).order_by('timestamp')
-
-            if not data_points:
-                return HttpResponse("No data available for this sensor.")
-
-            df = pd.DataFrame(list(data_points.values()))
-            if df.empty:
-                return HttpResponse("No data available for this sensor.")
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df.set_index('timestamp', inplace=True)
-
-            full_index = pd.date_range(
-                start=df.index.min().floor('min'),
-                end=df.index.max().ceil('min'),
-                freq=timeframe
-            )
-            df = df.reindex(full_index)
-
-            df.interpolate(method='linear', limit_direction='both', inplace=True)
-            df = df.ffill().bfill()
-            df.reset_index(inplace=True)
-            df.rename(columns={'index': 'timestamp'}, inplace=True)
-            df['timestamp'] = df['timestamp'].dt.floor('min')
-
-            metric = data_points.first().metric
-            chart_html, count = lineplot_generator(df, sensor_name, metric)
-            return HttpResponse(chart_html)
+        end_date = timezone.now()
+        start_date = timezone.now() - get_timedelta_from_timeframe(timeframe)
         
-        except Exception as e:
-            logger.error(f"Error en GenerateSensorView: {str(e)}")
-            return HttpResponse(f'Error generating the chart: {str(e)}')
+        data_points = DataPoint.objects.filter(
+            sensor=sensor,
+            metric=metric,
+            timestamp__gte=start_date,
+            timestamp__lte=end_date
+        ).order_by('timestamp')
+        
+        if not data_points:
+            return HttpResponse("No data available for this sensor.")
+        
+        df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
+
+        chart_html, count = sensor_plot(df, sensor, metric, timeframe, start_date, end_date)
+        
+        return HttpResponse(chart_html)

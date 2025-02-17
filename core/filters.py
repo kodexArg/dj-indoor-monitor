@@ -1,4 +1,3 @@
-from typing import Optional
 from django.db.models import QuerySet
 from django_filters import rest_framework as filters
 from .models import DataPoint
@@ -10,7 +9,7 @@ class DataPointFilter(filters.FilterSet):
     class Meta:
         model = DataPoint
         fields = {
-            'sensor': ['exact', 'contains'],
+            'sensor': ['exact'],
             'metric': ['exact', 'contains'],
             'value': ['gt', 'lt', 'exact'],
         }
