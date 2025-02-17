@@ -52,7 +52,7 @@ METRICS_CFG = {
     }
 }
 
-def gauge_generator(value, metric, sensor):
+def gauge_plot(value, metric, sensor, timestamp=None):
     metric_cfg = METRICS_CFG.get(metric)
     if not metric_cfg:
         return "<div>Invalid metric</div>"
@@ -113,16 +113,22 @@ def gauge_generator(value, metric, sensor):
         }
     ))
 
+    # Format the timestamp for display
+    if timestamp:
+        timestamp_str = timestamp.strftime('%Y-%m-%d %H:%M')
+    else:
+        timestamp_str = ""
+
     fig.update_layout(
         height=180,
         width=200,
-        margin=dict(l=20, r=20, t=80, b=0),
+        margin=dict(l=25, r=25, t=70, b=0),
         paper_bgcolor="white",
         font={'color': "#666666",
                  'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
         showlegend=False,
         title={
-            'text': f"<b>{main_title}</b><br><span style='font-size:0.8em;'>sensor {sensor_name}</span>", 
+            'text': f"<b>{main_title}</b><br><span style='font-size:0.8em;'>sensor {sensor_name}</span>",
             'y': 0.90,
             'x': 0.5,
             'xanchor': 'center',
@@ -133,7 +139,18 @@ def gauge_generator(value, metric, sensor):
                 'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'
             }
         },
-
+        annotations=[
+            dict(
+                x=1,
+                y=0,
+                xref="paper",
+                yref="paper",
+                text=f"<span style='font-size:0.8em; color: #A9A9A9;'>último: {timestamp_str}</span>",
+                showarrow=False,
+                xanchor="right",
+                yanchor="bottom"
+            )
+        ]
     )
 
     return pio.to_html(

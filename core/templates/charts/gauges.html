@@ -22,7 +22,8 @@
                     <div class="chart-container gauge-container"
                         data-sensor="{{ gauge_data.sensor_name }}"
                         data-metric="{{ gauge_data.metric }}"
-                        data-value="{{ gauge_data.value }}">
+                        data-value="{{ gauge_data.value }}"
+                        data-timestamp="{{ gauge_data.timestamp }}">
                         <div class="loading">
                             <div class="placeholder-animation"></div>
                         </div>
@@ -45,13 +46,15 @@
                 var sensor = container.data('sensor');
                 var metric = container.data('metric');
                 var value = container.data('value');
+                var timestamp = container.data('timestamp');
 
                 $.ajax({
                     url: '/generate_gauge/',
                     data: {
                         sensor: sensor,
                         metric: metric,
-                        value: value
+                        value: value,
+                        timestamp: timestamp
                     },
                     success: function(data) {
                         container.html(data);

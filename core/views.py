@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import DataPoint, Sensor
-from .charts import gauge_generator, sensor_plot
+from .charts import gauge_plot, sensor_plot
 from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe, METRIC_MAP
 from collections import OrderedDict
 
@@ -32,13 +32,13 @@ class GaugesView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        latest_data_points = DataPoint.objects.annotate(
-            row_number=Window(
-                expression=RowNumber(),
-                partition_by=[F('sensor'), F('metric')],
-                order_by=F('timestamp').desc(),
-            )
-        ).filter(row_number=1)
+        # Calculate the date 24 hours ago
+        cutoff_date = timezone.now() - timezone.timedelta(hours=24)
+
+        # Get the latest data points for each sensor and metric
+        latest_data_points = DataPoint.objects.filter(timestamp__gte=cutoff_date).order_by(
+            'sensor', 'metric', '-timestamp'
+        ).distinct('sensor', 'metric')
 
         sensors_dict = {sensor.name: sensor for sensor in Sensor.objects.select_related('room').all()}
 
@@ -54,22 +54,20 @@ class GaugesView(TemplateView):
                     'value': data_point.value,
                     'metric': data_point.metric,
                     'sensor_name': data_point.sensor,
+                    'timestamp': data_point.timestamp.isoformat() if data_point.timestamp else None,
                 })
 
         for room_name, gauges in gauges_by_room.items():
             gauges.sort(key=lambda x: (x['metric'], x['sensor_name']))
 
-        if "I+D" in gauges_by_room:
-            gauges_by_room["I+D"] = gauges_by_room.pop("I+D")
-
         context['gauges_by_room'] = gauges_by_room
         return context
-
 
 class GenerateGaugeView(View):
     def get(self, request, *args, **kwargs):
         sensor_name = request.GET.get('sensor', '')
         metric = request.GET.get('metric', '')
+        timestamp_str = request.GET.get('timestamp')
 
         try:
             value_str = request.GET.get('value', '').replace(',', '.')
@@ -77,13 +75,16 @@ class GenerateGaugeView(View):
         except ValueError:
             return HttpResponse('')
 
-        gauge_html = gauge_generator(
+        # Convert timestamp string to datetime object
+        timestamp = timezone.datetime.fromisoformat(timestamp_str) if timestamp_str else None
+
+        gauge_html = gauge_plot(
             value=value,
             metric=metric,
-            sensor=sensor_name
+            sensor=sensor_name,
+            timestamp=timestamp
         )
         return HttpResponse(gauge_html)
-
 
 class SensorsView(TemplateView):
     template_name = 'charts/sensors.html'
@@ -161,9 +162,6 @@ class SensorsView(TemplateView):
 
         context['data'] = data
 
-        print(100 * '-')
-        print(context)
-        print(100 * '-')
         return context
 
 @method_decorator(csrf_exempt, name='dispatch')
