@@ -15,12 +15,11 @@
     <div id="toggle-buttons-container">
         <div id="toggle-buttons" class="button-group">
             <div id="toggle-buttons-timeframe" class="button-cluster">
-                <a class="button {% if selected_timeframe == '5S' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=5S"><small>5"</small></a>
-                <a class="button {% if selected_timeframe == '1T' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1T">1'</a>
-                <a class="button {% if selected_timeframe == '30T' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=30T">30'</a>
-                <a class="button {% if selected_timeframe == '1H' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1H">1h</a>
-                <a class="button {% if selected_timeframe == '4H' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=4H">4h</a>
-                <a class="button {% if selected_timeframe == '1D' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1D">1d</a>
+                <a class="button {% if timeframe == '1t' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1T">1'</a>
+                <a class="button {% if timeframe == '30t' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=30T">30'</a>
+                <a class="button {% if timeframe == '1h' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1H">1h</a>
+                <a class="button {% if timeframe == '4h' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=4H">4h</a>
+                <a class="button {% if timeframe == '1d' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1D">1d</a>
             </div>
         </div>
     </div>

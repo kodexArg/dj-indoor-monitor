@@ -1,5 +1,22 @@
 from datetime import timedelta
 import pandas as pd
+import numpy as np
+
+def to_bool(value):
+    """
+    Convierte un valor a booleano.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        value = value.lower()
+        if value in ('true', '1', 't', 'y', 'yes'):
+            return True
+        elif value in ('false', '0', 'f', 'n', 'no'):
+            return False
+    if isinstance(value, int):
+        return bool(value)
+    return False
 
 TIMEFRAME_MAP = {
     '5S': '5S',
@@ -52,58 +69,47 @@ def normalize_timeframe(timeframe):
 
 def create_timeframed_dataframe(data_points, timeframe, start_date, end_date):
     """
-    Creates a DataFrame from data points and groups it by the specified timeframe,
-    returning a simple DataFrame with 'timestamp' and 'value' fields.
-    Ensures all expected time points exist within the start and end dates,
-    filling missing values with null.
+    Crea un DataFrame calendario (df_calendar) con todos los timestamps en el rango 
+    [start_date, end_date] y valores iniciales nulos. Luego, agrupa (por mean) los valores 
+    de data_points (df_datapoints) tras ajustar (floor) los timestamps para generar 
+    df_result mediante merge.
     """
-    # Normalize timeframe to be compatible with pandas
-    timeframe = normalize_timeframe(timeframe)
+    normalized_tf = normalize_timeframe(timeframe)
+    full_date_range = pd.date_range(start=start_date, end=end_date, freq=normalized_tf)
 
-    # Generate a complete date range based on the timeframe
-    full_date_range = pd.date_range(start=start_date, end=end_date, freq=timeframe)
+    # df_calendar (tabla base)
+    df_calendar = pd.DataFrame({'timestamp': full_date_range, 'value': pd.NA})
     
-    # Create a DataFrame from the data points
-    df = pd.DataFrame(list(data_points.values('timestamp', 'value')))
-
-    if df.empty:
-        # If there's no data, create an empty DataFrame with the full date range
-        df_full = pd.DataFrame({'timestamp': full_date_range})
-        df_full['value'] = pd.NA  # Fill all values with NA
-        return df_full
+    # df_datapoints (tabla de datos)
+    df_datapoints = pd.DataFrame(list(data_points.values('timestamp', 'value')))
+    df_datapoints['timestamp'] = pd.to_datetime(df_datapoints['timestamp'], utc=True)
     
-    # Convert the timestamp column to datetime
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    # Group the data by the specified timeframe and calculate the mean
-    df = df.groupby(pd.Grouper(key='timestamp', freq=timeframe))['value'].mean().reset_index()
-
-
-    # Create a DataFrame from the full date range
-    df_full = pd.DataFrame({'timestamp': full_date_range})
-
-    # Merge the full date range DataFrame with the grouped data
-    df = pd.merge(df_full, df, on='timestamp', how='right')
-
-    # Fill any remaining missing values with NA
-    df = df.fillna(pd.NA)
-
-    df['value'] = df['value'].apply(lambda x: round(x, 1) if pd.notnull(x) else x)
-
-    return df
-
-def to_bool(value):
-    """
-    Convierte un valor a booleano.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        value = value.lower()
-        if value in ('true', '1', 't', 'y', 'yes'):
-            return True
-        elif value in ('false', '0', 'f', 'n', 'no'):
-            return False
-    if isinstance(value, int):
-        return bool(value)
-    return False
+    if not df_datapoints.empty:
+        # Ordenamos ambos DataFrame
+        df_datapoints = df_datapoints.sort_values('timestamp')
+        df_calendar_sorted = df_calendar.sort_values('timestamp').rename(columns={'timestamp': 'calendar'})
+        # Usamos merge_asof para asignar a cada datapoint la fecha de df_calendar
+        df_datapoints['calendar'] = pd.merge_asof(
+            df_datapoints[['timestamp']],
+            df_calendar_sorted[['calendar']],
+            left_on='timestamp',
+            right_on='calendar',
+            direction='backward'
+        )['calendar']
+        # Agrupamos usando la columna 'calendar'
+        df_datapoints = df_datapoints.groupby('calendar', as_index=False)['value'].mean()
+        df_datapoints['value'] = df_datapoints['value'].apply(lambda x: round(x, 1))
+        
+        print("\nDataFrame data_points ajustado y agrupado Describe:")
+        print(df_datapoints.describe(include='all'))
+    
+    # Merge para generar df_result.
+    df_result = pd.merge(df_calendar, df_datapoints, left_on='timestamp', right_on='calendar', how='left', suffixes=('', '_agg'))
+    df_result['value'] = df_result['value_agg'].combine_first(df_result['value'])
+    df_result.drop('value_agg', axis=1, inplace=True)
+    df_result = df_result.reset_index(drop=True)
+    
+    print("\nDataFrame result Describe:")
+    print(df_result.describe(include='all'))
+    
+    return df_result

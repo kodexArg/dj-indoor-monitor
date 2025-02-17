@@ -110,6 +110,7 @@ class SensorsView(TemplateView):
         context = super().get_context_data(**kwargs)
         timeframe = self.request.GET.get('timeframe', '1h').lower()
         context['timeframe'] = timeframe
+        context['selected_timeframe'] = timeframe # Pass the selected timeframe to the template
 
         data = {}
         sensors = Sensor.objects.select_related('room').all()

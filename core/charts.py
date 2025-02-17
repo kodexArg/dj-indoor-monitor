@@ -236,13 +236,15 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             autosize=True,
             margin=dict(l=90, r=20, t=20, b=20), 
             xaxis={
+                'type': 'date',  # Forzar línea de tiempo en x
                 'fixedrange': True,
                 'tickmode': 'auto',
                 'showgrid': True,
                 'gridcolor': 'lightgrey',
                 'gridwidth': 0.5,
                 'griddash': 'dot',
-                'visible': True
+                'visible': True,
+                'range': [start_date.isoformat(), end_date.isoformat()]  # Establece los límites de la línea de tiempo
             },
             yaxis={
                 'fixedrange': True,

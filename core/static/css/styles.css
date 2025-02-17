@@ -151,6 +151,7 @@ body::-webkit-scrollbar-track {
     box-shadow: 0 0 6px 1px var(--brand-green-dark-50);
     border-radius: 8px;
     color: var(--brand-green-dark);
+    border: 1px solid var(--brand-green); /* Added border */
 }
 
 .nav-button.active img {
@@ -408,8 +409,8 @@ h1 {
 
 /* Square timeframe buttons */
 #toggle-buttons-timeframe .button {
-  width: 40px; /* Slightly smaller square */
-  height: 40px;
+  width: 44px; /* Slightly smaller square */
+  height: 44px;
   padding: 0;
   display: flex;
   align-items: center;
