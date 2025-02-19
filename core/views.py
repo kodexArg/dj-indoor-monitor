@@ -13,7 +13,7 @@ from .utils import pretty_datetime, get_start_date
 import pandas as pd
 
 class HomeView(TemplateView):
-    template_name = 'development.html'
+    template_name = 'home.html'
 
 class DevelopmentView(TemplateView):
     template_name = 'development.html'
@@ -244,13 +244,6 @@ class InteractiveView(TemplateView):
             start_date = get_start_date(timeframe, end_date)
 
         
-        df = DataPointDataFrameBuilder(
-            timeframe=timeframe,
-            start_date=start_date,
-            end_date=end_date,
-            metrics=[metric],
-        )
-
 
         context['metadata'] = {
             'timeframe': timeframe,
