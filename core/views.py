@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from collections import OrderedDict
 from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot, calculate_vpd, vpd_plot
+from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd  # Updated import to include calculate_vpd
 from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe # funciones
 from .utils import METRIC_MAP # constantes
 from .utils import DataPointDataFrameBuilder # clases
@@ -158,7 +158,7 @@ class GenerateSensorView(View):
         ).order_by('timestamp')
         
         if not data_points:
-            return HttpResponse("No data available for this sensor.")
+            return HttpResponse("No hay datos disponibles para el sensor")
         
         df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
 
@@ -173,17 +173,17 @@ class VPDView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
-        five_minutes_ago = now - timezone.timedelta(minutes=5)
+        minutes_ago = now - timezone.timedelta(minutes=15)
 
+        # Builder para obtener datos para la tabla
         table_builder = DataPointDataFrameBuilder(
             timeframe='5Min',
-            start_date=five_minutes_ago,
+            start_date=minutes_ago,
             end_date=now,
             metrics=['t', 'h'],
             pivot_metrics=True,
             use_last=True
         )
-
         # import pdb; pdb.set_trace()
         df_table = table_builder.build()
 
@@ -194,36 +194,40 @@ class VPDView(TemplateView):
 
         df_table['timestamp'] = pd.to_datetime(df_table['timestamp'])
         sensores = Sensor.objects.all()
-        sensor_room_map = {
-            sensor.name: sensor.room.name if sensor.room else "No Room"
-            for sensor in sensores
-        }
-
+        sensor_room_map = {sensor.name: sensor.room.name if sensor.room else "No Room" for sensor in sensores}
         df_table['room'] = df_table['sensor'].apply(lambda s: sensor_room_map.get(s, "No Instalado"))
+        
+        # Compute VPD if temperature and humidity exist
+        df_table['vpd'] = df_table.apply(lambda row: calculate_vpd(row['t'], row['h']), axis=1)
 
-        room_data = df_table.to_dict(orient='records')
+        # Guardar room_data para la tabla
+        context['room_data'] = df_table.to_dict(orient='records')
 
-        chart_data = {}
-        for item in room_data:
-            temp = item.get('t')
-            hum = item.get('h')
-            room = item.get('room')
-            if temp is None or hum is None:
-                continue
-            chart_data.setdefault(room, {'t': [], 'h': []})
-            chart_data[room]['t'].append(temp)
-            chart_data[room]['h'].append(hum)
+        # Nuevo builder para generar datos requeridos por vpd_plot
+        chart_builder = DataPointDataFrameBuilder(
+            timeframe='5Min',
+            start_date=minutes_ago,
+            end_date=now,
+            metrics=['t', 'h'],
+            pivot_metrics=True,  # Se requiere conservar la columna 'metric'
+            use_last=True
+        )
+        
+        df_grouped_chart = chart_builder.group_by_room()
 
-        chart_data_list = []
-        for room, values in chart_data.items():
-            if values['t'] and values['h']:
-                avg_temp = sum(values['t']) / len(values['t'])
-                avg_hum = sum(values['h']) / len(values['h'])
-                chart_data_list.append((room, avg_temp, avg_hum))
+        # Agrupar datos: calcular promedio de 't' y 'h' para cada habitación
+        data_for_chart = []
+        for room, group in df_grouped_chart:
+            if 't' in group.columns and 'h' in group.columns:
+                avg_t = group['t'].mean()
+                avg_h = group['h'].mean()
+                data_for_chart.append((room, avg_t, avg_h))
+        
+        chart_html = vpd_plot(data_for_chart)
 
-        context['room_data'] = room_data
-        context['chart'] = vpd_plot(chart_data_list)
+        context['chart'] = chart_html
 
+            
         return context
 
 

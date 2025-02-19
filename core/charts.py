@@ -3,7 +3,6 @@ import plotly.io as pio
 from pathlib import Path
 from loguru import logger
 import numpy as np
-from plotly.offline import plot
 
 # Get project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -314,14 +313,15 @@ def calculate_vpd(t, h):
     return svp - vp
 
 def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
-    import plotly.graph_objects as go
-    import plotly.io as pio
-    
+
     filtered_data = [
-        (room, temp, hum)
+        (room, float(temp), float(hum))
         for room, temp, hum in data
         if temp_min <= temp <= temp_max and hum_min <= hum <= hum_max
     ]
+
+    # filtered_data tiene la forma [('Secado', 18.5, 43.0)]
+
     if not filtered_data:
         return '<div>Sin datos en el rango especificado</div>'
 
@@ -360,7 +360,7 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         fig.add_trace(go.Scatter(
             y=[temp], x=[hum], mode='markers+text',
             marker=dict(size=10, color='black'),
-            text=[f"{room_name} {current_vpd:.1f} kPa"],
+            text=[f"Sala {room_name} {current_vpd:.1f} kPa"],
             textposition='middle right', textfont=dict(size=11),
             hovertemplate=(
                 "<b>%{text}</b><br>"
@@ -374,54 +374,13 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
     fig.update_layout(
         legend=dict(orientation='h', yanchor='top', y=-0.1, xanchor='center', x=0.5),
         xaxis=dict(
-            title='Humedad Relativa (%HR)', range=[hum_max, hum_min], dtick=10,
+            title='Humedad Relativa (%HR)', range=[hum_min, hum_max], dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)', side='bottom', tickfont=dict(size=10)
         ),
         yaxis=dict(
-            title='Temperatura (°C)', range=[temp_max, temp_min], dtick=5,
+            title='Temperatura (°C)', range=[temp_min, temp_max], dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)', side='right', tickfont=dict(size=10)
         ),
-        plot_bgcolor='white', margin=dict(l=50, r=50, t=50, b=70), height=600
+        plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10), height=600
     )
-    return pio.to_html(fig, include_plotlyjs=False, full_html=False, config={'staticPlot': True})
-
-def calculate_vpd(temp_celsius, humidity):
-    # Saturation Vapor Pressure (SVP) in kPa
-    svp = 0.6108 * np.exp((17.27 * temp_celsius) / (temp_celsius + 237.3))
-    
-    # Actual Vapor Pressure (AVP) in kPa
-    avp = svp * (humidity / 100)
-    
-    # Vapor Pressure Deficit (VPD) in kPa
-    vpd = svp - avp
-    
-    return round(vpd, 2)
-
-def vpd_plot(data):
-    """
-    Generates a Plotly bar chart for Vapor Pressure Deficit (VPD) by room.
-
-    Args:
-        data (list of tuples): A list where each tuple contains the room name,
-                                average temperature, and average humidity.
-                                Example: [('Living Room', 22.5, 55), ('Bedroom', 21.0, 60)]
-
-    Returns:
-        str: HTML representation of the Plotly chart.
-    """
-    rooms = [item[0] for item in data]
-    avg_temps = [item[1] for item in data]
-    avg_humids = [item[2] for item in data]
-    vpds = [calculate_vpd(temp, humid) for temp, humid in zip(avg_temps, avg_humids)]
-
-    fig = go.Figure(data=[go.Bar(x=rooms, y=vpds,
-                                 marker_color='skyblue')])
-
-    fig.update_layout(title='Vapor Pressure Deficit (VPD) by Room',
-                      xaxis_title='Room',
-                      yaxis_title='VPD (kPa)',
-                      template='plotly_white')
-
-    plot_div = plot(fig, output_type='div', include_plotlyjs=False)
-    return plot_div
-
+    return pio.to_html(fig, include_plotlyjs=True, full_html=False, config={'staticPlot': True})

@@ -38,9 +38,7 @@
   background-color: var(--brand-bg);
   box-shadow: 0 2px 8px var(--shadow-green-10);
   margin-top: 1rem;
-  aspect-ratio: 3 / 1;
   overflow: hidden;
-  transition: transform 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,3 +124,30 @@
   height: 100%;
   margin: 0;
 }
+
+/* vpd specific styles */
+.vpd-container {
+  position: relative;
+  width: auto;
+  height: auto;
+  max-width: none;
+  border: 1px solid var(--brand-green-light);
+  border-radius: 8px;
+  background-color: var(--brand-bg);
+  box-shadow: 0 2px 8px var(--shadow-green-10);
+  margin-top: 1rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+}
+
+/* .vpd-container > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+} */
+

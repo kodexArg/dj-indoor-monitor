@@ -1,8 +1,7 @@
 from datetime import timedelta
 import pandas as pd
-import numpy as np
 from django.utils import timezone
-from .models import DataPoint, Sensor, Room
+from .models import DataPoint, Sensor
 
 TIMEFRAME_MAP = {
     '5S': '5S',
@@ -117,7 +116,7 @@ class DataPointDataFrameBuilder:
         self.start_date = start_date if start_date else self._get_default_start_date()
         self.metrics = metrics
         self.pivot_metrics = pivot_metrics
-        self.use_last = use_last # Restore use_last
+        self.use_last = use_last
 
     def _get_default_start_date(self):
         if self.timeframe:
@@ -165,15 +164,9 @@ class DataPointDataFrameBuilder:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         if self.pivot_metrics:
-            if self.use_last:
-                df = df.sort_values(by=['timestamp']).groupby('sensor').tail(1)
-                aggregated_df = df.groupby(
-                    ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
-                )[['value']].last()
-            else:
-                aggregated_df = df.groupby(
-                    ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
-                )[['value']].mean()
+            aggregated_df = df.groupby(
+                ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
+            )[['value']].mean()
             df = self._pivot_by_metrics(aggregated_df)
             df = df.reset_index()
         else:
