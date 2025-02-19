@@ -12,7 +12,9 @@
 {% endblock %}
 
 {% block content %}
-    <div class="gauges-wrapper">
+<section id="gauges-section" class="gauges-section">
+
+    <article class="gauges-wrapper">
         {% for room_name, gauges in gauges_by_room.items %}
             <div class="room-title-wrapper">
                 <h2 class="room-title">Sala {{ room_name }}</h2>
@@ -33,7 +35,7 @@
         {% empty %}
             <p>No data available.</p>
         {% endfor %}
-    </div>
+    </article>
 {% endblock %}
 
 {% block scripts %}
@@ -66,4 +68,5 @@
             });
         });
     </script>
+</section>
 {% endblock %}

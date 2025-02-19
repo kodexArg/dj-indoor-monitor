@@ -12,7 +12,9 @@
 {% endblock %}
 
 {% block content %}
-    <div id="toggle-buttons-container">
+<section id="sensors-section" class="sensors-section">
+
+    <article id="toggle-buttons-container">
         <div id="toggle-buttons" class="button-group">
             <div id="toggle-buttons-timeframe" class="button-cluster">
                 <a class="button {% if timeframe == '1t' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1T">1'</a>
@@ -22,8 +24,8 @@
                 <a class="button {% if timeframe == '1d' %}active{% endif %}" href="{% url 'sensors' %}?timeframe=1D">1d</a>
             </div>
         </div>
-    </div>
-    <div class="sensors-wrapper">
+    </article>
+    <article class="sensors-wrapper">
         {% for room, metrics in data.items %}
             <div class="room-title-wrapper">
                 <h2 class="room-title">Sala {{ room }}</h2>
@@ -47,7 +49,8 @@
                 {% endfor %}
             {% endfor %}
         {% endfor %}
-    </div>
+    </article>
+</section>
 {% endblock %}
 
 {% block scripts %}

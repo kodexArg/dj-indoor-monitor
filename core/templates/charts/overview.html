@@ -17,7 +17,6 @@
   <article id="toggle-buttons-container">
     <div id="toggle-buttons" class="button-group">
       <div id="toggle-buttons-timeframe" class="button-cluster">
-        <a class="button {% if metadata.timeframe == '5s' %}active{% endif %}" href="{% url 'overview' %}?timeframe=5s&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}"><small>5"</small></a>
         <a class="button {% if metadata.timeframe == '1T' %}active{% endif %}" href="{% url 'overview' %}?timeframe=1T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1'</a>
         <a class="button {% if metadata.timeframe == '30T' %}active{% endif %}" href="{% url 'overview' %}?timeframe=30T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">30'</a>
         <a class="button {% if metadata.timeframe == '1h' %}active{% endif %}" href="{% url 'overview' %}?timeframe=1h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1h</a>
