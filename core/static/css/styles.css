@@ -130,8 +130,8 @@ body::-webkit-scrollbar-track {
   cursor: pointer;
   padding: 0.3rem;
   font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  width: 38px; 
-  height: 38px; 
+  width: 46px; 
+  height: 32px; 
   justify-content: center; 
 }
 

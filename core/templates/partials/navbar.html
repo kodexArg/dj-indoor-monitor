@@ -11,9 +11,9 @@
       <small>HOME</small>
     </a>
   {% elif request.path == "/charts/" %}
-    <a href="{% url 'overview' %}" class="nav-button">
-      <img src="{% static 'icons/chart-line.svg' %}" alt="Overview">
-      <small>OVERVIEW</small>
+    <a href="{% url 'interactive' %}" class="nav-button">
+      <img src="{% static 'icons/chart-line.svg' %}" alt="Interactive">
+      <small>INTERACTIVO</small>
     </a>
     <a href="{% url 'sensors' %}" class="nav-button">
       <img src="{% static 'icons/chart-line-2.svg' %}" alt="Sensors">
@@ -38,9 +38,9 @@
     </a>
   {% else %}
     <!-- Para páginas de gráficos (subrutas de /charts/) -->
-    <a href="{% url 'overview' %}" class="nav-button {% if request.path == '/charts/overview/' %}active{% endif %}">
-      <img src="{% static 'icons/chart-line.svg' %}" alt="Overview">
-      <small>OVERVIEW</small>
+    <a href="{% url 'interactive' %}" class="nav-button {% if request.path == '/charts/interactive/' %}active{% endif %}">
+      <img src="{% static 'icons/chart-line.svg' %}" alt="Interactive">
+      <small>INTERACTIVO</small>
     </a>
     <a href="{% url 'sensors' %}" class="nav-button {% if request.path == '/charts/sensors/' %}active{% endif %}">
       <img src="{% static 'icons/chart-line-2.svg' %}" alt="Sensors">

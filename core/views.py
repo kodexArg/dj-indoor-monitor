@@ -20,9 +20,6 @@ class DevelopmentView(TemplateView):
 class ChartsView(TemplateView):
     template_name = 'charts.html'
 
-class OverviewView(TemplateView):
-    template_name = 'charts/overview.html'
-
 
 class GaugesView(TemplateView):
     template_name = 'charts/gauges.html'
@@ -68,9 +65,6 @@ class SensorsView(TemplateView):
 
     def get_context_data(self, **kwargs):
         """
-        Prealiza una consulta al modelo Sensor para obtener cada sensor,
-        agrupado por habitación y cada métrica disponible.
-        
         Template recibe un diccionario anidado 'data' con el siguiente formato:
         {
             'RoomName': {
@@ -253,3 +247,7 @@ class GenerateGaugeView(View):
             timestamp=timestamp
         )
         return HttpResponse(gauge_html)
+
+
+class InteractiveView(TemplateView):
+    template_name = 'charts/interactive.html'
