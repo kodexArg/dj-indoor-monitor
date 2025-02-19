@@ -5,10 +5,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from collections import OrderedDict
 from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd  # Updated import to include calculate_vpd
-from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe # funciones
-from .utils import METRIC_MAP # constantes
-from .utils import DataPointDataFrameBuilder # clases
+from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd
+from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe
+from .utils import METRIC_MAP
+from .utils import DataPointDataFrameBuilder
+from .utils import pretty_datetime, get_start_date
 import pandas as pd
 
 class HomeView(TemplateView):
@@ -27,10 +28,8 @@ class GaugesView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Calculate the date 24 hours ago
         cutoff_date = timezone.now() - timezone.timedelta(hours=24)
 
-        # Get the latest data points for each sensor and metric
         latest_data_points = DataPoint.objects.filter(timestamp__gte=cutoff_date).order_by(
             'sensor', 'metric', '-timestamp'
         ).distinct('sensor', 'metric')
@@ -64,28 +63,14 @@ class SensorsView(TemplateView):
     metric_map = METRIC_MAP
 
     def get_context_data(self, **kwargs):
-        """
-        Template recibe un diccionario anidado 'data' con el siguiente formato:
-        {
-            'RoomName': {
-                'metric_code': {
-                    'metric': <letra>,
-                    'metric_name': <nombre completo>,
-                    'sensors': [sensor1, sensor2, ...]
-                },
-                ...
-            },
-            ...
-        }
-        """
         context = super().get_context_data(**kwargs)
         timeframe = self.request.GET.get('timeframe', '1h').lower()
         context['timeframe'] = timeframe
-        context['selected_timeframe'] = timeframe # Pass the selected timeframe to the template
+        context['selected_timeframe'] = timeframe
 
         data = {}
         sensors = Sensor.objects.select_related('room').all()
-        from .models import DataPoint  # Ensure DataPoint is imported if needed.
+        from .models import DataPoint
         for sensor in sensors:
             if not sensor.room:
                 continue
@@ -93,10 +78,8 @@ class SensorsView(TemplateView):
             if room_name not in data:
                 data[room_name] = {}
 
-            # Query DataPoint filtering by sensor name.
             sensor_metrics = DataPoint.objects.filter(sensor=sensor.name).values_list('metric', flat=True).distinct()
 
-            # Custom metric ordering
             metric_order = ['t', 'h', 'l', 's']
             ordered_metrics = OrderedDict()
 
@@ -119,7 +102,6 @@ class SensorsView(TemplateView):
                 if sensor.name not in data[room_name][metric_code]['sensors']:
                     data[room_name][metric_code]['sensors'].append(sensor.name)
 
-        # Reorder metrics based on metric_order
         for room_name, room_data in data.items():
             ordered_data = OrderedDict()
             for metric_code in metric_order:
@@ -134,7 +116,7 @@ class SensorsView(TemplateView):
 
         return context
 
-@method_decorator(csrf_exempt, name='dispatch') # Es método POST, se deshabilita CSRF
+@method_decorator(csrf_exempt, name='dispatch')
 class GenerateSensorView(View):
     def post(self, request):
         sensor = request.POST.get('sensor')
@@ -169,7 +151,6 @@ class VPDView(TemplateView):
         now = timezone.now()
         minutes_ago = now - timezone.timedelta(minutes=15)
 
-        # Builder para obtener datos para la tabla
         table_builder = DataPointDataFrameBuilder(
             timeframe='5Min',
             start_date=minutes_ago,
@@ -178,7 +159,6 @@ class VPDView(TemplateView):
             pivot_metrics=True,
             use_last=True
         )
-        # import pdb; pdb.set_trace()
         df_table = table_builder.build()
 
         if df_table.empty:
@@ -191,25 +171,21 @@ class VPDView(TemplateView):
         sensor_room_map = {sensor.name: sensor.room.name if sensor.room else "No Room" for sensor in sensores}
         df_table['room'] = df_table['sensor'].apply(lambda s: sensor_room_map.get(s, "No Instalado"))
         
-        # Compute VPD if temperature and humidity exist
         df_table['vpd'] = df_table.apply(lambda row: calculate_vpd(row['t'], row['h']), axis=1)
 
-        # Guardar room_data para la tabla
         context['room_data'] = df_table.to_dict(orient='records')
 
-        # Nuevo builder para generar datos requeridos por vpd_plot
         chart_builder = DataPointDataFrameBuilder(
             timeframe='5Min',
             start_date=minutes_ago,
             end_date=now,
             metrics=['t', 'h'],
-            pivot_metrics=True,  # Se requiere conservar la columna 'metric'
+            pivot_metrics=True,
             use_last=True
         )
         
         df_grouped_chart = chart_builder.group_by_room()
 
-        # Agrupar datos: calcular promedio de 't' y 'h' para cada habitación
         data_for_chart = []
         for room, group in df_grouped_chart:
             if 't' in group.columns and 'h' in group.columns:
@@ -237,7 +213,6 @@ class GenerateGaugeView(View):
         except ValueError:
             return HttpResponse('')
 
-        # Convert timestamp string to datetime object
         timestamp = timezone.datetime.fromisoformat(timestamp_str) if timestamp_str else None
 
         gauge_html = gauge_plot(
@@ -251,3 +226,40 @@ class GenerateGaugeView(View):
 
 class InteractiveView(TemplateView):
     template_name = 'charts/interactive.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        timeframe = self.request.GET.get('timeframe', '4h').lower()
+        metric = self.request.GET.get('metric', 't').lower()
+        room = self.request.GET.get('room', 'true').lower() == 'true'
+
+        end_date_str = self.request.GET.get('end_date')
+        end_date = timezone.datetime.fromisoformat(end_date_str) if end_date_str else timezone.now()
+
+        start_date_str = self.request.GET.get('start_date')
+        if start_date_str:
+            start_date = timezone.datetime.fromisoformat(start_date_str)
+        else:
+            start_date = get_start_date(timeframe, end_date)
+
+        
+        df = DataPointDataFrameBuilder(
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            metrics=[metric],
+        )
+
+
+        context['metadata'] = {
+            'timeframe': timeframe,
+            'metric': metric,
+            'start': start_date,
+            'end': end_date,
+            'start_pretty': pretty_datetime(start_date),
+            'end_pretty': pretty_datetime(end_date),
+        }
+        context['room'] = room
+
+        return context

@@ -17,15 +17,15 @@
   <article id="toggle-buttons-container">
     <div id="toggle-buttons" class="button-group">
       <div id="toggle-buttons-timeframe" class="button-cluster">
-        <a class="button {% if metadata.timeframe == '1T' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1'</a>
-        <a class="button {% if metadata.timeframe == '30T' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=30T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">30'</a>
+        <a class="button {% if metadata.timeframe == '1t' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1'</a>
+        <a class="button {% if metadata.timeframe == '30t' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=30T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">30'</a>
         <a class="button {% if metadata.timeframe == '1h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1h</a>
         <a class="button {% if metadata.timeframe == '4h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=4h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">4h</a>
-        <a class="button {% if metadata.timeframe == '1D' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1D&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1d</a>
+        <a class="button {% if metadata.timeframe == '1d' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1D&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1d</a>
       </div>
       <div id="toggle-buttons-metric" class="button-cluster">
-        <a class="button metric {% if metadata.metric == 't' %}active{% endif %}" href="{% url 'interactive' %}?metric=t">Temp</a>
-        <a class="button metric {% if metadata.metric == 'h' %}active{% endif %}" href="{% url 'interactive' %}?metric=h">Hum</a>
+        <a class="button metric {% if metadata.metric == 't' %}active{% endif %}" href="{% url 'interactive' %}?metric=t&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Temp</a>
+        <a class="button metric {% if metadata.metric == 'h' %}active{% endif %}" href="{% url 'interactive' %}?metric=h&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Hum</a>
       </div>
       <div class="button-cluster">
         <a class="button {% if room %}active{% endif %}" href="{% url 'interactive' %}?timeframe={{ metadata.timeframe }}&metric={{ metadata.metric }}&room={% if room %}false{% else %}true{% endif %}">Salas</a>

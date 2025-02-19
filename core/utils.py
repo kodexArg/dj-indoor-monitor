@@ -109,6 +109,12 @@ def create_timeframed_dataframe(data_points, timeframe, start_date, end_date):
     
     return df_result
 
+def pretty_datetime(date):
+    """
+    Formatea una fecha en un formato corto (ej: 24/07/2024 14:55).
+    """
+    return date.strftime("%d/%m/%Y %H:%M")
+
 class DataPointDataFrameBuilder:
     def __init__(self, timeframe='5S', start_date=None, end_date=None, metrics=None, pivot_metrics=False, use_last=False):
         self.timeframe = timeframe
