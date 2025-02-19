@@ -18,7 +18,7 @@
       {{ chart|safe }}
     </div>
   </article>
-  
+
   <h2>Sensores</h2>
   <article>
     <div class="sensor-table-container">
@@ -53,20 +53,39 @@
       </table>
     </div>
   </article>
-  
+
   <article>
-    <h1>VPD</h1>
-    <p>Este es el contenido del VPD.</p>
     <h2>¿Qué es el VPD?</h2>
-    <p>El Déficit de Presión de Vapor (VPD, por sus siglas en inglés) es una medida crucial ...</p>
+    <p>
+      Diferencia entre la humedad máxima que el aire puede contener y la humedad actual (kPa).
+    </p>
+    <p>
+      Regula transpiración y equilibrio hídrico. El gráfico muestra sensores y franjas de VPD.
+    </p>
+  
     <div class="math-block">
-      $$VPD = e_s(T) \times (1 - RH/100)$$
+      $$VPD = e_s(T) \times \left(1 - \frac{RH}{100}\right)$$
     </div>
-    <p>donde \(e_s(T)\) es la presión de vapor de saturación calculada ...</p>
+    <p>
+      <code>e_s(T)</code>: presión de vapor a la temperatura <code>T</code>; <code>RH</code>: humedad relativa (%).
+    </p>
+  
     <div class="math-block">
       $$e_s(T) = 0.6108 \times \exp\left(\frac{17.27 \times T}{T + 237.3}\right)$$
     </div>
-    <p>Un VPD adecuado es fundamental para el desarrollo; valores bajos o altos indican ...</p>
+    <p>
+      <code>e_s(T)</code>: presión máxima de vapor a <code>T</code> °C (Ecuación de Tetens).
+    </p>
+  
+    <p>
+      VPD adecuado es crucial. Valores bajos: ambiente muy húmedo; valores altos: ambiente seco. Ajusta ventilación y humedad.
+    </p>
   </article>
+  
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-2.27.1.min.js" charset="utf-8"></script>
+<script id="MathJax-script" async src="//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 {% endblock %}

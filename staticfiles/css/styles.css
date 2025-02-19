@@ -1,4 +1,5 @@
 :root {
+  /* Brand colors */
   --brand-green-dark: #5f9b62;
   --brand-green-dark-50: #5f9b6250;
   --brand-green: #92c594;
@@ -8,10 +9,29 @@
   --brand-gray: #808080;
   --brand-gray-dark: #4d4d4d;
   --brand-black-95: #0d0d0d;
+
+  /* Skeleton colors (for compatibility) */
+  --skeleton-primary: #33C3F0;
+  --skeleton-primary-hover: #1EAEDB;
+  --skeleton-text: #222;
+  --skeleton-links: #1EAEDB;
+  --skeleton-links-hover: #0FA0CE;
+  --skeleton-border: #bbb;
+  --skeleton-border-focus: #888;
+  --skeleton-border-primary: #33C3F0;
+  --skeleton-border-light: #E1E1E1;
+  --skeleton-input-border: #D1D1D1;
+  --skeleton-code-background: #F1F1F1;
+
+  /* Shadow and transparency colors */
+  --shadow-green-15: rgba(111, 191, 115, 0.15);
+  --shadow-green-20: rgba(111, 191, 115, 0.2);
+  --shadow-green-10: rgba(111, 191, 115, 0.1);
 }
 
+/* Estilos generales y de layout */
 body {
-  overflow-y: auto; 
+  overflow-y: auto;
   background-color: var(--brand-bg);
 }
 
@@ -40,6 +60,7 @@ body::-webkit-scrollbar-track {
   }
 }
 
+/* Cabecera y Navbar */
 .header-container {
   display: flex;
   align-items: center;
@@ -130,6 +151,7 @@ body::-webkit-scrollbar-track {
     box-shadow: 0 0 6px 1px var(--brand-green-dark-50);
     border-radius: 8px;
     color: var(--brand-green-dark);
+    border: 1px solid var(--brand-green); /* Added border */
 }
 
 .nav-button.active img {
@@ -140,6 +162,7 @@ body::-webkit-scrollbar-track {
     color: var(--brand-green-dark);
 }
 
+/* Footer */
 .footer {
   position: fixed;
   bottom: 0;
@@ -176,7 +199,7 @@ body::-webkit-scrollbar-track {
 }
 
 .text-content h3 {
-  color: #333;
+  color: var(--brand-gray-dark);
   margin-bottom: 1rem;
 }
 
@@ -231,44 +254,6 @@ body::-webkit-scrollbar-track {
   100% { background-position: -200% 0; }
 }
 
-.chart-container {
-  border: 1px solid var(--brand-green-light);
-  border-radius: 8px;
-  background-color: white;
-  box-shadow: 0 2px 8px rgba(111, 191, 115, 0.1);
-  padding: 1rem;
-  margin-top: 1rem;
-}
-
-.chart-placeholder {
-  min-height: 500px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--brand-bg);
-  border-radius: 8px;
-}
-
-.placeholder-text {
-  color: var(--brand-gray);
-  font-size: 1.1em;
-  margin-bottom: 1rem;
-}
-
-.placeholder-animation {
-  width: 50px;
-  height: 50px;
-  border: 3px solid var(--brand-green-light);
-  border-radius: 50%;
-  border-top-color: var(--brand-green);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 @media screen and (max-width: 768px) {
   .subtitle-pre,
   .header-center {
@@ -316,7 +301,7 @@ body::-webkit-scrollbar-track {
 
 .sensor-table th {
   background-color: var(--brand-green);
-  color: white;
+  color: var(--brand-bg);
   padding: 4px 8px;
   text-align: center;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -336,7 +321,7 @@ body::-webkit-scrollbar-track {
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
-.sensor-table tbody tr:nth-child(even) {
+sensor-table tbody tr:nth-child(even) {
   background-color: var(--brand-green-light);
 }
 
@@ -351,7 +336,7 @@ body::-webkit-scrollbar-track {
 
 .room-header {
   background-color: var(--brand-green);
-  color: white;
+  color: var(--brand-bg);
   font-weight: bold;
   text-align: left;
 }
@@ -424,8 +409,8 @@ h1 {
 
 /* Square timeframe buttons */
 #toggle-buttons-timeframe .button {
-  width: 40px; /* Slightly smaller square */
-  height: 40px;
+  width: 44px; /* Slightly smaller square */
+  height: 44px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -448,7 +433,7 @@ h1 {
 .button-group .button:hover {
   background-color: var(--brand-green-light);
   border-color: var(--brand-green);
-  color: var (--brand-gray-dark);
+  color: var(--brand-gray-dark);
 }
 
 .button-group .button.active {
@@ -461,7 +446,7 @@ h1 {
 .button-group .button[disabled] {
   background-color: transparent;  /* Changed: transparent */
   color: var(--brand-green-light);  /* Changed: lighter text */
-  border-color: var (--brand-green-light);  /* Changed: lighter border */
+  border-color: var(--brand-green-light);  /* Changed: lighter border */
   cursor: not-allowed;
   opacity: 0.7;
   font-weight: 300;  /* Added: thin font */
@@ -479,10 +464,11 @@ h1 {
 }
 
 .room-title {
-    color: var(--brand-green);
+    color: var(--brand-green-dark);
 
     display: table-cell;
     vertical-align: middle;
     padding: 0;
 }
+
 

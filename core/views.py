@@ -1,15 +1,15 @@
 from django.views.generic import TemplateView, View
 from django.http import HttpResponse
-from django.db.models import F, Window
-from django.db.models.functions import RowNumber
 from django.utils import timezone
-
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot
-from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe, METRIC_MAP
 from collections import OrderedDict
+from .models import DataPoint, Sensor
+from .charts import gauge_plot, sensor_plot, calculate_vpd, vpd_plot
+from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe # funciones
+from .utils import METRIC_MAP # constantes
+from .utils import DataPointDataFrameBuilder # clases
+import pandas as pd
 
 class HomeView(TemplateView):
     template_name = 'development.html'
@@ -23,8 +23,6 @@ class ChartsView(TemplateView):
 class OverviewView(TemplateView):
     template_name = 'charts/overview.html'
 
-class VPDView(TemplateView):
-    template_name = 'charts/vpd.html'
 
 class GaugesView(TemplateView):
     template_name = 'charts/gauges.html'
@@ -63,28 +61,6 @@ class GaugesView(TemplateView):
         context['gauges_by_room'] = gauges_by_room
         return context
 
-class GenerateGaugeView(View):
-    def get(self, request, *args, **kwargs):
-        sensor_name = request.GET.get('sensor', '')
-        metric = request.GET.get('metric', '')
-        timestamp_str = request.GET.get('timestamp')
-
-        try:
-            value_str = request.GET.get('value', '').replace(',', '.')
-            value = float(value_str)
-        except ValueError:
-            return HttpResponse('')
-
-        # Convert timestamp string to datetime object
-        timestamp = timezone.datetime.fromisoformat(timestamp_str) if timestamp_str else None
-
-        gauge_html = gauge_plot(
-            value=value,
-            metric=metric,
-            sensor=sensor_name,
-            timestamp=timestamp
-        )
-        return HttpResponse(gauge_html)
 
 class SensorsView(TemplateView):
     template_name = 'charts/sensors.html'
@@ -164,7 +140,7 @@ class SensorsView(TemplateView):
 
         return context
 
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch') # Es método POST, se deshabilita CSRF
 class GenerateSensorView(View):
     def post(self, request):
         sensor = request.POST.get('sensor')
@@ -189,3 +165,87 @@ class GenerateSensorView(View):
         chart_html, count = sensor_plot(df, sensor, metric, timeframe, start_date, end_date)
         
         return HttpResponse(chart_html)
+
+
+class VPDView(TemplateView):
+    template_name = 'charts/vpd.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        five_minutes_ago = now - timezone.timedelta(minutes=5)
+
+        table_builder = DataPointDataFrameBuilder(
+            timeframe='5Min',
+            start_date=five_minutes_ago,
+            end_date=now,
+            metrics=['t', 'h'],
+            pivot_metrics=True,
+            use_last=True
+        )
+
+        # import pdb; pdb.set_trace()
+        df_table = table_builder.build()
+
+        if df_table.empty:
+            context['room_data'] = []
+            context['chart'] = vpd_plot([])
+            return context
+
+        df_table['timestamp'] = pd.to_datetime(df_table['timestamp'])
+        sensores = Sensor.objects.all()
+        sensor_room_map = {
+            sensor.name: sensor.room.name if sensor.room else "No Room"
+            for sensor in sensores
+        }
+
+        df_table['room'] = df_table['sensor'].apply(lambda s: sensor_room_map.get(s, "No Instalado"))
+
+        room_data = df_table.to_dict(orient='records')
+
+        chart_data = {}
+        for item in room_data:
+            temp = item.get('t')
+            hum = item.get('h')
+            room = item.get('room')
+            if temp is None or hum is None:
+                continue
+            chart_data.setdefault(room, {'t': [], 'h': []})
+            chart_data[room]['t'].append(temp)
+            chart_data[room]['h'].append(hum)
+
+        chart_data_list = []
+        for room, values in chart_data.items():
+            if values['t'] and values['h']:
+                avg_temp = sum(values['t']) / len(values['t'])
+                avg_hum = sum(values['h']) / len(values['h'])
+                chart_data_list.append((room, avg_temp, avg_hum))
+
+        context['room_data'] = room_data
+        context['chart'] = vpd_plot(chart_data_list)
+
+        return context
+
+
+class GenerateGaugeView(View):
+    def get(self, request, *args, **kwargs):
+        sensor_name = request.GET.get('sensor', '')
+        metric = request.GET.get('metric', '')
+        timestamp_str = request.GET.get('timestamp')
+
+        try:
+            value_str = request.GET.get('value', '').replace(',', '.')
+            value = float(value_str)
+        except ValueError:
+            return HttpResponse('')
+
+        # Convert timestamp string to datetime object
+        timestamp = timezone.datetime.fromisoformat(timestamp_str) if timestamp_str else None
+
+        gauge_html = gauge_plot(
+            value=value,
+            metric=metric,
+            sensor=sensor_name,
+            timestamp=timestamp
+        )
+        return HttpResponse(gauge_html)
