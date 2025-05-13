@@ -71,18 +71,25 @@ class SensorsView(TemplateView):
         timeframe = self.request.GET.get('timeframe', '1h').lower()
         context['timeframe'] = timeframe
         context['selected_timeframe'] = timeframe
+        
+        # Calcular el rango de tiempo para filtrar datos
+        end_date = timezone.now()
+        start_date = end_date - get_timedelta_from_timeframe(timeframe)
 
         data = {}
         sensors = Sensor.objects.select_related('room').all()
         
         # Optimización: obtener todas las métricas de todos los sensores en una sola consulta
-        # y crear un diccionario para acceso rápido
+        # y crear un diccionario para acceso rápido, pero filtrando por el rango de tiempo
         all_sensor_metrics = {}
         sensor_names = [sensor.name for sensor in sensors if sensor.room]
         
         if sensor_names:
+            # Consulta modificada para filtrar por rango de tiempo
             metrics_by_sensor = DataPoint.objects.filter(
-                sensor__in=sensor_names
+                sensor__in=sensor_names,
+                timestamp__gte=start_date,
+                timestamp__lte=end_date
             ).values('sensor', 'metric').distinct()
             
             for item in metrics_by_sensor:
@@ -105,7 +112,7 @@ class SensorsView(TemplateView):
             sensor_metrics = all_sensor_metrics.get(sensor.name, set())
             
             if not sensor_metrics:
-                logger.debug(f"Sensor '{sensor.name}' in room '{room_name}' has no data points")
+                logger.debug(f"Sensor '{sensor.name}' en sala '{room_name}' no tiene datos en el rango de tiempo {timeframe}")
                 continue
 
             ordered_metrics = OrderedDict()
@@ -142,7 +149,7 @@ class SensorsView(TemplateView):
         context['data'] = data
         
         total_time = time.time() - start_time
-        logger.debug(f"SensorsView: Rendered in {total_time:.2f}s")
+        logger.debug(f"SensorsView: Renderizado en {total_time:.2f}s con {len(all_sensor_metrics)} sensores activos")
 
         return context
 
@@ -165,14 +172,14 @@ class GenerateSensorView(View):
         ).order_by('timestamp')
         
         if not data_points:
-            logger.debug(f"No data for sensor='{sensor}', metric='{metric}'")
-            return HttpResponse("No hay datos disponibles para el sensor")
+            logger.warning(f"No hay datos para sensor='{sensor}', metric='{metric}' en rango {timeframe}")
+            return HttpResponse(f"<div class='no-data-alert'>No hay datos disponibles para el sensor {sensor}</div>")
         
         df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
         chart_html, count = sensor_plot(df, sensor, metric, timeframe, start_date, end_date)
         
         total_time = time.time() - start_time
-        logger.debug(f"Chart for {sensor}/{metric}: {count} points in {total_time:.2f}s")
+        logger.debug(f"Gráfico para {sensor}/{metric}: {count} puntos en {total_time:.2f}s")
         
         return HttpResponse(chart_html)
 
