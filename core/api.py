@@ -1,11 +1,12 @@
 from django.utils import timezone
-from django.db.models import Q, OuterRef, Subquery, Max
+from django.db.models import Q, F, Window, OuterRef, Subquery, Max
+from django.db.models.functions import Rank
 from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from abc import ABC, abstractmethod
 from functools import lru_cache
-from .models import DataPoint, Sensor, Room
+from .models import DataPoint, Sensor
 from .serializers import DataPointSerializer, DataPointRoomSensorSerializer, DataPointRoomSerializer
 from .utils import TIMEFRAME_MAP, get_timedelta_from_timeframe, get_start_date, to_bool
 from .filters import DataPointFilter
@@ -142,24 +143,41 @@ class DataPointViewSet(viewsets.ModelViewSet):
             - metadata: Booleano para incluir metadata en la respuesta
             - include_room: Booleano para incluir el room asociado a cada sensor
         """
-        # Registrar el inicio del endpoint
         endpoint = "GET /api/data-point/timeframed/"
         timeframe = request.GET.get('timeframe', '1H')
         start_time = time.time()
         timestamp = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
         endpoints_logger.debug(f"[{timestamp}] ▶️ Iniciando {endpoint} con timeframe={timeframe}")
-        
-        # Lógica del endpoint
+
+        # --- OPTIMIZACIÓN ---
         filtered_queryset = self.filter_queryset(self.get_queryset())
+        # Filtrar por sensores y métricas si se pasan por parámetro
+        sensors = request.GET.getlist('sensors') or request.GET.get('sensors')
+        if sensors:
+            if isinstance(sensors, str):
+                sensors = [s.strip() for s in sensors.split(',')]
+            filtered_queryset = filtered_queryset.filter(sensor__in=sensors)
+        metrics = request.GET.getlist('metrics') or request.GET.get('metrics')
+        if metrics:
+            if isinstance(metrics, str):
+                metrics = [m.strip() for m in metrics.split(',')]
+            filtered_queryset = filtered_queryset.filter(metric__in=metrics)
+        # Limitar el rango máximo a 7 días
+        from_date = request.GET.get('start_date')
+        to_date = request.GET.get('end_date')
+        max_days = 7
+        if from_date and to_date:
+            from_dt = pd.to_datetime(from_date)
+            to_dt = pd.to_datetime(to_date)
+            if (to_dt - from_dt).days > max_days:
+                from_dt = to_dt - pd.Timedelta(days=max_days)
+                filtered_queryset = filtered_queryset.filter(timestamp__gte=from_dt)
         processor = TimeframedData(queryset=filtered_queryset, query_parameters=request.GET, request=request)
         response = Response(processor.process())
-        
-        # Registrar el fin del endpoint con el tiempo de ejecución
         end_time = time.time()
         execution_time = end_time - start_time
         timestamp = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
         endpoints_logger.debug(f"[{timestamp}] ✅ Completado {endpoint} en {format_time_delta(execution_time)}")
-        
         return response
 
 
@@ -347,32 +365,57 @@ class ListData(DataPointQueryProcessor):
 class LatestData(DataPointQueryProcessor):
     """
     Procesador para obtener los últimos registros de DataPoints por sensor/métrica.
+    Optimizado para obtener el último valor de cada sensor en el rango de tiempo dado.
     """
-    
     def get(self):
-        # Optimized query using a subquery approach instead of distinct on
-        
-        # Get the latest timestamp for each sensor/metric combination
-        latest_timestamps = self.queryset.values('sensor', 'metric').annotate(
-            latest_timestamp=Max('timestamp')
-        )
-        
-        # Use these timestamps to filter the original queryset
-        latest_datapoints = []
-        for item in latest_timestamps:
-            datapoint = self.queryset.filter(
-                sensor=item['sensor'],
-                metric=item['metric'],
-                timestamp=item['latest_timestamp']
-            ).first()
-            if datapoint:
-                latest_datapoints.append(datapoint)
-        
-        # Serializar el resultado
-        return self.get_appropriate_serializer(
-            latest_datapoints, 
-            include_room=self.include_room
-        )
+        start_date = self.query_parameters.get('start_date')
+        end_date = self.query_parameters.get('end_date')
+        if not end_date:
+            end_date = timezone.now()
+        else:
+            end_date = timezone.make_aware(timezone.datetime.fromisoformat(end_date))
+        if not start_date:
+            start_date = end_date - get_timedelta_from_timeframe('1D')
+        else:
+            start_date = timezone.make_aware(timezone.datetime.fromisoformat(start_date))
+
+        filtered_qs = self.queryset.filter(timestamp__gte=start_date, timestamp__lte=end_date)
+
+        # Solo los campos necesarios
+        values_fields = ['timestamp', 'sensor', 'metric', 'value']
+        latest_datapoints = filtered_qs.order_by('sensor', '-timestamp').distinct('sensor').values(*values_fields)
+
+        # Si se requiere room, mapearlo aquí
+        if self.include_room:
+            sensor_names = set(item['sensor'] for item in latest_datapoints)
+            self.sensor_room_map = self._get_sensor_room_map_filtered(sensor_names)
+            # Añadir campo room a cada dict
+            for item in latest_datapoints:
+                item['room'] = self.sensor_room_map.get(item['sensor'], '')
+
+        # Serializar como lista de dicts (ya no se usan serializers de modelo)
+        if self.include_room:
+            # Solo los campos relevantes
+            return [
+                {
+                    'timestamp': item['timestamp'].isoformat() if hasattr(item['timestamp'], 'isoformat') else str(item['timestamp']),
+                    'room': item['room'],
+                    'sensor': item['sensor'],
+                    'metric': item['metric'],
+                    'value': item['value']
+                }
+                for item in latest_datapoints
+            ]
+        else:
+            return [
+                {
+                    'timestamp': item['timestamp'].isoformat() if hasattr(item['timestamp'], 'isoformat') else str(item['timestamp']),
+                    'sensor': item['sensor'],
+                    'metric': item['metric'],
+                    'value': item['value']
+                }
+                for item in latest_datapoints
+            ]
 
 
 class TimeframedData(DataPointQueryProcessor):
@@ -390,47 +433,28 @@ class TimeframedData(DataPointQueryProcessor):
         # Optimización: Aplicar filtros de fecha directamente en la consulta inicial
         end_date = timezone.now()
         start_date = get_start_date(self.timeframe, end_date)
-        
         # Limitar la consulta solo al rango de fechas necesario
         queryset_timeframed = self.queryset.filter(timestamp__gte=start_date, timestamp__lte=end_date)
-        
-        # Optimización: Limitar los campos recuperados solo a los necesarios
+        # OPTIMIZACIÓN: Eliminar only(), usar solo values() con campos estrictamente necesarios
         values_list = self.get_values_list()
-        
-        # Optimización: Usar values() con only() para reducir la carga de datos
-        queryset_optimized = queryset_timeframed.only(*values_list)
-        data_values = list(queryset_optimized.values(*values_list))
-        
-        # Si no hay datos, retornar temprano
+        data_values = list(queryset_timeframed.values(*values_list))
         if not data_values:
             return []
-        
-        # Optimización: si necesitamos información de habitación, obtenemos solo los sensores presentes
         if self.include_room:
             unique_sensors = set(item['sensor'] for item in data_values)
             self.sensor_room_map = self._get_sensor_room_map_filtered(unique_sensors)
-        
         # Crear DataFrame con los datos mínimos necesarios
         df = pd.DataFrame(data_values)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-        # Añadir información de habitación si es necesario
         if self.include_room:
             df['room'] = df['sensor'].map(self.sensor_room_map)
             df['room'] = df['room'].fillna('')
-        
-        # Preparar DataFrame para agrupación
         df = df.set_index('timestamp').sort_index()
-        
-        # Determinar columnas de agrupación
         group_cols = ['room', 'metric'] if self.include_room else ['sensor', 'metric']
-        
-        # Aplicar procesamiento según el tipo de agregación
         if self.aggregations:
             results = self._process_with_aggregations(df, group_cols)
         else:
             results = self._process_without_aggregations(df, group_cols)
-        
         # Seleccionar serializer apropiado
         return DataPointRoomSerializer(results, many=True).data if self.include_room else DataPointSerializer(results, many=True).data
 
@@ -472,7 +496,6 @@ class TimeframedData(DataPointQueryProcessor):
             results.append(result_dict)
         
         return results
-
     def _process_without_aggregations(self, df, group_cols):
         """Procesa los datos con solo media como agregación"""
         if df.empty:

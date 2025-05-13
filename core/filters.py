@@ -35,6 +35,7 @@ class DataPointFilter(filters.FilterSet):
     - Rangos de fechas (timestamp_after, timestamp_before)
     - Filtrado por sensor (sensor, sensors)
     - Filtrado por métrica con validación de rangos
+    - Obtener el último valor por sensor (latest_only)
     """
     # Rangos válidos para diferentes métricas
     VALID_RANGES = {
@@ -59,6 +60,9 @@ class DataPointFilter(filters.FilterSet):
     humidity_range = MetricRangeFilter(metric_type='h', valid_ranges=VALID_RANGES)
     state_range = MetricRangeFilter(metric_type='s', valid_ranges=VALID_RANGES)
     
+    # Filtro para obtener el último valor por sensor
+    latest_only = filters.BooleanFilter(method='filter_latest_only')
+    
     class Meta:
         model = DataPoint
         fields = {
@@ -74,6 +78,13 @@ class DataPointFilter(filters.FilterSet):
         
         sensor_list = [s.strip() for s in value.split(',')]
         return queryset.filter(sensor__in=sensor_list)
+
+    def filter_latest_only(self, queryset, name, value):
+        """Filtra para obtener solo el último valor por sensor"""
+        if value:
+            # Ordenar por sensor y timestamp descendente, y quedarnos con el más reciente de cada sensor
+            return queryset.order_by('sensor', '-timestamp').distinct('sensor')
+        return queryset
 
     def filter_queryset(self, queryset: QuerySet[DataPoint]) -> QuerySet[DataPoint]:
         """
