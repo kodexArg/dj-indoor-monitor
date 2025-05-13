@@ -30,15 +30,18 @@ class Sensor(models.Model):
 
 
 class DataPoint(models.Model):
-    timestamp = models.DateTimeField(default=timezone.now)
-    sensor = models.CharField(max_length=255)
-    metric = models.CharField(max_length=1)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    sensor = models.CharField(max_length=255, db_index=True)
+    metric = models.CharField(max_length=1, db_index=True)
     value = models.FloatField()
 
     class Meta:
         indexes = [
             models.Index(fields=['sensor', 'timestamp']),
             models.Index(fields=['timestamp']),
+            models.Index(fields=['sensor', 'metric', 'timestamp']),
+            models.Index(fields=['sensor', 'metric', 'value']),
+            models.Index(fields=['metric', 'timestamp']),
         ]
 
     def __str__(self):

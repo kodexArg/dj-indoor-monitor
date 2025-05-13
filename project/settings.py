@@ -19,6 +19,46 @@ IGNORE_SENSORS = [s.strip() for s in os.getenv('IGNORE_SENSORS', '').split(',') 
 
 DOMAIN = os.getenv('DOMAIN')
 
+# Configuración para el logging de tiempos de ejecución de endpoints
+if os.getenv('DJANGO_LOG_LEVEL') == 'DEBUG':
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{asctime} {levelname} {module} {message}',
+                'style': '{',
+            },
+            'simple': {
+                'format': '{levelname} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'api_performance.log'),
+                'formatter': 'verbose',
+            },
+        },
+        'loggers': {
+            'core.api.endpoints': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': False,
+            },
+            'django.db.backends': {
+                'handlers': ['console'],
+                'level': 'WARNING',  # Change to DEBUG to see all SQL queries
+                'propagate': False,
+            },
+        },
+    }
+
 SECURE_SSL_REDIRECT = False # using AWS Load Balancer + Certs
 
 if os.getenv('BEHIND_SSL_PROXY') == 'True':
