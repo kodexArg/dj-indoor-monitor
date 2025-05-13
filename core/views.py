@@ -475,6 +475,26 @@ class InteractiveView(TemplateView):
             's': 'Sustrato (%)'
         }
         
+        # Define metric configuration for background bands
+        metric_cfg = {
+            't': {
+                'steps': [18, 24, 40],
+                'colors': ['rgba(135, 206, 235, 0.2)', 'rgba(144, 238, 144, 0.2)', 'rgba(255, 99, 71, 0.2)']
+            },
+            'h': {
+                'steps': [40, 55, 100],
+                'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
+            },
+            'l': {
+                'steps': [0, 900, 1000],
+                'colors': ['rgba(105, 105, 105, 0.1)', 'rgba(255, 255, 153, 0.2)']
+            },
+            's': {
+                'steps': [0, 30, 60, 100],
+                'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
+            }
+        }
+        
         fig = make_subplots(
             rows=len(metrics), 
             cols=1, 
@@ -494,7 +514,47 @@ class InteractiveView(TemplateView):
 
         logger.debug(f"_generate_multi_metric_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
         
+        # Add background bands for each metric
         for i, metric_code in enumerate(metrics, 1):
+            # Add background bands if configuration exists for this metric
+            if metric_code in metric_cfg:
+                steps = metric_cfg[metric_code]['steps']
+                colors = metric_cfg[metric_code]['colors']
+                
+                # Add band for first section if it doesn't start at 0
+                if steps[0] > 0:
+                    fig.add_shape(
+                        type="rect",
+                        xref=f"x{i}",  # Revert to subplot x-axis data coordinates
+                        yref=f"y{i}",
+                        x0=start_date,  # Use actual start_date
+                        x1=end_date,  # Use actual end_date
+                        y0=0,
+                        y1=steps[0],
+                        fillcolor=colors[0],
+                        opacity=0.5,
+                        layer="below",
+                        line_width=0,
+                        row=i, col=1
+                    )
+                
+                # Add bands for remaining sections
+                for j in range(1, len(steps)):
+                    fig.add_shape(
+                        type="rect",
+                        xref=f"x{i}",  # Revert to subplot x-axis data coordinates
+                        yref=f"y{i}",
+                        x0=start_date,  # Use actual start_date
+                        x1=end_date,  # Use actual end_date
+                        y0=steps[j-1],
+                        y1=steps[j],
+                        fillcolor=colors[min(j, len(colors)-1)],
+                        opacity=0.5,
+                        layer="below",
+                        line_width=0,
+                        row=i, col=1
+                    )
+            
             if metric_code not in data_df.columns:
                 logger.warning(f"_generate_multi_metric_chart: Metric '{metric_code}' not in DataFrame columns: {data_df.columns.tolist()}")
                 continue
@@ -529,7 +589,7 @@ class InteractiveView(TemplateView):
             height=467 * len(metrics),
             plot_bgcolor='white',
             paper_bgcolor='white',
-            margin=dict(l=50, r=50, t=50, b=50), # Increased margins for better visibility
+            margin=dict(l=80, r=80, t=50, b=50), # Increased right margin, balanced with left
             hovermode='closest',
             legend=dict(
                 orientation="h",
@@ -540,28 +600,45 @@ class InteractiveView(TemplateView):
                 traceorder="normal"
             ),
             autosize=True, # Ensure autosize is on
-            width=1000 # Set a large initial width that will be responsive
+            # width=1000 # Removed explicit width to rely more on autosize and responsive config
         )
         
         # Configure axes for all subplots
         for i in range(1, len(metrics) + 1):
             fig.update_xaxes(
+                range=[start_date, end_date], # Explicitly set x-axis range
                 showticklabels=True, 
                 showgrid=True, gridwidth=1, gridcolor='rgba(211,211,211,0.5)', 
                 showline=True, linewidth=1, linecolor='lightgreen', mirror=True,
                 row=i, col=1,
                 tickfont=dict(size=11) # Slightly larger tick font
             )
+            
+            # Configure Y-axis with ticks on both sides
             fig.update_yaxes(
-                showgrid=True, gridwidth=1, gridcolor='rgba(211,211,211,0.5)', 
-                showline=True, linewidth=1, linecolor='lightgreen', mirror=True,
-                row=i, col=1,
+                showgrid=True, 
+                gridwidth=1, 
+                gridcolor='rgba(211,211,211,0.5)', 
+                showline=True, 
+                linewidth=1, 
+                linecolor='lightgreen', 
+                mirror=True,  # Show axis line on both sides
+                row=i, 
+                col=1,
                 tickfont=dict(size=11), # Slightly larger tick font
-                title_font=dict(size=13) # Larger axis title font
+                tickformat=".1f", # Format tick values with one decimal place
+                ticks="outside", # Show tick marks outside the axis
+                showticklabels=True, # Show tick labels
             )
             
             if metrics[i-1] in metric_names:
-                 fig.update_yaxes(title_text=metric_names[metrics[i-1]], row=i, col=1)
+                fig.update_yaxes(
+                    title_text=metric_names[metrics[i-1]], 
+                    title_standoff=15, # Add standoff to move title away from axis
+                    title_font=dict(size=14, family="Arial, sans-serif", color="#5f9b62", weight="bold"),
+                    row=i, 
+                    col=1
+                )
         
         # Remove X-axis title from the bottom-most subplot
         fig.update_xaxes(title_text=None, row=len(metrics), col=1)

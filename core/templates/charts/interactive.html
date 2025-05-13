@@ -6,26 +6,68 @@
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/charts.css' %}">
   <style>
+    #chart-content {
+      width: 100%;
+      padding: 0;
+      margin: 0;
+    }
+    
     #chart-content .chart-container {
       padding-left: 0;
       padding-right: 0;
       margin-left: 0;
       margin-right: 0;
       width: 100%;
+      box-sizing: border-box;
     }
+    
     /* Ensure the Plotly chart itself expands if it has internal padding */
     #chart .plotly {
         width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
     }
+    
     /* Target the SVG element inside Plotly to ensure it fills the container */
     #chart .plotly .main-svg {
         width: 100% !important;
     }
+    
     /* Ensure the plot area takes full width */
-    #chart .js-plotly-plot, #chart .plot-container {
+    #chart .js-plotly-plot, 
+    #chart .plot-container {
         width: 100% !important;
+    }
+    
+    /* Make sure the chart takes the full width of its container */
+    #chart {
+        width: 100% !important;
+        display: block !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    
+    /* Ensure chart axes labels are fully visible */
+    .ytitle {
+        font-weight: bold !important;
+    }
+    
+    /* Ensure Y-axis tick labels are visible */
+    .ytick text {
+        font-size: 11px !important;
+        visibility: visible !important;
+    }
+    
+    /* Add more space for the plot area */
+    .plot-container .plot-area {
+        margin: 0 10px !important;
+    }
+    
+    /* Make sure the chart container has enough padding */
+    @media (max-width: 768px) {
+      #chart-content .chart-container {
+        padding: 0 5px !important;
+      }
     }
   </style>
 {% endblock %}
