@@ -1,0 +1,690 @@
+# DJ-Indoor-Monitor: Sistema de Monitoreo para Cultivos Indoor
+
+## 1. Visión General del Proyecto
+
+DJ-Indoor-Monitor es un sistema de monitoreo de sensores para cultivos indoor mediante dispositivos Raspberry Pi. El proyecto está construido con Django 5 y Django REST Framework, utilizando PostgreSQL con TimescaleDB como base de datos para almacenar eficientemente series temporales de datos de sensores.
+
+### Propósito
+
+El sistema recolecta y visualiza datos de sensores en diferentes salas de cultivo, monitoreando métricas como:
+- Temperatura (`t`)
+- Humedad (`h`)
+- Sustrato (`s`)
+- Luz (`l`)
+
+### Arquitectura
+
+La infraestructura está basada en contenedores:
+- **webapp**: Django + Gunicorn
+- **db**: TimescaleDB en prod (PostgreSQL)
+- **nginx**: Reverse proxy
+
+Esta misma infraestructura funciona en entorno local, usando el mismo contenedor de base de datos con `python manage.py runserver`.
+
+### Flujo de Datos
+1. Sensores Raspberry Pi → API REST
+2. Almacenamiento → TimescaleDB (PostgreSQL)
+3. Visualización → Interfaz web con gráficos Plotly
+
+## 2. Variables de Entorno Importantes
+
+```
+# Django
+DJANGO_SECRET_KEY=key
+DJANGO_DEBUG=True|False
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+DJANGO_DEFAULT_LANGUAGE_CODE=es-ar
+DJANGO_TIMEZONE=America/Argentina/Buenos_Aires
+DJANGO_LOG_LEVEL=DEBUG
+
+# Seguridad
+BEHIND_SSL_PROXY=True|False
+CSRF_COOKIE_SECURE=True|False
+SESSION_COOKIE_SECURE=True|False
+DOMAIN=example.com
+
+# Database
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=nombre_db
+DB_USER=usuario_db
+DB_PASSWORD=pass_db
+DB_HOST=db
+DB_LOCAL=localhost
+DB_PORT=5432
+
+# Específicas del proyecto
+IGNORE_SENSORS=sensor1,sensor2  # Sensores a ignorar en el monitoreo
+```
+
+## 3. Configuración del Proyecto (settings.py)
+
+El archivo `settings.py` está configurado para funcionar tanto en desarrollo como en producción, con ajustes específicos para cada entorno:
+
+### Detección del Entorno
+
+```python
+IS_RUNSERVER = 'runserver' in sys.argv
+```
+
+Esta variable determina si estamos en modo desarrollo local (`runserver`) o en producción.
+
+### Configuración de Base de Datos
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_LOCAL') if IS_RUNSERVER else os.getenv('DB_HOST'),
+        'PORT': '5432',
+    }
+}
+```
+
+En desarrollo, usa `DB_LOCAL` como host, mientras que en producción usa `DB_HOST`.
+
+### Configuración de Seguridad
+
+```python
+SECURE_SSL_REDIRECT = False  # using AWS Load Balancer + Certs
+
+if os.getenv('BEHIND_SSL_PROXY') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE') == 'True'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE') == 'True'
+```
+
+### Configuración de Logging
+
+```python
+if os.getenv('DJANGO_LOG_LEVEL') == 'DEBUG':
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{asctime} {levelname} {module} {message}',
+                'style': '{',
+            },
+            'simple': {
+                'format': '{levelname} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'api_performance.log'),
+                'formatter': 'verbose',
+            },
+        },
+        'loggers': {
+            'core.api.endpoints': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': False,
+            },
+            'django.db.backends': {
+                'handlers': ['console'],
+                'level': 'WARNING',  # Change to DEBUG to see all SQL queries
+                'propagate': False,
+            },
+        },
+    }
+```
+
+Este logging está configurado para registrar el rendimiento de los endpoints de la API y las consultas a la base de datos.
+
+### Aplicaciones Instaladas
+
+```python
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'django_htmx',
+    'rest_framework',
+    'django_filters',
+    'corsheaders',
+    'core',
+    'plotly',
+]
+```
+
+## 4. Dependencias (requirements.txt)
+
+El proyecto utiliza Django 5.1.3 con varias dependencias clave:
+
+- **Django y DRF**: `Django==5.1.3`, `djangorestframework==3.15.2`
+- **Base de datos**: `psycopg2==2.9.10` para PostgreSQL
+- **Visualización**: `plotly==5.24.1`, `pandas==2.2.3` para gráficos y análisis de datos
+- **Servidor**: `gunicorn==23.0.0`, `uvicorn==0.32.0` para producción
+- **Utilidades**: `python-dotenv==1.0.1`, `loguru==0.7.2` para logging avanzado
+- **Frontend**: `django-htmx==1.21.0` para interactividad sin JavaScript
+- **Testing**: `pytest==8.3.3`, `pytest-django==4.9.0` para pruebas
+
+## 5. Modelos y Estructura de Datos
+
+### Modelos (models.py)
+
+El sistema utiliza cuatro modelos principales:
+
+#### SiteConfigurations
+```python
+class SiteConfigurations(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField()
+
+    @classmethod
+    def get_all_parameters(cls):
+        return {config.key: config.value for config in cls.objects.all()}
+```
+
+Almacena configuraciones del sitio como pares clave-valor.
+
+#### Room
+```python
+class Room(models.Model):
+    name = models.CharField(max_length=255)
+```
+
+Representa una sala o habitación donde se encuentran los sensores.
+
+#### Sensor
+```python
+class Sensor(models.Model):
+    name = models.CharField(max_length=255)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+```
+
+Representa un dispositivo sensor físico ubicado en una habitación específica.
+
+#### DataPoint
+```python
+class DataPoint(models.Model):
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    sensor = models.CharField(max_length=255, db_index=True)
+    metric = models.CharField(max_length=1, db_index=True)
+    value = models.FloatField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['sensor', 'timestamp']),
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['sensor', 'metric', 'timestamp']),
+            models.Index(fields=['sensor', 'metric', 'value']),
+            models.Index(fields=['metric', 'timestamp']),
+        ]
+```
+
+Este es el modelo central que almacena todas las lecturas de sensores. Cada registro contiene:
+- `timestamp`: Cuándo se tomó la lectura
+- `sensor`: Identificador del sensor
+- `metric`: Tipo de métrica ('t' para temperatura, 'h' para humedad, etc.)
+- `value`: Valor numérico de la lectura
+
+Tiene múltiples índices para optimizar las consultas más comunes.
+
+### Serializers (serializers.py)
+
+Los serializers convierten los modelos a JSON para la API:
+
+#### DataPointSerializer
+```python
+class DataPointSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
+    
+    def get_timestamp(self, obj):
+        return localtime(obj.timestamp).isoformat()
+    
+    class Meta:
+        model = DataPoint
+        fields = ['timestamp', 'sensor', 'metric', 'value']
+```
+
+Serializa los datos básicos de un punto de datos.
+
+#### DataPointRoomSerializer
+```python
+class DataPointRoomSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
+    room = serializers.SerializerMethodField()
+    
+    def get_timestamp(self, obj):
+        return localtime(obj.timestamp).isoformat()
+    
+    def get_room(self, obj):
+        sensor_room_map = self.context.get('sensor_room_map', {})
+        return sensor_room_map.get(obj.sensor, '')
+    
+    class Meta:
+        model = DataPoint
+        fields = ['timestamp', 'room', 'metric', 'value']
+```
+
+Incluye información de la sala en lugar del sensor.
+
+#### DataPointRoomSensorSerializer
+```python
+class DataPointRoomSensorSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
+    room = serializers.SerializerMethodField()
+    
+    def get_timestamp(self, obj):
+        return localtime(obj.timestamp).isoformat()
+    
+    def get_room(self, obj):
+        sensor_room_map = self.context.get('sensor_room_map', {})
+        return sensor_room_map.get(obj.sensor, '')
+    
+    class Meta:
+        model = DataPoint
+        fields = ['timestamp', 'room', 'sensor', 'metric', 'value']
+```
+
+Incluye tanto la sala como el sensor.
+
+## 6. API REST (api.py)
+
+La API es el componente central del sistema, proporcionando endpoints para consultar los datos de los sensores.
+
+### DataPointViewSet
+
+```python
+class DataPointViewSet(viewsets.ModelViewSet):
+    queryset = DataPoint.objects.all()
+    serializer_class = DataPointSerializer
+    filterset_class = DataPointFilter
+    filter_backends = [DjangoFilterBackend]
+```
+
+Este ViewSet expone operaciones CRUD estándar para DataPoint y además define acciones personalizadas:
+
+#### Endpoint latest
+
+```python
+@action(detail=False, methods=['get'])
+def latest(self, request):
+    """
+    Retorna el último registro de cada sensor.
+    """
+    filtered_queryset = self.filter_queryset(self.get_queryset())
+    processor = LatestData(queryset=filtered_queryset, query_parameters=request.GET, request=request)
+    response = Response(processor.process())
+    return response
+```
+
+Devuelve el último registro disponible para cada sensor.
+
+#### Endpoint timeframed
+
+```python
+@action(detail=False, methods=['get'])
+def timeframed(self, request):
+    """
+    Retorna registros agrupados por intervalos de tiempo.
+    """
+    filtered_queryset = self.filter_queryset(self.get_queryset())
+    processor = TimeframedData(queryset=filtered_queryset, query_parameters=request.GET, request=request)
+    response = Response(processor.process())
+    return response
+```
+
+Agrupa los datos por intervalos de tiempo (5 segundos, 1 minuto, 30 minutos, etc.).
+
+### Procesadores de Datos
+
+La API utiliza clases procesadoras para manejar diferentes tipos de consultas:
+
+#### DataPointQueryProcessor (Clase Base)
+
+```python
+class DataPointQueryProcessor(generics.GenericAPIView, ABC):
+    """
+    Clase base para procesadores de consultas de DataPoint.
+    Abstrae la lógica común de procesamiento, filtrado y serialización.
+    """
+    
+    def __init__(self, queryset, query_parameters=None, request=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queryset = queryset
+        self.query_parameters = query_parameters if query_parameters is not None else {}
+        self.request = request
+        self.include_room = to_bool(self.query_parameters.get('include_room', False))
+        self.paginate = to_bool(self.query_parameters.get('paginate', True))
+        
+        self.sensor_room_map = None
+        if self.include_room:
+            self.sensor_room_map = self._get_sensor_room_map()
+```
+
+Esta clase base proporciona métodos comunes para todos los procesadores:
+- Manejo de parámetros de consulta
+- Mapeo de sensores a habitaciones
+- Filtrado y serialización de datos
+
+#### ListData, LatestData y TimeframedData
+
+Estas clases heredan de DataPointQueryProcessor y manejan diferentes tipos de consultas:
+
+```python
+class ListData(DataPointQueryProcessor):
+    """Procesador para obtener una lista filtrada de DataPoints."""
+    
+    def get(self):
+        # Optimización: limitar la cantidad de registros si no se requiere paginación
+        if not self.paginate:
+            queryset_limited = self.queryset[:1000]
+        else:
+            queryset_limited = self.queryset
+            
+        return self.get_appropriate_serializer(
+            queryset_limited, 
+            include_room=self.include_room
+        )
+```
+
+```python
+class LatestData(DataPointQueryProcessor):
+    """
+    Procesador para obtener los últimos registros de DataPoints por sensor/métrica.
+    """
+    def get(self):
+        # Implementación para obtener los últimos datos
+        # ...
+```
+
+```python
+class TimeframedData(DataPointQueryProcessor):
+    """
+    Procesador para obtener datos de DataPoints agrupados por intervalos de tiempo.
+    """
+    def get(self):
+        # Implementación para obtener datos agrupados por tiempo
+        # ...
+```
+
+## 7. Vistas Web (views.py)
+
+El proyecto incluye varias vistas para visualizar los datos en la interfaz web:
+
+### HomeView y DevelopmentView
+
+```python
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+class DevelopmentView(TemplateView):
+    template_name = 'development.html'
+```
+
+Vistas básicas para la página principal y la página de desarrollo.
+
+### GaugesView
+
+```python
+class GaugesView(TemplateView):
+    template_name = 'charts/gauges.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        cutoff_date = timezone.now() - timezone.timedelta(hours=24)
+
+        latest_data_points = DataPoint.objects.filter(timestamp__gte=cutoff_date).order_by(
+            'sensor', 'metric', '-timestamp'
+        ).distinct('sensor', 'metric')
+
+        sensors_dict = {sensor.name: sensor for sensor in Sensor.objects.select_related('room').all()}
+
+        gauges_by_room = {}
+        for data_point in latest_data_points:
+            sensor = sensors_dict.get(data_point.sensor)
+            if sensor:
+                room_name = sensor.room.name if sensor.room else "No Room"
+                if room_name not in gauges_by_room:
+                    gauges_by_room[room_name] = []
+
+                gauges_by_room[room_name].append({
+                    'value': data_point.value,
+                    'metric': data_point.metric,
+                    'sensor_name': data_point.sensor,
+                    'timestamp': data_point.timestamp.isoformat() if data_point.timestamp else None,
+                })
+
+        for room_name, gauges in gauges_by_room.items():
+            gauges.sort(key=lambda x: (x['metric'], x['sensor_name']))
+
+        context['gauges_by_room'] = gauges_by_room
+        return context
+```
+
+Muestra medidores (gauges) para las últimas lecturas de cada sensor, agrupados por sala.
+
+### SensorsView
+
+```python
+class SensorsView(TemplateView):
+    template_name = 'charts/sensors.html'
+    metric_map = METRIC_MAP
+
+    def get_context_data(self, **kwargs):
+        # Implementación para mostrar datos de sensores
+        # ...
+```
+
+Muestra datos de sensores con filtrado por timeframe.
+
+### VPDView
+
+```python
+class VPDView(TemplateView):
+    template_name = 'charts/vpd.html'
+
+    def get_context_data(self, **kwargs):
+        # Implementación para mostrar gráfico VPD
+        # ...
+```
+
+Muestra un gráfico de Déficit de Presión de Vapor (VPD), importante para el cultivo.
+
+### InteractiveView
+
+```python
+class InteractiveView(TemplateView):
+    template_name = 'charts/interactive.html'
+
+    def get_context_data(self, **kwargs):
+        # Implementación para gráficos interactivos
+        # ...
+```
+
+Proporciona gráficos interactivos para explorar los datos.
+
+### Vistas AJAX
+
+```python
+@method_decorator(csrf_exempt, name='dispatch')
+class GenerateSensorView(View):
+    def post(self, request):
+        # Generación de gráficos de sensores vía AJAX
+        # ...
+```
+
+```python
+class GenerateGaugeView(View):
+    def get(self, request, *args, **kwargs):
+        # Generación de medidores vía AJAX
+        # ...
+```
+
+Estas vistas generan gráficos y medidores dinámicamente mediante solicitudes AJAX.
+
+## 8. Utilidades y Herramientas
+
+### utils.py
+
+Este archivo contiene funciones y clases de utilidad:
+
+#### Constantes y Mapeos
+
+```python
+TIMEFRAME_MAP = {
+    '5S': '5S',
+    '1T': '1min',
+    '30T': '30min',
+    '1H': '1h',
+    '4H': '4h',
+    '1D': '1D'
+}
+
+METRIC_MAP = {
+    't': 'Temperatura',
+    'h': 'Humedad',
+    's': 'Sustrato',
+    'l': 'Luz'
+}
+```
+
+#### Funciones de Utilidad
+
+```python
+def to_bool(value):
+    """Convierte un valor a booleano."""
+    # ...
+
+def get_timedelta_from_timeframe(timeframe):
+    """Convierte un timeframe en su timedelta correspondiente."""
+    # ...
+
+def get_start_date(timeframe, end_date):
+    """Calcula la fecha de inicio basada en el timeframe y la fecha de fin."""
+    # ...
+```
+
+#### DataPointDataFrameBuilder
+
+```python
+class DataPointDataFrameBuilder:
+    def __init__(self, timeframe='5S', start_date=None, end_date=None, metrics=None, pivot_metrics=False, use_last=False):
+        # ...
+
+    def build(self):
+        # Construye un DataFrame de pandas con los datos
+        # ...
+
+    def group_by_room(self, latest=False, sensors=True):
+        # Agrupa los datos por sala
+        # ...
+```
+
+Esta clase facilita la creación de DataFrames de pandas para análisis y visualización.
+
+### charts.py
+
+Contiene funciones para generar gráficos con Plotly:
+
+```python
+def gauge_plot(value, metric, sensor, timestamp=None):
+    """Genera un gráfico de medidor (gauge)."""
+    # ...
+
+def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
+    """Genera un gráfico de línea para un sensor."""
+    # ...
+
+def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
+    """Genera un gráfico de VPD (Déficit de Presión de Vapor)."""
+    # ...
+```
+
+### filters.py
+
+Define filtros personalizados para la API:
+
+```python
+class DataPointFilter(filters.FilterSet):
+    """
+    Filtro para DataPoint con soporte para:
+    - Rangos de fechas (timestamp_after, timestamp_before)
+    - Filtrado por sensor (sensor, sensors)
+    - Filtrado por métrica con validación de rangos
+    - Obtener el último valor por sensor (latest_only)
+    """
+    # ...
+```
+
+## 9. Rutas URL (urls.py)
+
+```python
+router = DefaultRouter()
+router.register(r'api/data-point', DataPointViewSet, basename='data-point')
+
+urlpatterns = [
+    path('', HomeView.as_view(), name='home'),
+    path('development/', DevelopmentView.as_view(), name='development'),
+    path('charts/', ChartsView.as_view(), name='charts'),
+    path('charts/interactive/', InteractiveView.as_view(), name='interactive'),
+    path('charts/sensors/', SensorsView.as_view(), name='sensors'),
+    path('charts/vpd/', VPDView.as_view(), name='vpd'),
+    path('charts/gauges/', GaugesView.as_view(), name='gauges'),
+    path('generate_gauge/', GenerateGaugeView.as_view(), name='generate-gauge'),
+    path('generate_sensor/', GenerateSensorView.as_view(), name='generate_sensor'),
+    path('', include(router.urls)),
+]
+```
+
+## 10. Optimizaciones y Patrones de Diseño
+
+### Optimización de Consultas
+
+El proyecto utiliza varias técnicas para optimizar el rendimiento:
+
+1. **Índices en la base de datos**: El modelo DataPoint tiene múltiples índices para acelerar las consultas más comunes.
+
+2. **select_related/prefetch_related**: Se utiliza para reducir el número de consultas a la base de datos.
+
+3. **Caché de mapeo sensor-sala**:
+```python
+@lru_cache(maxsize=32)
+def _get_sensor_room_map(self):
+    return {
+        sensor.name: sensor.room.name 
+        for sensor in Sensor.objects.select_related('room').all()
+    }
+```
+
+4. **Límites en las consultas**: Se limita el número de registros cuando es posible.
+
+### Patrones de Diseño
+
+1. **Patrón Procesador**: Las clases DataPointQueryProcessor, ListData, LatestData y TimeframedData implementan el patrón procesador para manejar diferentes tipos de consultas.
+
+2. **Patrón Estrategia**: El sistema de filtros utiliza este patrón para aplicar diferentes estrategias de filtrado.
+
+3. **Patrón Decorador**: Se utiliza para medir el tiempo de ejecución de los endpoints.
+
+## 11. Conclusiones
+
+DJ-Indoor-Monitor es un sistema completo para monitorear condiciones ambientales en cultivos indoor. Sus principales características son:
+
+1. **API REST optimizada** para consultar datos de sensores con diferentes niveles de agregación.
+
+2. **Visualización interactiva** con gráficos Plotly para analizar tendencias y condiciones actuales.
+
+3. **Arquitectura escalable** basada en contenedores para facilitar el despliegue.
+
+4. **Optimizaciones de rendimiento** para manejar grandes volúmenes de datos de series temporales.
+
+El sistema está diseñado para ser fácil de usar tanto para desarrolladores (a través de la API) como para usuarios finales (a través de la interfaz web).

@@ -2,6 +2,7 @@ from datetime import timedelta
 import pandas as pd
 from django.utils import timezone
 from .models import DataPoint, Sensor
+from loguru import logger
 
 TIMEFRAME_MAP = {
     '5S': '5S',
@@ -40,30 +41,38 @@ def get_timedelta_from_timeframe(timeframe):
     Convierte un timeframe en su timedelta correspondiente.
     """
     time_windows = {
-        '5S': timedelta(minutes=15),
-        '1T': timedelta(hours=3),
-        '30T': timedelta(hours=36),
-        '1H': timedelta(days=3),
-        '4H': timedelta(days=12),
-        '1D': timedelta(days=42)
+        '5S': timedelta(minutes=3, seconds=45),   # 15 min / 4 = 3.75 min
+        '1T': timedelta(minutes=45),              # 3 horas / 4 = 45 min
+        '30T': timedelta(hours=9),                # 36 horas / 4 = 9 horas
+        '1H': timedelta(hours=18),                # 3 días / 4 = 18 horas
+        '4H': timedelta(days=3),                  # 12 días / 4 = 3 días
+        '1D': timedelta(days=10, hours=12)        # 42 días / 4 = 10.5 días
     }
     return time_windows[timeframe.upper()]
 
 def get_start_date(timeframe, end_date):
-    if timeframe == '5S':
-        return end_date - pd.Timedelta(seconds=5)
-    elif timeframe == '1T':
-        return end_date - pd.Timedelta(minutes=1)
-    elif timeframe == '30T':
-        return end_date - pd.Timedelta(minutes=30)
-    elif timeframe == '1H':
-        return end_date - pd.Timedelta(hours=1)
-    elif timeframe == '4H':
-        return end_date - pd.Timedelta(hours=4)
-    elif timeframe == '1D':
-        return end_date - pd.Timedelta(days=1)
-    else:
-        return end_date - pd.Timedelta(hours=1)
+    """
+    Calculate start date based on timeframe and end date.
+    Uses the predefined time windows from get_timedelta_from_timeframe.
+    """
+    # Normalize timeframe format
+    timeframe = timeframe.upper()
+    
+    # Handle potential variations in format
+    if timeframe == '1MIN' or timeframe == '1M':
+        timeframe = '1T'
+    elif timeframe == '30MIN' or timeframe == '30M':
+        timeframe = '30T'
+        
+    try:
+        # Use the consistent time windows defined in get_timedelta_from_timeframe
+        time_delta = get_timedelta_from_timeframe(timeframe)
+        logger.debug(f"get_start_date: Using timeframe {timeframe}, window is {time_delta}")
+        return end_date - time_delta
+    except KeyError:
+        # Default to 1 minute if timeframe not recognized
+        logger.warning(f"get_start_date: Unrecognized timeframe '{timeframe}', defaulting to 1T")
+        return end_date - timedelta(hours=3)  # Default is 3 hours for '1T'
 
 def normalize_timeframe(timeframe):
     return timeframe.lower().replace('t', 'min').lower()
@@ -135,58 +144,115 @@ class DataPointDataFrameBuilder:
         queryset = DataPoint.objects.filter(timestamp__gte=self.start_date, timestamp__lte=self.end_date)
         if self.metrics is not None:
             queryset = queryset.filter(metric__in=self.metrics)
+        
+        logger.debug(f"DataPointDataFrameBuilder: Querying for metrics {self.metrics} from {self.start_date} to {self.end_date}")
+        
+        count = queryset.count()
+        logger.debug(f"DataPointDataFrameBuilder: Found {count} raw data points")
+        
         if self.use_last:
             queryset = queryset.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
-        return list(queryset.values())
+            logger.debug(f"DataPointDataFrameBuilder: Using last values only, reduced to {queryset.count()} points")
+        
+        values = list(queryset.values())
+        logger.debug(f"DataPointDataFrameBuilder: Retrieved {len(values)} data point values")
+        return values
 
     def _pivot_by_metrics(self, aggregated_df):
-        # Paso 1: Desenrollar el índice 'metric' para que sus valores se conviertan en columnas.
-        pivot_df = aggregated_df.unstack(level='metric')
+        # Log the input aggregated dataframe shape and structure
+        logger.debug(f"_pivot_by_metrics: Input DataFrame shape: {aggregated_df.shape}")
+        logger.debug(f"_pivot_by_metrics: Input DataFrame index levels: {aggregated_df.index.names}")
+        
+        # Check if the DataFrame has any data
+        if aggregated_df.empty:
+            logger.warning("_pivot_by_metrics: Input DataFrame is empty, returning empty DataFrame")
+            return pd.DataFrame()
+        
+        try:
+            # Paso 1: Desenrollar el índice 'metric' para que sus valores se conviertan en columnas.
+            pivot_df = aggregated_df.unstack(level='metric')
+            logger.debug(f"_pivot_by_metrics: After unstack, pivot_df shape: {pivot_df.shape}")
+            
+            # Log column MultiIndex structure
+            if isinstance(pivot_df.columns, pd.MultiIndex):
+                logger.debug(f"_pivot_by_metrics: Column levels: {pivot_df.columns.names}")
+                logger.debug(f"_pivot_by_metrics: Column values: {pivot_df.columns.tolist()}")
+            else:
+                logger.debug(f"_pivot_by_metrics: Columns: {pivot_df.columns.tolist()}")
 
-        # Paso 2: Obtener la lista de métricas distintas registradas en la base de datos.
-        distinct_metrics = list(DataPoint.objects.values_list('metric', flat=True).distinct())
+            # Paso 2: Simplificar los nombres de las columnas, extrayendo sólo la métrica (segundo elemento de la tupla).
+            # Check if we have a MultiIndex first
+            if isinstance(pivot_df.columns, pd.MultiIndex):
+                # Extract the second level (metric) from each tuple
+                pivot_df.columns = [col[1] for col in pivot_df.columns]
+                logger.debug(f"_pivot_by_metrics: After column simplification: {pivot_df.columns.tolist()}")
+            else:
+                logger.warning("_pivot_by_metrics: Expected MultiIndex for columns but got simple Index")
 
-        # Paso 3: Crear la estructura de columnas deseadas en forma de tuplas: ('value', métrica)
-        desired_columns = [( 'value', m ) for m in distinct_metrics]
+            # Paso 3: Eliminar el nombre del índice de columnas para obtener un DataFrame limpio.
+            pivot_df.columns.name = None
 
-        # Paso 4: Reindexar el DataFrame para asegurarse de que aparezcan todas las métricas,
-        # incluso si no todas están presentes en el agrupamiento actual.
-        pivot_df = pivot_df.reindex(columns=desired_columns)
-
-        # Paso 5: Simplificar los nombres de las columnas, extrayendo sólo la métrica (segundo elemento de la tupla).
-        pivot_df.columns = [col[1] for col in pivot_df.columns]
-
-        # Paso 6: Eliminar el nombre del índice de columnas para obtener un DataFrame limpio.
-        pivot_df.columns.name = None
-
-        return pivot_df
+            return pivot_df
+        except Exception as e:
+            logger.error(f"_pivot_by_metrics: Error during pivoting: {str(e)}")
+            # Return an empty DataFrame to prevent function failure
+            return pd.DataFrame()
 
     def build(self):
+        logger.debug(f"DataPointDataFrameBuilder.build: Building DataFrame with timeframe={self.timeframe}, metrics={self.metrics}")
         data = self._get_data_points_values()
         df = pd.DataFrame(data)
+        
         if df.empty:
+            logger.warning("DataPointDataFrameBuilder.build: No data found, returning empty DataFrame")
             return df
 
+        logger.debug(f"DataPointDataFrameBuilder.build: Initial DataFrame has {len(df)} rows with columns {df.columns.tolist()}")
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-        if self.pivot_metrics:
-            aggregated_df = df.groupby(
-                ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
-            )[['value']].mean()
-            df = self._pivot_by_metrics(aggregated_df)
-            df = df.reset_index()
-        else:
-            if self.use_last:
+        try:
+            if self.pivot_metrics:
+                logger.debug("DataPointDataFrameBuilder.build: Using pivot_metrics approach")
+                # Group by sensor, metric, and timestamp (using the specified timeframe)
                 aggregated_df = df.groupby(
-                    ['sensor', pd.Grouper(key='timestamp', freq=self.timeframe)]
-                )[['value', 'metric']].last()
+                    ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
+                )[['value']].mean()
+                
+                logger.debug(f"DataPointDataFrameBuilder.build: Aggregated DataFrame has shape {aggregated_df.shape}")
+                df = self._pivot_by_metrics(aggregated_df)
+                
+                # Debug the pivoted dataframe
+                if df.empty:
+                    logger.warning("DataPointDataFrameBuilder.build: Pivoted DataFrame is empty")
+                else:
+                    logger.debug(f"DataPointDataFrameBuilder.build: Pivoted DataFrame has shape {df.shape} and columns {df.columns.tolist()}")
+                
+                df = df.reset_index()
             else:
-                aggregated_df = df.groupby(
-                    ['sensor', pd.Grouper(key='timestamp', freq=self.timeframe)]
-                )[['value', 'metric']].mean()
-            df = aggregated_df.reset_index()
-        
-        return df
+                logger.debug("DataPointDataFrameBuilder.build: Using standard groupby approach")
+                if self.use_last:
+                    aggregated_df = df.groupby(
+                        ['sensor', pd.Grouper(key='timestamp', freq=self.timeframe)]
+                    )[['value', 'metric']].last()
+                else:
+                    aggregated_df = df.groupby(
+                        ['sensor', pd.Grouper(key='timestamp', freq=self.timeframe)]
+                    )[['value', 'metric']].mean()
+                df = aggregated_df.reset_index()
+            
+            # Final DataFrame check
+            if df.empty:
+                logger.warning("DataPointDataFrameBuilder.build: Final DataFrame is empty")
+            else:
+                logger.debug(f"DataPointDataFrameBuilder.build: Final DataFrame has {len(df)} rows with columns {df.columns.tolist()}")
+                # Sample data for debugging
+                if len(df) > 0:
+                    logger.debug(f"DataPointDataFrameBuilder.build: First row sample: {df.iloc[0].to_dict()}")
+            
+            return df
+        except Exception as e:
+            logger.error(f"DataPointDataFrameBuilder.build: Error building DataFrame: {str(e)}")
+            return pd.DataFrame()
 
     def group_by_room(self, latest=False, sensors=True):
         # Construye el DataFrame base utilizando el método build().
@@ -207,3 +273,82 @@ class DataPointDataFrameBuilder:
         # Agrupa el DataFrame por la columna 'room'.
         df_grouped = df.groupby('room')
         return df_grouped
+
+def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
+    """
+    Genera un gráfico interactivo para múltiples sensores o salas.
+    
+    Args:
+        data_df: DataFrame con los datos a graficar
+        metric: Métrica a mostrar (t, h, l, s)
+        by_room: Si es True, agrupa por sala en lugar de por sensor
+        timeframe: Intervalo de tiempo para el eje X
+        start_date: Fecha de inicio para el título
+        end_date: Fecha de fin para el título
+    
+    Returns:
+        HTML del gráfico, número de puntos graficados
+    """
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    
+    if data_df.empty:
+        return "<div class='no-data-alert'>No hay datos disponibles para este período</div>", 0
+    
+    # Configuración de colores según la métrica
+    colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
+    
+    # Texto para el título según la métrica
+    metric_title = {
+        't': 'Temperatura (°C)',
+        'h': 'Humedad (%)',
+        'l': 'Luz (lux)',
+        's': 'Sustrato (%)'
+    }.get(metric, metric)
+    
+    fig = make_subplots()
+    
+    # Agrupar por sala o mostrar todos los sensores
+    plot_column = 'room' if by_room else 'sensor'
+    
+    # Contador de puntos graficados
+    plotted_points = 0
+    
+    # Crear una línea para cada sensor/sala
+    for name, group in data_df.groupby(plot_column):
+        if not group.empty and metric in group:
+            plotted_points += len(group)
+            fig.add_trace(
+                go.Scatter(
+                    x=group['timestamp'],
+                    y=group[metric],
+                    mode='lines+markers',
+                    name=name,
+                    line=dict(color=colors.get(metric, '#7F7F7F')),
+                    hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>"
+                )
+            )
+    
+    # Configurar el layout
+    title_text = f"{metric_title} - {timeframe}"
+    if start_date and end_date:
+        title_text += f" ({start_date.strftime('%d/%m %H:%M')} - {end_date.strftime('%d/%m %H:%M')})"
+    
+    fig.update_layout(
+        title=title_text,
+        xaxis_title='Hora',
+        yaxis_title=metric_title,
+        template='plotly_dark',
+        height=400,
+        margin=dict(l=50, r=50, t=80, b=50),
+        hovermode='closest',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig.to_html(include_plotlyjs='cdn', full_html=False), plotted_points

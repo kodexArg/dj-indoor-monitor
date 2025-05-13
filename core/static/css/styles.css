@@ -452,6 +452,25 @@ h1 {
   font-weight: 300;  /* Added: thin font */
 }
 
+/* Consistency styles for interactive chart buttons */
+#toggle-buttons .button {
+  height: 36px;
+  line-height: 36px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 4px;
+  margin: 3px;
+  font-weight: 500;
+}
+
+#toggle-buttons .button-cluster {
+  display: flex;
+  align-items: center;
+}
+
 .room-title-wrapper {
     background-color: var(--brand-green-light);
     border-radius: 25px;

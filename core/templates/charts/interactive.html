@@ -5,6 +5,29 @@
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+  <style>
+    #chart-content .chart-container {
+      padding-left: 0;
+      padding-right: 0;
+      margin-left: 0;
+      margin-right: 0;
+      width: 100%;
+    }
+    /* Ensure the Plotly chart itself expands if it has internal padding */
+    #chart .plotly {
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    /* Target the SVG element inside Plotly to ensure it fills the container */
+    #chart .plotly .main-svg {
+        width: 100% !important;
+    }
+    /* Ensure the plot area takes full width */
+    #chart .js-plotly-plot, #chart .plot-container {
+        width: 100% !important;
+    }
+  </style>
 {% endblock %}
 
 {% block navbar %}
@@ -17,18 +40,20 @@
   <article id="toggle-buttons-container">
     <div id="toggle-buttons" class="button-group">
       <div id="toggle-buttons-timeframe" class="button-cluster">
-        <a class="button {% if metadata.timeframe == '1t' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1'</a>
-        <a class="button {% if metadata.timeframe == '30t' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=30T&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">30'</a>
-        <a class="button {% if metadata.timeframe == '1h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1h</a>
-        <a class="button {% if metadata.timeframe == '4h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=4h&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">4h</a>
-        <a class="button {% if metadata.timeframe == '1d' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1D&metric={{ metadata.metric }}&room={{ room|yesno:'true,false' }}">1d</a>
+        <a class="button {% if metadata.timeframe == '1t' or metadata.timeframe == '1T' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1T&metrics={{ metadata.metrics|join:',' }}&room={{ room|yesno:'true,false' }}">1'</a>
+        <a class="button {% if metadata.timeframe == '30t' or metadata.timeframe == '30T' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=30T&metrics={{ metadata.metrics|join:',' }}&room={{ room|yesno:'true,false' }}">30'</a>
+        <a class="button {% if metadata.timeframe == '1h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1h&metrics={{ metadata.metrics|join:',' }}&room={{ room|yesno:'true,false' }}">1h</a>
+        <a class="button {% if metadata.timeframe == '4h' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=4h&metrics={{ metadata.metrics|join:',' }}&room={{ room|yesno:'true,false' }}">4h</a>
+        <a class="button {% if metadata.timeframe == '1d' %}active{% endif %}" href="{% url 'interactive' %}?timeframe=1D&metrics={{ metadata.metrics|join:',' }}&room={{ room|yesno:'true,false' }}">1d</a>
       </div>
       <div id="toggle-buttons-metric" class="button-cluster">
-        <a class="button metric {% if metadata.metric == 't' %}active{% endif %}" href="{% url 'interactive' %}?metric=t&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Temp</a>
-        <a class="button metric {% if metadata.metric == 'h' %}active{% endif %}" href="{% url 'interactive' %}?metric=h&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Hum</a>
+        <a class="button {% if 't' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 't' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 't' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}t{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Temp</a>
+        <a class="button {% if 'h' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 'h' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 'h' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}h{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Hum</a>
+        <a class="button {% if 'l' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 'l' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 'l' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}l{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Luz</a>
+        <a class="button {% if 's' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 's' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 's' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}s{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Sustrato</a>
       </div>
       <div class="button-cluster">
-        <a class="button {% if room %}active{% endif %}" href="{% url 'interactive' %}?timeframe={{ metadata.timeframe }}&metric={{ metadata.metric }}&room={% if room %}false{% else %}true{% endif %}">Salas</a>
+        <a class="button {% if room %}active{% endif %}" href="{% url 'interactive' %}?timeframe={{ metadata.timeframe }}&metrics={{ metadata.metrics|join:',' }}&room={% if room %}false{% else %}true{% endif %}">Salas</a>
       </div>
     </div>
   </article>
@@ -45,15 +70,34 @@
       <pre class="debug-pre">
 <strong>Período actual</strong>: {{ metadata.start_pretty }} → {{ metadata.end_pretty }}
 <strong>Registros</strong>: {{ metadata.record_count }}
-<strong>Puntos graficados</strong>: {{ plotted_points }}
-<strong>Sensores</strong>: {{ metadata.sensor_ids|join:", " }}
+<strong>Puntos graficados</strong>: {{ plotted_points }} / {{ target_points }} objetivo
+<strong>Sensores Activos</strong>: {{ metadata.sensor_ids|join:", " }}
+{% if metadata.excluded_items %}
+<strong>Sensores Excluídos ( &lt; {{ view.MIN_DATA_POINTS_FOR_DISPLAY }} pts)</strong>: {{ metadata.excluded_items|join:", " }}
+{% endif %}
 <strong>Timeframe</strong>: {{ metadata.timeframe }}
 <strong>Ventana</strong>: {{ metadata.window_minutes }} min
-<strong>Métrica</strong>: {{ metadata.metric }}
+<strong>Métrica(s)</strong>: {{ metadata.metrics|join:", " }}
 <strong>Uso Servidor</strong>: {{ metadata.query_duration_s }} s
 <strong>Tiempo Total</strong>: <span id="total-time"></span>
       </pre>
     </div>
   </article>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const startTime = performance.now();
+    const totalTimeEl = document.getElementById('total-time');
+    
+    // Actualizar el tiempo total cuando la página esté completamente cargada
+    window.addEventListener('load', function() {
+      const endTime = performance.now();
+      const totalTime = (endTime - startTime) / 1000;
+      totalTimeEl.textContent = totalTime.toFixed(3) + ' s';
+    });
+  });
+</script>
 {% endblock %}
