@@ -11,6 +11,8 @@ from .utils import METRIC_MAP
 from .utils import DataPointDataFrameBuilder
 from .utils import pretty_datetime, get_start_date
 import pandas as pd
+import time
+from loguru import logger
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -63,6 +65,8 @@ class SensorsView(TemplateView):
     metric_map = METRIC_MAP
 
     def get_context_data(self, **kwargs):
+        start_time = time.time()
+        
         context = super().get_context_data(**kwargs)
         timeframe = self.request.GET.get('timeframe', '1h').lower()
         context['timeframe'] = timeframe
@@ -70,17 +74,40 @@ class SensorsView(TemplateView):
 
         data = {}
         sensors = Sensor.objects.select_related('room').all()
-        from .models import DataPoint
+        
+        # Optimización: obtener todas las métricas de todos los sensores en una sola consulta
+        # y crear un diccionario para acceso rápido
+        all_sensor_metrics = {}
+        sensor_names = [sensor.name for sensor in sensors if sensor.room]
+        
+        if sensor_names:
+            metrics_by_sensor = DataPoint.objects.filter(
+                sensor__in=sensor_names
+            ).values('sensor', 'metric').distinct()
+            
+            for item in metrics_by_sensor:
+                sensor_name = item['sensor']
+                metric = item['metric']
+                if sensor_name not in all_sensor_metrics:
+                    all_sensor_metrics[sensor_name] = set()
+                all_sensor_metrics[sensor_name].add(metric)
+        
+        metric_order = ['t', 'h', 'l', 's']
+        
         for sensor in sensors:
             if not sensor.room:
                 continue
+                
             room_name = sensor.room.name
             if room_name not in data:
                 data[room_name] = {}
 
-            sensor_metrics = DataPoint.objects.filter(sensor=sensor.name).values_list('metric', flat=True).distinct()
+            sensor_metrics = all_sensor_metrics.get(sensor.name, set())
+            
+            if not sensor_metrics:
+                logger.debug(f"Sensor '{sensor.name}' in room '{room_name}' has no data points")
+                continue
 
-            metric_order = ['t', 'h', 'l', 's']
             ordered_metrics = OrderedDict()
 
             for metric_code in metric_order:
@@ -113,12 +140,16 @@ class SensorsView(TemplateView):
             data[room_name] = ordered_data
 
         context['data'] = data
+        
+        total_time = time.time() - start_time
+        logger.debug(f"SensorsView: Rendered in {total_time:.2f}s")
 
         return context
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GenerateSensorView(View):
     def post(self, request):
+        start_time = time.time()
         sensor = request.POST.get('sensor')
         timeframe = request.POST.get('timeframe', '1h').lower()
         metric = request.POST.get('metric', '')
@@ -134,11 +165,14 @@ class GenerateSensorView(View):
         ).order_by('timestamp')
         
         if not data_points:
+            logger.debug(f"No data for sensor='{sensor}', metric='{metric}'")
             return HttpResponse("No hay datos disponibles para el sensor")
         
         df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
-
         chart_html, count = sensor_plot(df, sensor, metric, timeframe, start_date, end_date)
+        
+        total_time = time.time() - start_time
+        logger.debug(f"Chart for {sensor}/{metric}: {count} points in {total_time:.2f}s")
         
         return HttpResponse(chart_html)
 
