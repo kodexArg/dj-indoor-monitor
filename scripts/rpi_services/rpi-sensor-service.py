@@ -19,10 +19,12 @@ import json
 import os
 from abc import ABC, abstractmethod
 import datetime
+import requests
+import time
+from loguru import logger
+from pathlib import Path
 
 # Third-party
-from loguru import logger
-import requests
 from typing import TypedDict, List, Union, Optional, Literal, Dict
 import yaml
 from yaml.error import YAMLError
@@ -45,6 +47,17 @@ if IS_ARM:
 else:
     HARDWARE_AVAILABLE = False
     logger.info("Running in non-ARM mode, using fake sensors")
+
+# Define BASE_DIR relative to this script file
+# This script is in /scripts/rpi_services/, so BASE_DIR is two levels up.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Configure Loguru to also log to a file in the project's /logs directory
+LOGS_DIR = BASE_DIR / 'logs'
+os.makedirs(LOGS_DIR, exist_ok=True) # Create logs directory if it doesn't exist
+logger.add(LOGS_DIR / "loguru_rpi_sensor_service.log", rotation="10 MB", retention="7 days", level="DEBUG", format="{time} {level} {message}")
+
+API_URL = os.getenv('DJANGO_API_URL', 'http://localhost:8000/api/data-point/')
 
 # =================================================
 # INTERFACES
