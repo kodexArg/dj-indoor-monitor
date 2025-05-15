@@ -1,8 +1,6 @@
-# Django y DRF
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# Local
 from .api import DataPointViewSet
 from .views import (
     HomeView,

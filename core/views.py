@@ -25,6 +25,7 @@ class ChartsView(TemplateView):
 
 
 class GaugesView(TemplateView):
+    """Vista para mostrar últimos datos de sensores como medidores, agrupados por sala."""
     template_name = 'charts/gauges.html'
 
     def get_context_data(self, **kwargs):
@@ -61,6 +62,7 @@ class GaugesView(TemplateView):
 
 
 class SensorsView(TemplateView):
+    """Vista que muestra métricas de sensores agrupadas por sala, filtrables por tiempo."""
     template_name = 'charts/sensors.html'
     metric_map = METRIC_MAP
 
@@ -72,20 +74,17 @@ class SensorsView(TemplateView):
         context['timeframe'] = timeframe
         context['selected_timeframe'] = timeframe
         
-        # Calcular el rango de tiempo para filtrar datos
         end_date = timezone.now()
         start_date = end_date - get_timedelta_from_timeframe(timeframe)
 
         data = {}
         sensors = Sensor.objects.select_related('room').all()
         
-        # Optimización: obtener todas las métricas de todos los sensores en una sola consulta
-        # y crear un diccionario para acceso rápido, pero filtrando por el rango de tiempo
         all_sensor_metrics = {}
         sensor_names = [sensor.name for sensor in sensors if sensor.room]
         
         if sensor_names:
-            # Consulta modificada para filtrar por rango de tiempo
+            # Optimización: una consulta para todas las métricas de sensores en el rango de tiempo.
             metrics_by_sensor = DataPoint.objects.filter(
                 sensor__in=sensor_names,
                 timestamp__gte=start_date,
@@ -99,7 +98,7 @@ class SensorsView(TemplateView):
                     all_sensor_metrics[sensor_name] = set()
                 all_sensor_metrics[sensor_name].add(metric)
         
-        metric_order = ['t', 'h', 'l', 's']
+        metric_order = ['t', 'h', 'l', 's'] # Orden predefinido de métricas
         
         for sensor in sensors:
             if not sensor.room:
@@ -116,7 +115,7 @@ class SensorsView(TemplateView):
                 continue
 
             ordered_metrics = OrderedDict()
-
+            # Asegurar orden predefinido y luego alfabético para el resto.
             for metric_code in metric_order:
                 if metric_code in sensor_metrics:
                     ordered_metrics[metric_code] = None
@@ -136,7 +135,7 @@ class SensorsView(TemplateView):
                 if sensor.name not in data[room_name][metric_code]['sensors']:
                     data[room_name][metric_code]['sensors'].append(sensor.name)
 
-        for room_name, room_data in data.items():
+        for room_name, room_data in data.items(): # Reordenar métricas por sala.
             ordered_data = OrderedDict()
             for metric_code in metric_order:
                 if metric_code in room_data:
@@ -155,6 +154,7 @@ class SensorsView(TemplateView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GenerateSensorView(View):
+    """Genera y devuelve HTML de gráfico de datos de sensor vía POST."""
     def post(self, request):
         start_time = time.time()
         sensor = request.POST.get('sensor')
@@ -185,6 +185,7 @@ class GenerateSensorView(View):
 
 
 class VPDView(TemplateView):
+    """Vista para datos de Déficit de Presión de Vapor (VPD), con tabla y gráfico por sala."""
     template_name = 'charts/vpd.html'
 
     def get_context_data(self, **kwargs):
@@ -243,6 +244,7 @@ class VPDView(TemplateView):
 
 
 class GenerateGaugeView(View):
+    """Genera y devuelve HTML de un medidor específico vía GET."""
     def get(self, request, *args, **kwargs):
         sensor_name = request.GET.get('sensor', '')
         metric = request.GET.get('metric', '')
@@ -266,28 +268,27 @@ class GenerateGaugeView(View):
 
 
 class InteractiveView(TemplateView):
+    """Vista para gráfico interactivo multi-métrica, configurable por tiempo y agrupación (sala/sensor)."""
     template_name = 'charts/interactive.html'
-    TARGET_POINTS = 120  # Target number of points to display in the chart
-    MIN_DATA_POINTS_FOR_DISPLAY = 20 # Minimum data points for a sensor/room to be displayed
+    TARGET_POINTS = 120 # Puntos objetivo en gráfico
+    MIN_DATA_POINTS_FOR_DISPLAY = 20 # Mínimo de puntos para mostrar item
 
     def get_context_data(self, **kwargs):
         start_time = time.time()
         context = super().get_context_data(**kwargs)
 
-        # Extract and validate request parameters
         timeframe = self.request.GET.get('timeframe', '1T').lower()
         logger.debug(f"InteractiveView: Using timeframe: {timeframe}")
         
         metrics_param = self.request.GET.get('metrics', self.request.GET.get('metric', 't'))
         metrics = [m.strip().lower() for m in metrics_param.split(',') if m.strip()] if metrics_param else ['t']
         if not metrics:
-            metrics = ['t']
+            metrics = ['t'] # Default a temperatura si no hay métricas
         logger.debug(f"InteractiveView: Using metrics: {metrics}")
             
         room_grouping_active = to_bool(self.request.GET.get('room', 'true'))
         logger.debug(f"InteractiveView: Grouping by room: {room_grouping_active}")
 
-        # Set time range
         end_date = timezone.now()
         if end_date_str := self.request.GET.get('end_date'):
             try:
@@ -304,10 +305,8 @@ class InteractiveView(TemplateView):
         
         logger.debug(f"InteractiveView: Time range: {start_date} to {end_date} ({timeframe})")
 
-        # Fetch data
         df = self._fetch_sensor_data(timeframe, metrics, start_date, end_date)
         
-        # Add room information for grouping
         sensors_map = Sensor.objects.select_related('room').all()
         sensor_to_room_map = {s.name: s.room.name if s.room else "No Room" for s in sensors_map}
         
@@ -321,11 +320,12 @@ class InteractiveView(TemplateView):
             group_by_column = 'room' if room_grouping_active else 'sensor'
             
             valid_items_to_plot = []
+            # Filtrar items (sensores/salas) con pocos datos
             for item_name, group_data in df.groupby(group_by_column):
                 total_item_points = 0
                 for metric_code in metrics:
                     if metric_code in group_data.columns:
-                        total_item_points += group_data[metric_code].count() # count non-NaN values
+                        total_item_points += group_data[metric_code].count()
                 
                 if total_item_points >= self.MIN_DATA_POINTS_FOR_DISPLAY:
                     valid_items_to_plot.append(item_name)
@@ -340,19 +340,16 @@ class InteractiveView(TemplateView):
         
         else:
             logger.warning("InteractiveView: DataFrame is empty or missing 'sensor' column before filtering.")
-            df_filtered = df # Pass empty or original df if it was problematic
+            df_filtered = df
 
-        # Generate chart
         chart_html, plotted_points = self._generate_multi_metric_chart(
             df_filtered, metrics, by_room=room_grouping_active, timeframe=timeframe, 
             start_date=start_date, end_date=end_date
         )
         
-        # Calculate time window from timeframe for context
         time_window = get_timedelta_from_timeframe(timeframe)
         window_minutes = int(time_window.total_seconds() / 60)
         
-        # Prepare context data
         query_duration = time.time() - start_time
         metadata = {
             'timeframe': timeframe,
@@ -380,7 +377,7 @@ class InteractiveView(TemplateView):
         return context
     
     def _fetch_sensor_data(self, timeframe, metrics, start_date, end_date):
-        """Fetch sensor data and return as DataFrame with pivoted metrics as columns."""
+        """Obtiene datos de sensor, optimizando frecuencia. Si falla, usa pivot directo."""
         time_window = get_timedelta_from_timeframe(timeframe)
         total_seconds = time_window.total_seconds()
         optimal_freq = self._calculate_optimal_frequency(total_seconds, self.TARGET_POINTS)
@@ -400,6 +397,7 @@ class InteractiveView(TemplateView):
             return pd.DataFrame()
         
         try:
+            # Intento con DataFrameBuilder y frecuencia óptima
             df = DataPointDataFrameBuilder(
                 timeframe=optimal_freq, 
                 start_date=start_date,
@@ -412,6 +410,7 @@ class InteractiveView(TemplateView):
                 logger.debug(f"InteractiveView: DataFrameBuilder returned {len(df)} rows with optimal frequency '{optimal_freq}'")
                 return df
                 
+            # Fallback: pivot directo con datos crudos y frecuencia óptima
             logger.info("InteractiveView: DataFrameBuilder returned empty. Attempting direct pivot approach")
             raw_data = list(DataPoint.objects.filter(
                 timestamp__gte=start_date,
@@ -424,7 +423,7 @@ class InteractiveView(TemplateView):
                 
             df = pd.DataFrame(raw_data)
             df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df['timestamp'] = df['timestamp'].dt.floor(optimal_freq)
+            df['timestamp'] = df['timestamp'].dt.floor(optimal_freq) # Agrupar por frecuencia óptima
             
             pivot_df = df.pivot_table(
                 index=['timestamp', 'sensor'],
@@ -444,19 +443,19 @@ class InteractiveView(TemplateView):
             return pd.DataFrame()
     
     def _calculate_optimal_frequency(self, total_seconds, target_points):
-        """Calculate the optimal frequency to achieve the target number of points."""
+        """Calcula frecuencia óptima de pandas para remuestreo, buscando X puntos en una duración total."""
         seconds_per_point = total_seconds / target_points
         
         if seconds_per_point < 1: return '1s'
         if seconds_per_point < 5: return f"{int(round(seconds_per_point))}s"
-        if seconds_per_point < 60: return f"{int(round(seconds_per_point/5)*5)}s"
+        if seconds_per_point < 60: return f"{int(round(seconds_per_point/5)*5)}s" # Múltiplos de 5s
         if seconds_per_point < 300: return f"{int(round(seconds_per_point/60))}min"
-        if seconds_per_point < 3600: return f"{int(round(seconds_per_point/300)*5)}min"
+        if seconds_per_point < 3600: return f"{int(round(seconds_per_point/300)*5)}min" # Múltiplos de 5min
         if seconds_per_point < 86400: return f"{int(round(seconds_per_point/3600))}h"
         return f"{int(round(seconds_per_point/86400))}d"
     
     def _generate_multi_metric_chart(self, data_df, metrics, by_room=False, timeframe='1T', start_date=None, end_date=None):
-        """Generate an interactive chart with multiple metrics."""
+        """Genera gráfico Plotly interactivo multi-métrica, con subplots y bandas de fondo configurables."""
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
         import plotly.colors as pcolors
@@ -475,7 +474,6 @@ class InteractiveView(TemplateView):
             's': 'Sustrato (%)'
         }
         
-        # Define metric configuration for background bands
         metric_cfg = {
             't': {
                 'steps': [18, 24, 40],
@@ -499,8 +497,7 @@ class InteractiveView(TemplateView):
             rows=len(metrics), 
             cols=1, 
             shared_xaxes=True, 
-            vertical_spacing=0.08, # Increased vertical spacing for better separation
-            # subplot_titles removed as per request
+            vertical_spacing=0.08,
         )
         
         group_column = 'room' if by_room else 'sensor'
@@ -514,44 +511,31 @@ class InteractiveView(TemplateView):
 
         logger.debug(f"_generate_multi_metric_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
         
-        # Add background bands for each metric
+        # Añadir bandas de fondo y trazas para cada métrica y elemento (sensor/sala)
         for i, metric_code in enumerate(metrics, 1):
-            # Add background bands if configuration exists for this metric
             if metric_code in metric_cfg:
                 steps = metric_cfg[metric_code]['steps']
                 colors = metric_cfg[metric_code]['colors']
                 
-                # Add band for first section if it doesn't start at 0
-                if steps[0] > 0:
+                if steps[0] > 0: # Banda inicial si el primer step no es 0
                     fig.add_shape(
                         type="rect",
-                        xref=f"x{i}",  # Revert to subplot x-axis data coordinates
-                        yref=f"y{i}",
-                        x0=start_date,  # Use actual start_date
-                        x1=end_date,  # Use actual end_date
-                        y0=0,
-                        y1=steps[0],
-                        fillcolor=colors[0],
-                        opacity=0.5,
-                        layer="below",
-                        line_width=0,
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=start_date, x1=end_date,
+                        y0=0, y1=steps[0],
+                        fillcolor=colors[0], opacity=0.5,
+                        layer="below", line_width=0,
                         row=i, col=1
                     )
                 
-                # Add bands for remaining sections
-                for j in range(1, len(steps)):
+                for j in range(1, len(steps)): # Bandas restantes
                     fig.add_shape(
                         type="rect",
-                        xref=f"x{i}",  # Revert to subplot x-axis data coordinates
-                        yref=f"y{i}",
-                        x0=start_date,  # Use actual start_date
-                        x1=end_date,  # Use actual end_date
-                        y0=steps[j-1],
-                        y1=steps[j],
-                        fillcolor=colors[min(j, len(colors)-1)],
-                        opacity=0.5,
-                        layer="below",
-                        line_width=0,
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=start_date, x1=end_date,
+                        y0=steps[j-1], y1=steps[j],
+                        fillcolor=colors[min(j, len(colors)-1)], opacity=0.5,
+                        layer="below", line_width=0,
                         row=i, col=1
                     )
             
@@ -589,7 +573,7 @@ class InteractiveView(TemplateView):
             height=467 * len(metrics),
             plot_bgcolor='white',
             paper_bgcolor='white',
-            margin=dict(l=80, r=80, t=50, b=50), # Increased right margin, balanced with left
+            margin=dict(l=80, r=80, t=50, b=50),
             hovermode='closest',
             legend=dict(
                 orientation="h",
@@ -599,22 +583,20 @@ class InteractiveView(TemplateView):
                 x=1,
                 traceorder="normal"
             ),
-            autosize=True, # Ensure autosize is on
-            # width=1000 # Removed explicit width to rely more on autosize and responsive config
+            autosize=True,
         )
         
-        # Configure axes for all subplots
+        # Configurar ejes para todos los subplots
         for i in range(1, len(metrics) + 1):
             fig.update_xaxes(
-                range=[start_date, end_date], # Explicitly set x-axis range
+                range=[start_date, end_date],
                 showticklabels=True, 
                 showgrid=True, gridwidth=1, gridcolor='rgba(211,211,211,0.5)', 
                 showline=True, linewidth=1, linecolor='lightgreen', mirror=True,
                 row=i, col=1,
-                tickfont=dict(size=11) # Slightly larger tick font
+                tickfont=dict(size=11)
             )
             
-            # Configure Y-axis with ticks on both sides
             fig.update_yaxes(
                 showgrid=True, 
                 gridwidth=1, 
@@ -622,25 +604,24 @@ class InteractiveView(TemplateView):
                 showline=True, 
                 linewidth=1, 
                 linecolor='lightgreen', 
-                mirror=True,  # Show axis line on both sides
+                mirror=True,
                 row=i, 
                 col=1,
-                tickfont=dict(size=11), # Slightly larger tick font
-                tickformat=".1f", # Format tick values with one decimal place
-                ticks="outside", # Show tick marks outside the axis
-                showticklabels=True, # Show tick labels
+                tickfont=dict(size=11),
+                tickformat=".1f",
+                ticks="outside",
+                showticklabels=True,
             )
             
             if metrics[i-1] in metric_names:
                 fig.update_yaxes(
                     title_text=metric_names[metrics[i-1]], 
-                    title_standoff=15, # Add standoff to move title away from axis
+                    title_standoff=15,
                     title_font=dict(size=14, family="Arial, sans-serif", color="#5f9b62", weight="bold"),
                     row=i, 
                     col=1
                 )
         
-        # Remove X-axis title from the bottom-most subplot
         fig.update_xaxes(title_text=None, row=len(metrics), col=1)
         
         logger.debug(f"_generate_multi_metric_chart: Generated chart with {plotted_points} points")

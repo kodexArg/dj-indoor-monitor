@@ -54,22 +54,19 @@ METRICS_CFG = {
 }
 
 def gauge_plot(value, metric, sensor, timestamp=None):
+    """Genera HTML de gráfico de medidor para una métrica de sensor."""
     metric_cfg = METRICS_CFG.get(metric)
     if not metric_cfg:
         return "<div>Invalid metric</div>"
 
     steps = metric_cfg['steps']
-
-    # Título principal: Título de la métrica
     main_title = f"{metric_cfg['title']} en {metric_cfg['unit']}"
-
-    # Subtítulo: Nombre del sensor (convertido a Title Case)
     sensor_name = str(sensor).title()
 
     fig = go.Figure()
     max_value = steps[-1]
 
-    # Generate gauge steps depending on whether the first step is zero <- acá ganó o3-mini... para lo que va a durar: se va a models.py pronto...
+    # Generar 'steps' del medidor dinámicamente
     if steps[0] != 0:
         gauge_steps = (
             [{'range': [0, steps[0]], 'color': metric_cfg['color_bars_gradient'][0]}] +
@@ -80,17 +77,16 @@ def gauge_plot(value, metric, sensor, timestamp=None):
             {'range': [steps[i-1], steps[i]], 'color': metric_cfg['color_bars_gradient'][i-1]}
             for i in range(1, len(steps))
         ]
-    # es más feo que ver chess cpu vs cpud
 
     fig.add_trace(go.Indicator(
         mode="gauge+number",
         value=value,
-        domain={'x': [0, 1], 'y': [0.15, 1]}, 
+        domain={'x': [0, 1], 'y': [0.15, 1]},
         number={
             'font': {'size': 24,
                      'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
             'suffix': f" {metric_cfg['unit']}",
-            'valueformat': '.1f' if metric != 'l' else '.0f'
+            'valueformat': '.1f' if metric != 'l' else '.0f' # Sin decimales para lux
         },
         gauge={
             'axis': {
@@ -100,7 +96,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
                 'tickfont': {'size': 10,
                              'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
                 'tickmode': 'linear',
-                'dtick': max_value / 5
+                'dtick': max_value / 5 # 5 ticks en el eje
             },
             'bar': {'color': "rgba(150, 150, 150, 0.5)"},
             'bgcolor': "white",
@@ -114,7 +110,6 @@ def gauge_plot(value, metric, sensor, timestamp=None):
         }
     ))
 
-    # Format the timestamp for display
     if timestamp:
         timestamp_str = timestamp.strftime('%Y-%m-%d %H:%M')
     else:
@@ -162,28 +157,12 @@ def gauge_plot(value, metric, sensor, timestamp=None):
     )
 
 def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
-    """
-    Generates a line plot HTML string.
-
-    Args:
-        df (pd.DataFrame): The DataFrame containing the data.
-        sensor (str): The name of the sensor.
-        metric (str): The metric being plotted.
-        timeframe (str): The timeframe for the data.
-        start_date (datetime): The start date of the data.
-        end_date (datetime): The end date of the data.
-
-    Returns:
-        str: The HTML string for the line plot.
-        int: The number of data points used to generate the chart
-    """
-
+    """Genera HTML de gráfico de línea para datos de sensor, con bandas de color para rangos óptimos."""
     try:
         if df.empty:
             logger.warning("DataFrame vacío")
             return f'<div>No hay datos para {sensor} - {metric}</div>', 0
         
-        # Filter out None or NaN values
         df = df.dropna(subset=['value'])
         processed_values = df['value'].tolist()
         processed_timestamps = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S').tolist()
@@ -192,46 +171,32 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
         
         fig = go.Figure()
         
+        # Añadir bandas de fondo si están configuradas
         if "steps" in metric_cfg:
             steps = metric_cfg["steps"]
             colors = metric_cfg["color_bars_gradient"]
             shapes = []
-            if steps[0] != 0:
+            if steps[0] != 0: # Banda inicial si el primer step no es 0
                 shapes.append({
-                    "type": "rect",
-                    "xref": "paper",
-                    "yref": "y",
-                    "x0": 0,
-                    "x1": 1,
-                    "y0": 0,
-                    "y1": steps[0],
+                    "type": "rect", "xref": "paper", "yref": "y",
+                    "x0": 0, "x1": 1, "y0": 0, "y1": steps[0],
                     "fillcolor": colors[0] if len(colors) > 0 else 'rgba(200,200,200,0.2)',
-                    "opacity": 0.07,
-                    "line": {"width": 0},
+                    "opacity": 0.07, "line": {"width": 0},
                 })
-            for i in range(1, len(steps)):
+            for i in range(1, len(steps)): # Bandas restantes
                 fillcolor = colors[i] if i < len(colors) else 'rgba(200,200,200,0.2)'
                 shapes.append({
-                    "type": "rect",
-                    "xref": "paper",
-                    "yref": "y",
-                    "x0": 0,
-                    "x1": 1,
-                    "y0": steps[i-1],
-                    "y1": steps[i],
-                    "fillcolor": fillcolor,
-                    "opacity": 0.07, 
-                    "line": {"width": 0},
+                    "type": "rect", "xref": "paper", "yref": "y",
+                    "x0": 0, "x1": 1, "y0": steps[i-1], "y1": steps[i],
+                    "fillcolor": fillcolor, "opacity": 0.07, "line": {"width": 0},
                 })
-            min_y = (0 + steps[0]) / 2
-            if len(steps) > 1:
-                max_y = steps[-1] * 1.05 
-            else:
-                max_y = steps[0] * 1.5 
+            # Ajustar rango Y para mejor visualización de bandas
+            min_y = (0 + steps[0]) / 2 
+            max_y = steps[-1] * 1.05 if len(steps) > 1 else steps[0] * 1.5
             y_range = [min_y, max_y]
         else:
             shapes = []
-            y_range = None
+            y_range = None # Rango Y automático si no hay bandas
         
         fig.add_trace(
             go.Scatter(
@@ -249,49 +214,34 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             plot_bgcolor='white',
             shapes=shapes,
             showlegend=False,
-            height=None,
-            width=None,
+            height=None, # Permitir autosize
+            width=None,  # Permitir autosize
             autosize=True,
-            margin=dict(l=90, r=20, t=20, b=20), 
+            margin=dict(l=90, r=20, t=20, b=20),
             xaxis={
-                'type': 'date',  # Forzar línea de tiempo en x
+                'type': 'date',
                 'fixedrange': True,
                 'tickmode': 'auto',
-                'showgrid': True,
-                'gridcolor': 'lightgrey',
-                'gridwidth': 0.5,
-                'griddash': 'dot',
+                'showgrid': True, 'gridcolor': 'lightgrey', 'gridwidth': 0.5, 'griddash': 'dot',
                 'visible': True,
-                'range': [start_date.isoformat(), end_date.isoformat()]  # Establece los límites de la línea de tiempo
+                'range': [start_date.isoformat(), end_date.isoformat()] # Fijar rango del eje X
             },
             yaxis={
                 'fixedrange': True,
                 'range': y_range,
                 'tickmode': 'auto',
-                'showgrid': True,
-                'gridcolor': 'lightgrey',
-                'gridwidth': 0.5,
-                'griddash': 'dot',
+                'showgrid': True, 'gridcolor': 'lightgrey', 'gridwidth': 0.5, 'griddash': 'dot',
                 'visible': True,
-                'side': 'right' 
+                'side': 'right' # Eje Y a la derecha
             },
             hovermode='x unified',
             annotations=[
                 {
-                    "x": -0.1,
-                    "y": 0.5,
-                    "xref": "paper",
-                    "yref": "paper",
+                    "x": -0.1, "y": 0.5, "xref": "paper", "yref": "paper",
                     "text": f"<b>{metric_cfg['title']} en {metric_cfg['unit']}</b><br><span style='font-size:0.8em;'>sensor {sensor.upper()}</span>",
-                    "showarrow": False,
-                    "textangle": -90,
-                    "xanchor": "left",
-                    "yanchor": "middle",
-                    "font": {
-                        "size": 16,
-                        "color": "#5f9b62",
-                        "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"
-                    }
+                    "showarrow": False, "textangle": -90,
+                    "xanchor": "left", "yanchor": "middle",
+                    "font": {"size": 16, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
                 }
             ]
         )
@@ -308,24 +258,23 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
         return f'<div>Error generando el gráfico: {str(e)}</div>', 0
 
 def calculate_vpd(t, h):
-    svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))
-    vp = svp * (h / 100)
+    """Calcula Déficit de Presión de Vapor (VPD) en kPa."""
+    # Fórmula de VPD: svp (presión de vapor de saturación) - vp (presión de vapor actual)
+    svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3)) # Ecuación de Tetens para SVP en kPa
+    vp = svp * (h / 100) # VP actual basada en humedad relativa
     return svp - vp
 
 def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
-
+    """Genera HTML de gráfico VPD, mostrando puntos de salas contra bandas objetivo de VPD."""
     filtered_data = [
         (room, float(temp), float(hum))
         for room, temp, hum in data
         if temp_min <= temp <= temp_max and hum_min <= hum <= hum_max
     ]
 
-    # filtered_data tiene la forma [('Secado', 18.5, 43.0)]
-
     if not filtered_data:
         return '<div>Sin datos en el rango especificado</div>'
 
-    # Bandas de VPD
     vpd_bands = [
         ("Muy Húmedo", 0, 0.4, "rgba(245, 230, 255, 0.2)"),
         ("Propagación", 0.4, 0.8, "rgba(195, 230, 215, 0.5)"),
@@ -333,17 +282,19 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         ("Flora", 1.2, 1.6, "rgba(255, 200, 150, 0.5)"),
         ("Muy Seco", 1.6, 10.0, "rgba(255, 100, 100, 0.025)")
     ]
-    temperatures = np.linspace(temp_min, temp_max, 200)
+    temperatures = np.linspace(temp_min, temp_max, 200) # Rango de temperaturas para dibujar bandas
 
+    # Función para calcular humedad (h) desde temperatura (t) y VPD
     def calc_hum_from_vpd(t, vpd):
         svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))
-        h = 100 * (1 - vpd / svp) if svp > 0 else 100
-        return max(hum_min, min(hum_max, h))
+        h = 100 * (1 - vpd / svp) if svp > 0 else 100 # Evitar división por cero
+        return max(hum_min, min(hum_max, h)) # Limitar humedad a rango visible
 
     fig = go.Figure()
-    for band_name, vpd_min, vpd_max, color in vpd_bands:
-        h_upper = [calc_hum_from_vpd(t, vpd_min) for t in temperatures]
-        h_lower = [calc_hum_from_vpd(t, vpd_max) for t in temperatures]
+    # Dibujar bandas de VPD en el gráfico
+    for band_name, vpd_min_band, vpd_max_band, color in vpd_bands:
+        h_upper = [calc_hum_from_vpd(t, vpd_min_band) for t in temperatures]
+        h_lower = [calc_hum_from_vpd(t, vpd_max_band) for t in temperatures]
         fig.add_trace(go.Scatter(
             x=h_upper, y=temperatures, mode='lines', line=dict(width=0),
             fillcolor=color, showlegend=False
@@ -351,10 +302,10 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         fig.add_trace(go.Scatter(
             x=h_lower, y=temperatures, mode='lines', line=dict(width=0),
             fill='tonexty', fillcolor=color, name=band_name,
-            showlegend=not band_name.startswith("Muy")
+            showlegend=not band_name.startswith("Muy") # No mostrar en leyenda bandas extremas
         ))
 
-    # Agregar puntos para cada sala
+    # Agregar puntos de datos (salas) al gráfico
     for room_name, temp, hum in filtered_data:
         current_vpd = calculate_vpd(temp, hum)
         fig.add_trace(go.Scatter(

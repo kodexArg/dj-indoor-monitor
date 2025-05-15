@@ -5,8 +5,7 @@ from .models import DataPoint
 
 
 class MetricRangeFilter(filters.NumberFilter):
-    """Filtro personalizado para manejar rangos de métricas por tipo"""
-    
+    """Filtro numérico para rangos de métricas según tipo y rangos válidos predefinidos."""
     def __init__(self, *args, **kwargs):
         self.metric_type = kwargs.pop('metric_type', None)
         self.valid_ranges = kwargs.pop('valid_ranges', {})
@@ -21,7 +20,7 @@ class MetricRangeFilter(filters.NumberFilter):
         
         ranges = self.valid_ranges[self.metric_type]
         
-        # Aplicar el rango específico para este tipo de métrica
+        # Aplicar filtro de rango para la métrica específica
         return qs.filter(
             Q(metric=self.metric_type) & 
             Q(value__gte=ranges['min']) & 
@@ -30,37 +29,25 @@ class MetricRangeFilter(filters.NumberFilter):
 
 
 class DataPointFilter(filters.FilterSet):
-    """
-    Filtro para DataPoint con soporte para:
-    - Rangos de fechas (timestamp_after, timestamp_before)
-    - Filtrado por sensor (sensor, sensors)
-    - Filtrado por métrica con validación de rangos
-    - Obtener el último valor por sensor (latest_only)
-    """
-    # Rangos válidos para diferentes métricas
-    VALID_RANGES = {
+    """Conjunto de filtros para DataPoint: rangos de fecha, sensores, rangos de valor por métrica y opción de último valor."""
+    VALID_RANGES = { # Rangos de valores aceptables por métrica
         't': {'min': 2, 'max': 70},
         'h': {'min': 2, 'max': 100},
         's': {'min': 2, 'max': 99}
     }
     
-    # Filtros de timestamp
     timestamp_after = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='gte')
     timestamp_before = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='lte')
     
-    # Alias para start_date y end_date
     start_date = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='gte')
     end_date = filters.IsoDateTimeFilter(field_name='timestamp', lookup_expr='lte')
     
-    # Filtro para lista de sensores
     sensors = filters.CharFilter(method='filter_sensors')
     
-    # Filtros de rango por tipo de métrica
     temperature_range = MetricRangeFilter(metric_type='t', valid_ranges=VALID_RANGES)
     humidity_range = MetricRangeFilter(metric_type='h', valid_ranges=VALID_RANGES)
     state_range = MetricRangeFilter(metric_type='s', valid_ranges=VALID_RANGES)
     
-    # Filtro para obtener el último valor por sensor
     latest_only = filters.BooleanFilter(method='filter_latest_only')
     
     class Meta:
@@ -72,7 +59,7 @@ class DataPointFilter(filters.FilterSet):
         }
     
     def filter_sensors(self, queryset, name, value):
-        """Filtra por múltiples sensores si se proporciona una lista separada por comas"""
+        """Filtra queryset por lista de sensores (string separado por comas)."""
         if not value:
             return queryset
         
@@ -80,20 +67,17 @@ class DataPointFilter(filters.FilterSet):
         return queryset.filter(sensor__in=sensor_list)
 
     def filter_latest_only(self, queryset, name, value):
-        """Filtra para obtener solo el último valor por sensor"""
+        """Filtra queryset para devolver solo el DataPoint más reciente por sensor si 'value' es True."""
         if value:
-            # Ordenar por sensor y timestamp descendente, y quedarnos con el más reciente de cada sensor
+            # Ordena y toma el primer valor (más reciente) para cada sensor.
             return queryset.order_by('sensor', '-timestamp').distinct('sensor')
         return queryset
 
     def filter_queryset(self, queryset: QuerySet[DataPoint]) -> QuerySet[DataPoint]:
-        """
-        Aplica todos los filtros y además aplica la validación de rangos de métricas
-        para asegurar que los valores estén dentro de rangos aceptables
-        """
+        """Aplica validaciones generales de rango de métricas si no hay filtros específicos de rango activos."""
         queryset = super().filter_queryset(queryset)
         
-        # Si no se han aplicado filtros de rango específicos, aplicamos el filtro general
+        # Aplicar validación de rango general si no se usó un filtro de rango específico.
         if not any(param in self.form.data for param in 
                   ['temperature_range', 'humidity_range', 'state_range']):
             queryset = self.apply_metric_ranges(queryset)
@@ -101,12 +85,10 @@ class DataPointFilter(filters.FilterSet):
         return queryset
     
     def apply_metric_ranges(self, queryset: QuerySet) -> QuerySet:
-        """
-        Aplica filtros de rango para todas las métricas en una sola consulta eficiente
-        """
+        """Aplica rangos de valor válidos para métricas conocidas ('t', 'h', 's') mediante un objeto Q."""
         metric_filter = Q()
         
-        # Construir un solo Q object para todos los rangos de métricas
+        # Construir Q object para todos los rangos de métricas válidas.
         for metric, ranges in self.VALID_RANGES.items():
             metric_filter |= (
                 Q(metric=metric) & 
@@ -114,7 +96,7 @@ class DataPointFilter(filters.FilterSet):
                 Q(value__lte=ranges['max'])
             )
         
-        # Añadir filtro para métricas que no están en VALID_RANGES
+        # Permitir métricas no definidas en VALID_RANGES (sin filtro de rango para ellas).
         defined_metrics = list(self.VALID_RANGES.keys())
         metric_filter |= ~Q(metric__in=defined_metrics)
         
