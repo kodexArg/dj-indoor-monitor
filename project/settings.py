@@ -2,10 +2,22 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 import sys
+from loguru import logger
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Centralized Loguru configuration
+LOGS_DIR = BASE_DIR / 'logs'
+os.makedirs(LOGS_DIR, exist_ok=True)
+logger.add(
+    LOGS_DIR / "loguru_app.log", 
+    rotation="10 MB", 
+    retention="7 days", 
+    level=os.getenv('DJANGO_LOGURU_LEVEL', 'DEBUG'),
+    format="{time} {level} {module}:{function}:{line} - {message}"
+)
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
