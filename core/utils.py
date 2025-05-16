@@ -236,10 +236,10 @@ def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=
     colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
     
     metric_title = {
-        't': 'Temperatura (°C)',
-        'h': 'Humedad (%)',
-        'l': 'Luz (lux)',
-        's': 'Sustrato (%)'
+        't': 'Temperatura',
+        'h': 'Humedad',
+        'l': 'Luz',
+        's': 'Sustrato'
     }.get(metric, metric)
     
     fig = make_subplots()

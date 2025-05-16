@@ -269,7 +269,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             annotations=[
                 {
                     "x": -0.1, "y": 0.5, "xref": "paper", "yref": "paper",
-                    "text": f"<b>{metric_cfg['title']} en {metric_cfg['unit']}</b><br><span style='font-size:0.8em;'>sensor {sensor.upper()}</span>",
+                    "text": f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>{sensor.upper()}</span>",
                     "showarrow": False, "textangle": -90,
                     "xanchor": "left", "yanchor": "middle",
                     "font": {"size": 16, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
