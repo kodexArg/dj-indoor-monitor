@@ -8,6 +8,7 @@ core_sensordata.*
 utils_old.py
 api_old.py
 views_old.py
+.cursor/
 
 ### Django ###
 *.log
