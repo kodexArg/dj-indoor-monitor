@@ -490,4 +490,55 @@ h1 {
     padding: 0;
 }
 
+#chart-content {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+#chart-content .chart-container {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+#chart .plotly {
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+#chart .plotly .main-svg {
+    width: 100% !important;
+}
+#chart .js-plotly-plot,
+#chart .plot-container {
+    width: 100% !important;
+}
+#chart {
+    width: 100% !important;
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+.ytitle {
+    font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    font-size: 14px !important;
+    color: var(--brand-green-dark) !important;
+    font-weight: bold !important;
+}
+.ytick text {
+    font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    font-size: 11px !important;
+    visibility: visible !important;
+}
+.plot-container .plot-area {
+    margin: 0 10px !important;
+}
+@media (max-width: 768px) {
+  #chart-content .chart-container {
+    padding: 0 5px !important;
+  }
+}
+
 

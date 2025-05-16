@@ -5,6 +5,8 @@ from loguru import logger
 import numpy as np
 import pandas as pd
 from plotly.offline import plot
+import plotly.colors as pcolors
+from plotly.subplots import make_subplots
 
 # Get project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent # This BASE_DIR is used by the module itself.
@@ -52,6 +54,33 @@ METRICS_CFG = {
             'rgba(100, 149, 237, 0.8)',
         ],
         'brand_color': '#28a745',  # Verde
+    }
+}
+
+# New constants for generate_interactive_multi_metric_chart
+INTERACTIVE_CHART_METRIC_NAMES = {
+    't': 'Temperatura (°C)',
+    'h': 'Humedad (%)',
+    'l': 'Luz (lux)',
+    's': 'Sustrato (%)'
+}
+
+INTERACTIVE_CHART_BAND_CFG = {
+    't': {
+        'steps': [18, 24, 40],
+        'colors': ['rgba(135, 206, 235, 0.2)', 'rgba(144, 238, 144, 0.2)', 'rgba(255, 99, 71, 0.2)']
+    },
+    'h': {
+        'steps': [40, 55, 100],
+        'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
+    },
+    'l': {
+        'steps': [0, 900, 1000],
+        'colors': ['rgba(105, 105, 105, 0.1)', 'rgba(255, 255, 153, 0.2)']
+    },
+    's': {
+        'steps': [0, 30, 60, 100],
+        'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
     }
 }
 
@@ -337,3 +366,150 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10), height=600
     )
     return pio.to_html(fig, include_plotlyjs=True, full_html=False, config={'staticPlot': True})
+
+def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, timeframe='1T', start_date=None, end_date=None):
+    if data_df.empty:
+        logger.warning("generate_interactive_multi_metric_chart: Empty DataFrame, returning no data message")
+        return "<div class='no-data-alert'>No hay datos disponibles para este período o los sensores fueron filtrados.</div>", 0
+    
+    logger.debug(f"generate_interactive_multi_metric_chart: Processing DataFrame with {len(data_df)} rows for chart generation.")
+    
+    base_colors = pcolors.qualitative.Plotly 
+    
+    fig = make_subplots(
+        rows=len(metrics), 
+        cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.08,
+    )
+    
+    group_column = 'room' if by_room else 'sensor'
+    if group_column not in data_df.columns:
+        logger.error(f"generate_interactive_multi_metric_chart: Missing '{group_column}' column in DataFrame")
+        return "<div class='no-data-alert'>Error: Columna de agrupación requerida ausente.</div>", 0
+    
+    plotted_points = 0
+    unique_items = sorted(data_df[group_column].unique())
+    color_map = {item_name: base_colors[i % len(base_colors)] for i, item_name in enumerate(unique_items)}
+
+    logger.debug(f"generate_interactive_multi_metric_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
+    
+    for i, metric_code in enumerate(metrics, 1):
+        if metric_code in INTERACTIVE_CHART_BAND_CFG:
+            steps = INTERACTIVE_CHART_BAND_CFG[metric_code]['steps']
+            colors = INTERACTIVE_CHART_BAND_CFG[metric_code]['colors']
+            
+            if steps[0] > 0:
+                fig.add_shape(
+                    type="rect",
+                    xref=f"x{i}", yref=f"y{i}",
+                    x0=start_date, x1=end_date,
+                    y0=0, y1=steps[0],
+                    fillcolor=colors[0], opacity=0.5,
+                    layer="below", line_width=0,
+                    row=i, col=1
+                )
+            
+            for j in range(1, len(steps)):
+                fig.add_shape(
+                    type="rect",
+                    xref=f"x{i}", yref=f"y{i}",
+                    x0=start_date, x1=end_date,
+                    y0=steps[j-1], y1=steps[j],
+                    fillcolor=colors[min(j, len(colors)-1)], opacity=0.5,
+                    layer="below", line_width=0,
+                    row=i, col=1
+                )
+        
+        if metric_code not in data_df.columns:
+            logger.warning(f"generate_interactive_multi_metric_chart: Metric '{metric_code}' not in DataFrame columns: {data_df.columns.tolist()}")
+            continue
+            
+        for item_name, group_data in data_df.groupby(group_column):
+            valid_data = group_data.dropna(subset=[metric_code])
+            if valid_data.empty:
+                continue
+                
+            valid_data = valid_data.sort_values(by='timestamp')
+            plotted_points += len(valid_data)
+            item_color = color_map.get(item_name, '#808080') 
+            current_metric_name = INTERACTIVE_CHART_METRIC_NAMES.get(metric_code, metric_code.upper())
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=valid_data['timestamp'],
+                    y=valid_data[metric_code],
+                    mode='lines+markers',
+                    name=f"{item_name} - {current_metric_name}",
+                    line=dict(color=item_color, width=1.5),
+                    marker=dict(size=3, color=item_color),
+                    hovertemplate=f"{item_name} ({current_metric_name}): %{{y:.1f}}<extra></extra>"
+                ),
+                row=i, col=1
+            )
+    
+    if plotted_points == 0:
+        logger.warning("generate_interactive_multi_metric_chart: No points plotted. DataFrame might be empty or all items filtered.")
+        return "<div class='no-data-alert'>No hay datos para mostrar después del filtrado.</div>", 0
+    
+    fig.update_layout(
+        title=None, 
+        height=467 * len(metrics),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=80, r=80, t=50, b=50),
+        hovermode='closest',
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.1, 
+            xanchor="center",
+            x=0.5,
+            traceorder="normal"
+        ),
+        autosize=True,
+    )
+    
+    for i_ax in range(1, len(metrics) + 1):
+        fig.update_xaxes(
+            range=[start_date, end_date],
+            showticklabels=True, 
+            showgrid=True, gridwidth=1, gridcolor='rgba(211,211,211,0.5)', 
+            showline=True, linewidth=1, linecolor='lightgreen', mirror=True,
+            row=i_ax, col=1,
+            tickfont=dict()
+        )
+        
+        fig.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='rgba(211,211,211,0.5)', 
+            showline=True, 
+            linewidth=1, 
+            linecolor='lightgreen', 
+            mirror=True,
+            row=i_ax, 
+            col=1,
+            tickfont=dict(),
+            tickformat=".1f",
+            ticks="outside",
+            showticklabels=True,
+        )
+        
+        if metrics[i_ax-1] in INTERACTIVE_CHART_METRIC_NAMES:
+            fig.update_yaxes(
+                title_text=INTERACTIVE_CHART_METRIC_NAMES[metrics[i_ax-1]], 
+                title_standoff=15,
+                row=i_ax, 
+                col=1
+            )
+    
+    fig.update_xaxes(title_text=None, row=len(metrics), col=1)
+    
+    logger.debug(f"generate_interactive_multi_metric_chart: Generated chart with {plotted_points} points")
+    return fig.to_html(include_plotlyjs='cdn', full_html=False, config={
+        'responsive': True,
+        'displayModeBar': False,
+        'displaylogo': False,
+        'modeBarButtonsToRemove': ['lasso2d', 'select2d']
+    }), plotted_points

@@ -5,71 +5,6 @@
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/charts.css' %}">
-  <style>
-    #chart-content {
-      width: 100%;
-      padding: 0;
-      margin: 0;
-    }
-    
-    #chart-content .chart-container {
-      padding-left: 0;
-      padding-right: 0;
-      margin-left: 0;
-      margin-right: 0;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    
-    /* Ensure the Plotly chart itself expands if it has internal padding */
-    #chart .plotly {
-        width: 100% !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-    
-    /* Target the SVG element inside Plotly to ensure it fills the container */
-    #chart .plotly .main-svg {
-        width: 100% !important;
-    }
-    
-    /* Ensure the plot area takes full width */
-    #chart .js-plotly-plot, 
-    #chart .plot-container {
-        width: 100% !important;
-    }
-    
-    /* Make sure the chart takes the full width of its container */
-    #chart {
-        width: 100% !important;
-        display: block !important;
-        max-width: 100% !important;
-        overflow: hidden !important;
-    }
-    
-    /* Ensure chart axes labels are fully visible */
-    .ytitle {
-        font-weight: bold !important;
-    }
-    
-    /* Ensure Y-axis tick labels are visible */
-    .ytick text {
-        font-size: 11px !important;
-        visibility: visible !important;
-    }
-    
-    /* Add more space for the plot area */
-    .plot-container .plot-area {
-        margin: 0 10px !important;
-    }
-    
-    /* Make sure the chart container has enough padding */
-    @media (max-width: 768px) {
-      #chart-content .chart-container {
-        padding: 0 5px !important;
-      }
-    }
-  </style>
 {% endblock %}
 
 {% block navbar %}
@@ -94,8 +29,8 @@
         <a class="button {% if 'l' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 'l' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 'l' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}l{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Luz</a>
         <a class="button {% if 's' in metadata.metrics %}active{% endif %}" href="{% url 'interactive' %}?metrics={% if 's' in metadata.metrics %}{% for m in metadata.metrics %}{% if m != 's' %}{{ m }}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}{% else %}{% for m in metadata.metrics %}{{ m }},{% endfor %}s{% endif %}&timeframe={{ metadata.timeframe }}&room={{ room|yesno:'true,false' }}">Sustrato</a>
       </div>
-      <div class="button-cluster">
-        <a class="button {% if room %}active{% endif %}" href="{% url 'interactive' %}?timeframe={{ metadata.timeframe }}&metrics={{ metadata.metrics|join:',' }}&room={% if room %}false{% else %}true{% endif %}">Salas</a>
+      <div class="button-cluster" style="display: none;">
+        <a class="button {% if room %}active{% endif %}" href="{% url 'interactive' %}?timeframe={{ metadata.timeframe }}&metrics={{ metadata.metrics|join:',' }}&room={% if room %}false{% else %}true{% endif %}" hidden>Salas</a>
       </div>
     </div>
   </article>
@@ -105,6 +40,7 @@
     <div class="chart-container" id="chart">
       {{ chart_html|safe }}
     </div>
+
   </article>
   <article id="debug-info">
     <div class="debug-section">
@@ -114,9 +50,7 @@
 <strong>Registros</strong>: {{ metadata.record_count }}
 <strong>Puntos graficados</strong>: {{ plotted_points }} / {{ target_points }} objetivo
 <strong>Sensores Activos</strong>: {{ metadata.sensor_ids|join:", " }}
-{% if metadata.excluded_items %}
-<strong>Sensores Excluídos ( &lt; {{ view.MIN_DATA_POINTS_FOR_DISPLAY }} pts)</strong>: {{ metadata.excluded_items|join:", " }}
-{% endif %}
+<strong>Sensores Excluídos ( &lt; {{ view.MIN_DATA_POINTS_FOR_DISPLAY }} pts)</strong>: {% if metadata.excluded_items %}{{ metadata.excluded_items|join:", " }}{% endif %}
 <strong>Timeframe</strong>: {{ metadata.timeframe }}
 <strong>Ventana</strong>: {{ metadata.window_minutes }} min
 <strong>Métrica(s)</strong>: {{ metadata.metrics|join:", " }}
@@ -134,7 +68,6 @@
     const startTime = performance.now();
     const totalTimeEl = document.getElementById('total-time');
     
-    // Actualizar el tiempo total cuando la página esté completamente cargada
     window.addEventListener('load', function() {
       const endTime = performance.now();
       const totalTime = (endTime - startTime) / 1000;

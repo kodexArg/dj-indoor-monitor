@@ -5,11 +5,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from collections import OrderedDict
 from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd
-from .utils import get_timedelta_from_timeframe, create_timeframed_dataframe
-from .utils import METRIC_MAP
-from .utils import DataPointDataFrameBuilder
-from .utils import pretty_datetime, get_start_date, to_bool, interactive_plot
+from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd, generate_interactive_multi_metric_chart
+from .utils import (
+    get_timedelta_from_timeframe, 
+    create_timeframed_dataframe,
+    METRIC_MAP,
+    DataPointDataFrameBuilder,
+    pretty_datetime, 
+    get_start_date, 
+    to_bool, 
+    calculate_optimal_frequency,
+    filter_dataframe_by_min_points
+)
 import pandas as pd
 import time
 from loguru import logger
@@ -25,7 +32,6 @@ class ChartsView(TemplateView):
 
 
 class GaugesView(TemplateView):
-    """Vista para mostrar últimos datos de sensores como medidores, agrupados por sala."""
     template_name = 'charts/gauges.html'
 
     def get_context_data(self, **kwargs):
@@ -62,7 +68,6 @@ class GaugesView(TemplateView):
 
 
 class SensorsView(TemplateView):
-    """Vista que muestra métricas de sensores agrupadas por sala, filtrables por tiempo."""
     template_name = 'charts/sensors.html'
     metric_map = METRIC_MAP
 
@@ -84,7 +89,6 @@ class SensorsView(TemplateView):
         sensor_names = [sensor.name for sensor in sensors if sensor.room]
         
         if sensor_names:
-            # Optimización: una consulta para todas las métricas de sensores en el rango de tiempo.
             metrics_by_sensor = DataPoint.objects.filter(
                 sensor__in=sensor_names,
                 timestamp__gte=start_date,
@@ -98,7 +102,7 @@ class SensorsView(TemplateView):
                     all_sensor_metrics[sensor_name] = set()
                 all_sensor_metrics[sensor_name].add(metric)
         
-        metric_order = ['t', 'h', 'l', 's'] # Orden predefinido de métricas
+        metric_order = ['t', 'h', 'l', 's']
         
         for sensor in sensors:
             if not sensor.room:
@@ -115,7 +119,6 @@ class SensorsView(TemplateView):
                 continue
 
             ordered_metrics = OrderedDict()
-            # Asegurar orden predefinido y luego alfabético para el resto.
             for metric_code in metric_order:
                 if metric_code in sensor_metrics:
                     ordered_metrics[metric_code] = None
@@ -135,7 +138,7 @@ class SensorsView(TemplateView):
                 if sensor.name not in data[room_name][metric_code]['sensors']:
                     data[room_name][metric_code]['sensors'].append(sensor.name)
 
-        for room_name, room_data in data.items(): # Reordenar métricas por sala.
+        for room_name, room_data in data.items():
             ordered_data = OrderedDict()
             for metric_code in metric_order:
                 if metric_code in room_data:
@@ -154,7 +157,6 @@ class SensorsView(TemplateView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GenerateSensorView(View):
-    """Genera y devuelve HTML de gráfico de datos de sensor vía POST."""
     def post(self, request):
         start_time = time.time()
         sensor = request.POST.get('sensor')
@@ -185,7 +187,6 @@ class GenerateSensorView(View):
 
 
 class VPDView(TemplateView):
-    """Vista para datos de Déficit de Presión de Vapor (VPD), con tabla y gráfico por sala."""
     template_name = 'charts/vpd.html'
 
     def get_context_data(self, **kwargs):
@@ -244,7 +245,6 @@ class VPDView(TemplateView):
 
 
 class GenerateGaugeView(View):
-    """Genera y devuelve HTML de un medidor específico vía GET."""
     def get(self, request, *args, **kwargs):
         sensor_name = request.GET.get('sensor', '')
         metric = request.GET.get('metric', '')
@@ -268,26 +268,22 @@ class GenerateGaugeView(View):
 
 
 class InteractiveView(TemplateView):
-    """Vista para gráfico interactivo multi-métrica, configurable por tiempo y agrupación (sala/sensor)."""
     template_name = 'charts/interactive.html'
-    TARGET_POINTS = 120 # Puntos objetivo en gráfico
-    MIN_DATA_POINTS_FOR_DISPLAY = 20 # Mínimo de puntos para mostrar item
+    TARGET_POINTS = 120
+    MIN_DATA_POINTS_FOR_DISPLAY = 20
 
     def get_context_data(self, **kwargs):
         start_time = time.time()
         context = super().get_context_data(**kwargs)
 
         timeframe = self.request.GET.get('timeframe', '1T').lower()
-        logger.debug(f"InteractiveView: Using timeframe: {timeframe}")
         
         metrics_param = self.request.GET.get('metrics', self.request.GET.get('metric', 't'))
         metrics = [m.strip().lower() for m in metrics_param.split(',') if m.strip()] if metrics_param else ['t']
         if not metrics:
-            metrics = ['t'] # Default a temperatura si no hay métricas
-        logger.debug(f"InteractiveView: Using metrics: {metrics}")
+            metrics = ['t']
             
-        room_grouping_active = to_bool(self.request.GET.get('room', 'true'))
-        logger.debug(f"InteractiveView: Grouping by room: {room_grouping_active}")
+        room_grouping_active = to_bool(self.request.GET.get('room', 'false'))
 
         end_date = timezone.now()
         if end_date_str := self.request.GET.get('end_date'):
@@ -305,44 +301,15 @@ class InteractiveView(TemplateView):
         
         logger.debug(f"InteractiveView: Time range: {start_date} to {end_date} ({timeframe})")
 
-        df = self._fetch_sensor_data(timeframe, metrics, start_date, end_date)
+        df = self._fetch_sensor_data(metrics, start_date, end_date, room_grouping_active)
         
-        sensors_map = Sensor.objects.select_related('room').all()
-        sensor_to_room_map = {s.name: s.room.name if s.room else "No Room" for s in sensors_map}
+        group_by_column = 'room' if room_grouping_active else 'sensor'
         
-        excluded_items_list = []
-        df_filtered = pd.DataFrame()
+        df_filtered, excluded_items_list = filter_dataframe_by_min_points(
+            df, group_by_column, metrics, self.MIN_DATA_POINTS_FOR_DISPLAY, logger
+        )
 
-        if not df.empty and 'sensor' in df.columns:
-            df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map.get(s, "No Room"))
-            logger.debug(f"InteractiveView: Added room column, found {df['room'].nunique()} unique rooms")
-
-            group_by_column = 'room' if room_grouping_active else 'sensor'
-            
-            valid_items_to_plot = []
-            # Filtrar items (sensores/salas) con pocos datos
-            for item_name, group_data in df.groupby(group_by_column):
-                total_item_points = 0
-                for metric_code in metrics:
-                    if metric_code in group_data.columns:
-                        total_item_points += group_data[metric_code].count()
-                
-                if total_item_points >= self.MIN_DATA_POINTS_FOR_DISPLAY:
-                    valid_items_to_plot.append(item_name)
-                else:
-                    excluded_items_list.append(item_name)
-                    logger.info(f"InteractiveView: Excluding '{item_name}' due to insufficient data ({total_item_points} points)")
-            
-            if valid_items_to_plot:
-                df_filtered = df[df[group_by_column].isin(valid_items_to_plot)]
-            else:
-                 logger.warning("InteractiveView: No items left to plot after filtering by MIN_DATA_POINTS_FOR_DISPLAY")
-        
-        else:
-            logger.warning("InteractiveView: DataFrame is empty or missing 'sensor' column before filtering.")
-            df_filtered = df
-
-        chart_html, plotted_points = self._generate_multi_metric_chart(
+        chart_html, plotted_points = generate_interactive_multi_metric_chart(
             df_filtered, metrics, by_room=room_grouping_active, timeframe=timeframe, 
             start_date=start_date, end_date=end_date
         )
@@ -359,8 +326,9 @@ class InteractiveView(TemplateView):
             'start_pretty': pretty_datetime(start_date),
             'end_pretty': pretty_datetime(end_date),
             'record_count': len(df_filtered) if not df_filtered.empty else 0,
-            'sensor_ids': list(df_filtered['sensor'].unique()) if not df_filtered.empty and 'sensor' in df_filtered else [],
-            'excluded_items': sorted(excluded_items_list),
+            'sensor_ids': list(df_filtered['sensor'].unique()) if not df_filtered.empty and 'sensor' in df_filtered and not room_grouping_active else [],
+            'room_names': list(df_filtered['room'].unique()) if not df_filtered.empty and 'room' in df_filtered and room_grouping_active else [],
+            'excluded_items': excluded_items_list,
             'window_minutes': window_minutes,
             'query_duration_s': round(query_duration, 3)
         }
@@ -370,265 +338,74 @@ class InteractiveView(TemplateView):
             'room': room_grouping_active,
             'chart_html': chart_html,
             'plotted_points': plotted_points,
-            'target_points': self.TARGET_POINTS
+            'target_points': self.TARGET_POINTS if not room_grouping_active else plotted_points
         })
         
         logger.info(f"InteractiveView: Completed in {query_duration:.3f}s with {plotted_points} points plotted. Excluded: {len(excluded_items_list)} items.")
         return context
     
-    def _fetch_sensor_data(self, timeframe, metrics, start_date, end_date):
-        """Obtiene datos de sensor, optimizando frecuencia. Si falla, usa pivot directo."""
-        time_window = get_timedelta_from_timeframe(timeframe)
-        total_seconds = time_window.total_seconds()
-        optimal_freq = self._calculate_optimal_frequency(total_seconds, self.TARGET_POINTS)
-        
-        logger.debug(f"InteractiveView: Total time window is {total_seconds} seconds")
-        logger.debug(f"InteractiveView: Using sampling frequency '{optimal_freq}' for consistent point count")
-        
-        data_count = DataPoint.objects.filter(
+    def _fetch_sensor_data(self, metrics, start_date, end_date, room_grouping_active):
+        actual_time_window = end_date - start_date
+        total_seconds_for_optimal_freq = actual_time_window.total_seconds()
+
+        data_points_qs = DataPoint.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date,
             metric__in=metrics
-        ).count()
-        
-        logger.debug(f"InteractiveView: Raw data points in time range: {data_count}")
-        
-        if data_count == 0:
+        ).order_by('timestamp')
+
+        if not data_points_qs.exists():
+            logger.debug("InteractiveView: No raw data points in time range.")
             return pd.DataFrame()
         
-        try:
-            # Intento con DataFrameBuilder y frecuencia óptima
-            df = DataPointDataFrameBuilder(
-                timeframe=optimal_freq, 
+        logger.debug(f"InteractiveView: Found {data_points_qs.count()} raw data points in time range initially.")
+
+        if room_grouping_active:
+            logger.debug("InteractiveView: Room grouping active. Processing raw data for room averages.")
+            raw_values = list(data_points_qs.values('timestamp', 'sensor', 'metric', 'value'))
+            
+            if not raw_values:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(raw_values)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            sensors_map_qs = Sensor.objects.select_related('room').all()
+            sensor_to_room_map_internal = {s.name: s.room.name if s.room else "No Room" for s in sensors_map_qs}
+            df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map_internal.get(s, "No Room"))
+            df = df[df['room'] != "No Room"]
+
+            if df.empty:
+                logger.debug("InteractiveView: DataFrame empty after filtering for sensors with assigned rooms.")
+                return pd.DataFrame()
+
+            grouped_df = df.groupby(['room', 'timestamp', 'metric'])['value'].mean().reset_index()
+            
+            pivot_df = grouped_df.pivot_table(
+                index=['room', 'timestamp'],
+                columns='metric',
+                values='value'
+            ).reset_index()
+            pivot_df.columns.name = None
+            logger.debug(f"InteractiveView: Room grouping - returning pivoted data with shape {pivot_df.shape}")
+            return pivot_df
+        else:
+            logger.debug("InteractiveView: Sensor grouping active. Using DataPointDataFrameBuilder.")
+            actual_resampling_freq = calculate_optimal_frequency(total_seconds_for_optimal_freq, self.TARGET_POINTS)
+            
+            df_builder = DataPointDataFrameBuilder(
+                timeframe=actual_resampling_freq, 
                 start_date=start_date,
                 end_date=end_date,
                 metrics=metrics,
                 pivot_metrics=True
-            ).build()
-            
-            if not df.empty:
-                logger.debug(f"InteractiveView: DataFrameBuilder returned {len(df)} rows with optimal frequency '{optimal_freq}'")
-                return df
-                
-            # Fallback: pivot directo con datos crudos y frecuencia óptima
-            logger.info("InteractiveView: DataFrameBuilder returned empty. Attempting direct pivot approach")
-            raw_data = list(DataPoint.objects.filter(
-                timestamp__gte=start_date,
-                timestamp__lte=end_date,
-                metric__in=metrics
-            ).values('timestamp', 'sensor', 'metric', 'value'))
-            
-            if not raw_data:
-                return pd.DataFrame()
-                
-            df = pd.DataFrame(raw_data)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df['timestamp'] = df['timestamp'].dt.floor(optimal_freq) # Agrupar por frecuencia óptima
-            
-            pivot_df = df.pivot_table(
-                index=['timestamp', 'sensor'],
-                columns='metric',
-                values='value',
-                aggfunc='mean'
-            ).reset_index()
-            
-            if pivot_df.empty:
-                return pd.DataFrame()
-                
-            logger.debug(f"InteractiveView: Direct pivot returned {len(pivot_df)} rows")
-            return pivot_df
-            
-        except Exception as e:
-            logger.error(f"InteractiveView: Error fetching data: {str(e)}")
-            return pd.DataFrame()
-    
-    def _calculate_optimal_frequency(self, total_seconds, target_points):
-        """Calcula frecuencia óptima de pandas para remuestreo, buscando X puntos en una duración total."""
-        seconds_per_point = total_seconds / target_points
-        
-        if seconds_per_point < 1: return '1s'
-        if seconds_per_point < 5: return f"{int(round(seconds_per_point))}s"
-        if seconds_per_point < 60: return f"{int(round(seconds_per_point/5)*5)}s" # Múltiplos de 5s
-        if seconds_per_point < 300: return f"{int(round(seconds_per_point/60))}min"
-        if seconds_per_point < 3600: return f"{int(round(seconds_per_point/300)*5)}min" # Múltiplos de 5min
-        if seconds_per_point < 86400: return f"{int(round(seconds_per_point/3600))}h"
-        return f"{int(round(seconds_per_point/86400))}d"
-    
-    def _generate_multi_metric_chart(self, data_df, metrics, by_room=False, timeframe='1T', start_date=None, end_date=None):
-        """Genera gráfico Plotly interactivo multi-métrica, con subplots y bandas de fondo configurables."""
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        import plotly.colors as pcolors
-        
-        if data_df.empty:
-            logger.warning("_generate_multi_metric_chart: Empty DataFrame, returning no data message")
-            return "<div class='no-data-alert'>No hay datos disponibles para este período o los sensores fueron filtrados.</div>", 0
-        
-        logger.debug(f"_generate_multi_metric_chart: Processing DataFrame with {len(data_df)} rows for chart generation.")
-        
-        base_colors = pcolors.qualitative.Plotly 
-        metric_names = {
-            't': 'Temperatura (°C)',
-            'h': 'Humedad (%)',
-            'l': 'Luz (lux)',
-            's': 'Sustrato (%)'
-        }
-        
-        metric_cfg = {
-            't': {
-                'steps': [18, 24, 40],
-                'colors': ['rgba(135, 206, 235, 0.2)', 'rgba(144, 238, 144, 0.2)', 'rgba(255, 99, 71, 0.2)']
-            },
-            'h': {
-                'steps': [40, 55, 100],
-                'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
-            },
-            'l': {
-                'steps': [0, 900, 1000],
-                'colors': ['rgba(105, 105, 105, 0.1)', 'rgba(255, 255, 153, 0.2)']
-            },
-            's': {
-                'steps': [0, 30, 60, 100],
-                'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
-            }
-        }
-        
-        fig = make_subplots(
-            rows=len(metrics), 
-            cols=1, 
-            shared_xaxes=True, 
-            vertical_spacing=0.08,
-        )
-        
-        group_column = 'room' if by_room else 'sensor'
-        if group_column not in data_df.columns:
-            logger.error(f"_generate_multi_metric_chart: Missing '{group_column}' column in DataFrame")
-            return "<div class='no-data-alert'>Error: Columna de agrupación requerida ausente.</div>", 0
-        
-        plotted_points = 0
-        unique_items = sorted(data_df[group_column].unique())
-        color_map = {item_name: base_colors[i % len(base_colors)] for i, item_name in enumerate(unique_items)}
-
-        logger.debug(f"_generate_multi_metric_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
-        
-        # Añadir bandas de fondo y trazas para cada métrica y elemento (sensor/sala)
-        for i, metric_code in enumerate(metrics, 1):
-            if metric_code in metric_cfg:
-                steps = metric_cfg[metric_code]['steps']
-                colors = metric_cfg[metric_code]['colors']
-                
-                if steps[0] > 0: # Banda inicial si el primer step no es 0
-                    fig.add_shape(
-                        type="rect",
-                        xref=f"x{i}", yref=f"y{i}",
-                        x0=start_date, x1=end_date,
-                        y0=0, y1=steps[0],
-                        fillcolor=colors[0], opacity=0.5,
-                        layer="below", line_width=0,
-                        row=i, col=1
-                    )
-                
-                for j in range(1, len(steps)): # Bandas restantes
-                    fig.add_shape(
-                        type="rect",
-                        xref=f"x{i}", yref=f"y{i}",
-                        x0=start_date, x1=end_date,
-                        y0=steps[j-1], y1=steps[j],
-                        fillcolor=colors[min(j, len(colors)-1)], opacity=0.5,
-                        layer="below", line_width=0,
-                        row=i, col=1
-                    )
-            
-            if metric_code not in data_df.columns:
-                logger.warning(f"_generate_multi_metric_chart: Metric '{metric_code}' not in DataFrame columns: {data_df.columns.tolist()}")
-                continue
-                
-            for item_name, group_data in data_df.groupby(group_column):
-                valid_data = group_data.dropna(subset=[metric_code])
-                if valid_data.empty:
-                    continue
-                    
-                plotted_points += len(valid_data)
-                item_color = color_map.get(item_name, '#808080') 
-                
-                fig.add_trace(
-                    go.Scatter(
-                        x=valid_data['timestamp'],
-                        y=valid_data[metric_code],
-                        mode='lines+markers',
-                        name=f"{item_name} - {metric_names.get(metric_code, metric_code.upper())}",
-                        line=dict(color=item_color, width=1.5),
-                        marker=dict(size=4, color=item_color),
-                        hovertemplate=f"{item_name} ({metric_names.get(metric_code, metric_code.upper())}): %{{y:.1f}}<extra></extra>"
-                    ),
-                    row=i, col=1
-                )
-        
-        if plotted_points == 0:
-            logger.warning("_generate_multi_metric_chart: No points plotted. DataFrame might be empty or all items filtered.")
-            return "<div class='no-data-alert'>No hay datos para mostrar después del filtrado.</div>", 0
-        
-        fig.update_layout(
-            title=None, 
-            height=467 * len(metrics),
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            margin=dict(l=80, r=80, t=50, b=50),
-            hovermode='closest',
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                traceorder="normal"
-            ),
-            autosize=True,
-        )
-        
-        # Configurar ejes para todos los subplots
-        for i in range(1, len(metrics) + 1):
-            fig.update_xaxes(
-                range=[start_date, end_date],
-                showticklabels=True, 
-                showgrid=True, gridwidth=1, gridcolor='rgba(211,211,211,0.5)', 
-                showline=True, linewidth=1, linecolor='lightgreen', mirror=True,
-                row=i, col=1,
-                tickfont=dict(size=11)
             )
+            df = df_builder.build() 
             
-            fig.update_yaxes(
-                showgrid=True, 
-                gridwidth=1, 
-                gridcolor='rgba(211,211,211,0.5)', 
-                showline=True, 
-                linewidth=1, 
-                linecolor='lightgreen', 
-                mirror=True,
-                row=i, 
-                col=1,
-                tickfont=dict(size=11),
-                tickformat=".1f",
-                ticks="outside",
-                showticklabels=True,
-            )
-            
-            if metrics[i-1] in metric_names:
-                fig.update_yaxes(
-                    title_text=metric_names[metrics[i-1]], 
-                    title_standoff=15,
-                    title_font=dict(size=14, family="Arial, sans-serif", color="#5f9b62", weight="bold"),
-                    row=i, 
-                    col=1
-                )
-        
-        fig.update_xaxes(title_text=None, row=len(metrics), col=1)
-        
-        logger.debug(f"_generate_multi_metric_chart: Generated chart with {plotted_points} points")
-        return fig.to_html(include_plotlyjs='cdn', full_html=False, config={
-            'responsive': True,
-            'displayModeBar': True,
-            'displaylogo': False,
-            'modeBarButtonsToRemove': ['lasso2d', 'select2d']
-        }), plotted_points
+            if not df.empty and 'sensor' in df.columns:
+                sensors_map_qs = Sensor.objects.select_related('room').all()
+                sensor_to_room_map_internal = {s.name: s.room.name if s.room else "No Room" for s in sensors_map_qs}
+                df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map_internal.get(s, "No Room"))
+            logger.debug(f"InteractiveView: Sensor grouping - returning DataFrame with shape {df.shape}")
+            return df
 
