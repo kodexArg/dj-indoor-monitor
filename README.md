@@ -71,6 +71,10 @@ Este endpoint permite crear, leer, actualizar y eliminar (`POST`, `GET`, `PUT`/`
     - `metadata`: Booleano (`true`/`false`). Si es `true`, incluye metadatos sobre la consulta (tiempos, rango de fechas, timeframe).
     - `include_room`: Booleano (`true`/`false`). Si es `true`, incluye el nombre del `room` asociado a cada sensor en los datos agrupados.
 
+    *Notas Adicionales para `/timeframed/`*:
+    - Si no se especifica `timeframe`, se utilizará un valor por defecto de `4H` (4 horas).
+    - Si se proporcionan `start_date` y `end_date` y el rango excede los 7 días, `start_date` se ajustará para que el rango sea de exactamente 7 días (`end_date - 7 días`).
+
 #### Parámetros de Consulta Comunes
 Los siguientes parámetros pueden ser aplicados a la mayoría de los endpoints de listado (`/api/data-point/`, `/latest/`, `/timeframed/`) para filtrar los resultados:
 - `start_date`: Filtra los registros desde esta fecha/hora (formato ISO 8601).
@@ -219,10 +223,12 @@ DB_USER=usuario_db
 DB_PASSWORD=pass_db
 DB_HOST=db
 DB_PORT=5432
+# Si se ejecuta localmente con 'python manage.py runserver', se puede usar DB_LOCAL para especificar un host de BD diferente (ej. localhost)
+# DB_LOCAL=localhost 
 
 # API
 DRF_DEFAULT_THROTTLE_RATES=anon:1000/day
-DRF_DEFAULT_PAGE_SIZE=50
+DRF_DEFAULT_PAGE_SIZE=1000
 
 # Monitor
 IGNORE_SENSORS=sensor1,sensor2
