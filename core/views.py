@@ -18,10 +18,8 @@ from .utils import (
     filter_dataframe_by_min_points,
     calculate_vpd,
     process_room_grouped_data,
-    prepare_vpd_chart_data,
     prepare_sensors_view_data,
     prepare_gauges_view_data,
-    prepare_vpd_table_data,
     get_active_sensor_names
 )
 import pandas as pd
@@ -62,7 +60,7 @@ class SensorsView(TemplateView):
         start_time = time.time()
         
         context = super().get_context_data(**kwargs)
-        timeframe = self.request.GET.get('timeframe', '4h').lower()
+        timeframe = self.request.GET.get('timeframe', '1h').lower()
         context['timeframe'] = timeframe
         context['selected_timeframe'] = timeframe
         
@@ -150,64 +148,88 @@ class VPDView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
-        minutes_ago = now - timezone.timedelta(minutes=15)
 
-        vpd_timeframe_for_activity = '5Min'
+        lookback_period_for_latest = timezone.timedelta(hours=24)
+        start_date_for_latest = now - lookback_period_for_latest
 
-        all_initial_sensor_names = list(Sensor.objects.values_list('name', flat=True))
-        active_sensor_names_for_vpd = get_active_sensor_names(
-            timeframe_str=vpd_timeframe_for_activity, 
-            end_date=now,
-            metrics_list=['t', 'h'],
-            initial_sensor_names=all_initial_sensor_names
-        )
+        logger.debug(f"VPDView: Fetching latest 't' and 'h' data from the last {lookback_period_for_latest} for all sensors.")
 
-        if not active_sensor_names_for_vpd:
-            logger.info("VPDView: No active sensors with recent t/h data found. VPD table and chart will be empty.")
+        latest_data_points_qs = DataPoint.objects.filter(
+            metric__in=['t', 'h'],
+            timestamp__gte=start_date_for_latest,
+            timestamp__lte=now
+        ).order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
+
+        latest_data_values = list(latest_data_points_qs.values('sensor', 'metric', 'value', 'timestamp'))
+
+        if not latest_data_values:
+            logger.info(f"VPDView: No 't' or 'h' data points found for any sensor in the last {lookback_period_for_latest}.")
+            context['room_data'] = []
+            context['chart'] = vpd_plot([])
+            return context
+            
+        df_latest_sensor_metrics = pd.DataFrame(latest_data_values)
+
+        # Pivot to get t and h values side-by-side for each sensor
+        df_sensor_th = df_latest_sensor_metrics.pivot_table(
+            index='sensor',
+            columns='metric',
+            values='value'  # We only need the value for VPD calculation
+        ).reset_index()
+        df_sensor_th.columns.name = None # Remove the 'metric' name from columns index
+
+        # Add room information
+        unique_sensor_names_from_data = df_sensor_th['sensor'].unique()
+        # Check if unique_sensor_names_from_data is not empty before querying Sensor model
+        if not len(unique_sensor_names_from_data) > 0:
+            logger.info("VPDView: No sensors found after pivoting latest t/h data. Table and chart will be empty.")
             context['room_data'] = []
             context['chart'] = vpd_plot([])
             return context
 
-        logger.debug(f"VPDView: Active sensors for t/h data: {active_sensor_names_for_vpd}")
+        sensors_qs_for_room_info = Sensor.objects.filter(name__in=unique_sensor_names_from_data).select_related('room')
+        sensor_to_room_map = {s.name: s.room.name if s.room else "No Room" for s in sensors_qs_for_room_info}
         
-        sensors_for_table_qs = Sensor.objects.filter(name__in=active_sensor_names_for_vpd)
+        df_sensor_th['room'] = df_sensor_th['sensor'].map(sensor_to_room_map)
+        df_sensor_th = df_sensor_th[df_sensor_th['room'] != "No Room"]
 
-        datapoints_for_table_qs = DataPoint.objects.filter(sensor__in=active_sensor_names_for_vpd)
+        # Ensure 't' and 'h' columns exist after pivot, then drop rows missing either
+        if 't' not in df_sensor_th.columns:
+            df_sensor_th['t'] = pd.NA
+        if 'h' not in df_sensor_th.columns:
+            df_sensor_th['h'] = pd.NA
+        
+        df_sensor_th.dropna(subset=['t', 'h'], inplace=True) # Keep only sensors with both t and h
 
-        df_table = prepare_vpd_table_data(
-            start_date=minutes_ago, 
-            end_date=now, 
-            metrics=['t', 'h'], 
-            sensors_qs=sensors_for_table_qs,
-            datapoint_qs_manager=datapoints_for_table_qs
-        )
-
-        if df_table.empty:
+        if df_sensor_th.empty:
+            logger.info("VPDView: DataFrame is empty after filtering for sensors with both 't' and 'h' and room assignment.")
             context['room_data'] = []
-            context['chart'] = vpd_plot([]) 
+            context['chart'] = vpd_plot([])
             return context
 
-        context['room_data'] = df_table.to_dict(orient='records')
-
-        datapoints_for_chart_qs = DataPoint.objects.filter(sensor__in=active_sensor_names_for_vpd)
-        chart_builder = DataPointDataFrameBuilder(
-            timeframe='5Min',
-            start_date=minutes_ago,
-            end_date=now,
-            metrics=['t', 'h'],
-            pivot_metrics=True,
-            use_last=True
-        )
-        df_for_chart_input = chart_builder.build(datapoint_qs=datapoints_for_chart_qs)
+        # Calculate VPD for each sensor
+        df_sensor_th['vpd'] = df_sensor_th.apply(lambda row: calculate_vpd(row['t'], row['h']), axis=1)
         
-        df_grouped_chart = chart_builder.group_by_room()
+        # Data for the table (list of sensor dicts with room, sensor, t, h, vpd)
+        context['room_data'] = df_sensor_th[['room', 'sensor', 't', 'h', 'vpd']].to_dict(orient='records')
 
-        data_for_chart = prepare_vpd_chart_data(df_grouped_chart)
+        # Data for the chart (average t and h per room, from sensors that had valid VPD data)
+        if df_sensor_th.empty: # Should be caught above, but defensive check
+            data_for_chart = []
+        else:
+            df_room_level_for_chart = df_sensor_th.groupby('room').agg(
+                avg_t=('t', 'mean'),
+                avg_h=('h', 'mean')
+            ).reset_index()
+
+            data_for_chart = [
+                (row['room'], row['avg_t'], row['avg_h'])
+                for _, row in df_room_level_for_chart.iterrows()
+                if pd.notna(row['avg_t']) and pd.notna(row['avg_h'])
+            ]
         
         chart_html = vpd_plot(data_for_chart)
-
         context['chart'] = chart_html
-
             
         return context
 
@@ -244,7 +266,7 @@ class InteractiveView(TemplateView):
         start_time = time.time()
         context = super().get_context_data(**kwargs)
 
-        timeframe = self.request.GET.get('timeframe', '4h').lower()
+        timeframe = self.request.GET.get('timeframe', '1h').lower()
         
         metrics_param = self.request.GET.get('metrics', self.request.GET.get('metric', 't'))
         metrics = [m.strip().lower() for m in metrics_param.split(',') if m.strip()] if metrics_param else ['t']
