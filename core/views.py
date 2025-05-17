@@ -16,7 +16,13 @@ from .utils import (
     to_bool, 
     calculate_optimal_frequency,
     filter_dataframe_by_min_points,
-    calculate_vpd
+    calculate_vpd,
+    process_room_grouped_data,
+    prepare_vpd_chart_data,
+    prepare_sensors_view_data,
+    prepare_gauges_view_data,
+    prepare_vpd_table_data,
+    get_active_sensor_names
 )
 import pandas as pd
 import time
@@ -39,32 +45,12 @@ class GaugesView(TemplateView):
         context = super().get_context_data(**kwargs)
 
         cutoff_date = timezone.now() - timezone.timedelta(hours=24)
-
-        latest_data_points = DataPoint.objects.filter(timestamp__gte=cutoff_date).order_by(
-            'sensor', 'metric', '-timestamp'
-        ).distinct('sensor', 'metric')
-
-        sensors_dict = {sensor.name: sensor for sensor in Sensor.objects.select_related('room').all()}
-
-        gauges_by_room = {}
-        for data_point in latest_data_points:
-            sensor = sensors_dict.get(data_point.sensor)
-            if sensor:
-                room_name = sensor.room.name if sensor.room else "No Room"
-                if room_name not in gauges_by_room:
-                    gauges_by_room[room_name] = []
-
-                gauges_by_room[room_name].append({
-                    'value': data_point.value,
-                    'metric': data_point.metric,
-                    'sensor_name': data_point.sensor,
-                    'timestamp': data_point.timestamp.isoformat() if data_point.timestamp else None,
-                })
-
-        for room_name, gauges in gauges_by_room.items():
-            gauges.sort(key=lambda x: (x['metric'], x['sensor_name']))
-
-        context['gauges_by_room'] = gauges_by_room
+        
+        context['gauges_by_room'] = prepare_gauges_view_data(
+            cutoff_date, 
+            Sensor.objects.all(), 
+            DataPoint.objects
+        )
         return context
 
 
@@ -76,83 +62,43 @@ class SensorsView(TemplateView):
         start_time = time.time()
         
         context = super().get_context_data(**kwargs)
-        timeframe = self.request.GET.get('timeframe', '1h').lower()
+        timeframe = self.request.GET.get('timeframe', '4h').lower()
         context['timeframe'] = timeframe
         context['selected_timeframe'] = timeframe
         
         end_date = timezone.now()
-        start_date = end_date - get_timedelta_from_timeframe(timeframe)
-
-        data = {}
-        sensors = Sensor.objects.select_related('room').all()
         
-        all_sensor_metrics = {}
-        sensor_names = [sensor.name for sensor in sensors if sensor.room]
+        all_sensor_names_initially = list(Sensor.objects.values_list('name', flat=True))
+
+        active_sensor_names = get_active_sensor_names(
+            timeframe_str=timeframe, 
+            end_date=end_date,
+            metrics_list=None, 
+            initial_sensor_names=all_sensor_names_initially
+        )
+
+        if not active_sensor_names:
+            logger.info(f"SensorsView: No active sensors found for timeframe {timeframe}. Sensor list will be empty.")
+            sensors_qs = Sensor.objects.none()
+        else:
+            logger.debug(f"SensorsView: Active sensors for timeframe {timeframe}: {active_sensor_names}")
+            sensors_qs = Sensor.objects.select_related('room').filter(name__in=active_sensor_names)
         
-        if sensor_names:
-            metrics_by_sensor = DataPoint.objects.filter(
-                sensor__in=sensor_names,
-                timestamp__gte=start_date,
-                timestamp__lte=end_date
-            ).values('sensor', 'metric').distinct()
-            
-            for item in metrics_by_sensor:
-                sensor_name = item['sensor']
-                metric = item['metric']
-                if sensor_name not in all_sensor_metrics:
-                    all_sensor_metrics[sensor_name] = set()
-                all_sensor_metrics[sensor_name].add(metric)
-        
-        metric_order = ['t', 'h', 'l', 's']
-        
-        for sensor in sensors:
-            if not sensor.room:
-                continue
-                
-            room_name = sensor.room.name
-            if room_name not in data:
-                data[room_name] = {}
+        start_date_for_view_data = end_date - get_timedelta_from_timeframe(timeframe)
 
-            sensor_metrics = all_sensor_metrics.get(sensor.name, set())
-            
-            if not sensor_metrics:
-                logger.debug(f"Sensor '{sensor.name}' en sala '{room_name}' no tiene datos en el rango de tiempo {timeframe}")
-                continue
-
-            ordered_metrics = OrderedDict()
-            for metric_code in metric_order:
-                if metric_code in sensor_metrics:
-                    ordered_metrics[metric_code] = None
-
-            for metric_code in sorted(sensor_metrics):
-                if metric_code not in ordered_metrics:
-                    ordered_metrics[metric_code] = None
-
-            for metric_code in ordered_metrics:
-                metric_name = self.metric_map.get(metric_code, metric_code)
-                if metric_code not in data[room_name]:
-                    data[room_name][metric_code] = {
-                        'metric': metric_code,
-                        'metric_name': metric_name,
-                        'sensors': []
-                    }
-                if sensor.name not in data[room_name][metric_code]['sensors']:
-                    data[room_name][metric_code]['sensors'].append(sensor.name)
-
-        for room_name, room_data in data.items():
-            ordered_data = OrderedDict()
-            for metric_code in metric_order:
-                if metric_code in room_data:
-                    ordered_data[metric_code] = room_data[metric_code]
-            for metric_code in room_data:
-                if metric_code not in ordered_data:
-                    ordered_data[metric_code] = room_data[metric_code]
-            data[room_name] = ordered_data
+        data = prepare_sensors_view_data(
+            start_date_for_view_data, 
+            end_date, 
+            self.metric_map, 
+            [ 't', 'h', 'l', 's'],
+            sensors_qs, 
+            DataPoint.objects
+        )
 
         context['data'] = data
         
         total_time = time.time() - start_time
-        logger.debug(f"SensorsView: Renderizado en {total_time:.2f}s con {len(all_sensor_metrics)} sensores activos")
+        logger.debug(f"SensorsView: Renderizado en {total_time:.2f}s con {len(data)} sensores activos")
 
         return context
 
@@ -160,29 +106,40 @@ class SensorsView(TemplateView):
 class GenerateSensorView(View):
     def post(self, request):
         start_time = time.time()
-        sensor = request.POST.get('sensor')
-        timeframe = request.POST.get('timeframe', '1h').lower()
+        sensor_name = request.POST.get('sensor')
+        timeframe = request.POST.get('timeframe', '4h').lower()
         metric = request.POST.get('metric', '')
         
         end_date = timezone.now()
+        active_sensors = get_active_sensor_names(
+            timeframe_str=timeframe,
+            end_date=end_date,
+            metrics_list=[metric] if metric else None,
+            initial_sensor_names=[sensor_name]
+        )
+
+        if sensor_name not in active_sensors:
+            logger.warning(f"Sensor {sensor_name} (metric: {metric}) has no recent data for timeframe {timeframe}. Not generating chart.")
+            return HttpResponse(f"<div class='no-data-alert'>No hay datos suficientemente recientes para el sensor {sensor_name} ({metric}) según el timeframe seleccionado.</div>")
+            
         start_date = timezone.now() - get_timedelta_from_timeframe(timeframe)
         
         data_points = DataPoint.objects.filter(
-            sensor=sensor,
+            sensor=sensor_name,
             metric=metric,
             timestamp__gte=start_date,
             timestamp__lte=end_date
         ).order_by('timestamp')
         
-        if not data_points:
-            logger.warning(f"No hay datos para sensor='{sensor}', metric='{metric}' en rango {timeframe}")
-            return HttpResponse(f"<div class='no-data-alert'>No hay datos disponibles para el sensor {sensor}</div>")
+        if not data_points.exists():
+            logger.warning(f"No hay datos para sensor='{sensor_name}', metric='{metric}' en rango {timeframe} (post-activity check)")
+            return HttpResponse(f"<div class='no-data-alert'>No hay datos disponibles para el sensor {sensor_name} ({metric}) en el período exacto.</div>")
         
         df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
-        chart_html, count = sensor_plot(df, sensor, metric, timeframe, start_date, end_date)
+        chart_html, count = sensor_plot(df, sensor_name, metric, timeframe, start_date, end_date)
         
         total_time = time.time() - start_time
-        logger.debug(f"Gráfico para {sensor}/{metric}: {count} puntos en {total_time:.2f}s")
+        logger.debug(f"Gráfico para {sensor_name}/{metric}: {count} puntos en {total_time:.2f}s")
         
         return HttpResponse(chart_html)
 
@@ -195,30 +152,44 @@ class VPDView(TemplateView):
         now = timezone.now()
         minutes_ago = now - timezone.timedelta(minutes=15)
 
-        table_builder = DataPointDataFrameBuilder(
-            timeframe='5Min',
-            start_date=minutes_ago,
-            end_date=now,
-            metrics=['t', 'h'],
-            pivot_metrics=True,
-            use_last=True
-        )
-        df_table = table_builder.build()
+        vpd_timeframe_for_activity = '5Min'
 
-        if df_table.empty:
+        all_initial_sensor_names = list(Sensor.objects.values_list('name', flat=True))
+        active_sensor_names_for_vpd = get_active_sensor_names(
+            timeframe_str=vpd_timeframe_for_activity, 
+            end_date=now,
+            metrics_list=['t', 'h'],
+            initial_sensor_names=all_initial_sensor_names
+        )
+
+        if not active_sensor_names_for_vpd:
+            logger.info("VPDView: No active sensors with recent t/h data found. VPD table and chart will be empty.")
             context['room_data'] = []
             context['chart'] = vpd_plot([])
             return context
 
-        df_table['timestamp'] = pd.to_datetime(df_table['timestamp'])
-        sensores = Sensor.objects.all()
-        sensor_room_map = {sensor.name: sensor.room.name if sensor.room else "No Room" for sensor in sensores}
-        df_table['room'] = df_table['sensor'].apply(lambda s: sensor_room_map.get(s, "No Instalado"))
+        logger.debug(f"VPDView: Active sensors for t/h data: {active_sensor_names_for_vpd}")
         
-        df_table['vpd'] = df_table.apply(lambda row: calculate_vpd(row['t'], row['h']), axis=1)
+        sensors_for_table_qs = Sensor.objects.filter(name__in=active_sensor_names_for_vpd)
+
+        datapoints_for_table_qs = DataPoint.objects.filter(sensor__in=active_sensor_names_for_vpd)
+
+        df_table = prepare_vpd_table_data(
+            start_date=minutes_ago, 
+            end_date=now, 
+            metrics=['t', 'h'], 
+            sensors_qs=sensors_for_table_qs,
+            datapoint_qs_manager=datapoints_for_table_qs
+        )
+
+        if df_table.empty:
+            context['room_data'] = []
+            context['chart'] = vpd_plot([]) 
+            return context
 
         context['room_data'] = df_table.to_dict(orient='records')
 
+        datapoints_for_chart_qs = DataPoint.objects.filter(sensor__in=active_sensor_names_for_vpd)
         chart_builder = DataPointDataFrameBuilder(
             timeframe='5Min',
             start_date=minutes_ago,
@@ -227,15 +198,11 @@ class VPDView(TemplateView):
             pivot_metrics=True,
             use_last=True
         )
+        df_for_chart_input = chart_builder.build(datapoint_qs=datapoints_for_chart_qs)
         
         df_grouped_chart = chart_builder.group_by_room()
 
-        data_for_chart = []
-        for room, group in df_grouped_chart:
-            if 't' in group.columns and 'h' in group.columns:
-                avg_t = group['t'].mean()
-                avg_h = group['h'].mean()
-                data_for_chart.append((room, avg_t, avg_h))
+        data_for_chart = prepare_vpd_chart_data(df_grouped_chart)
         
         chart_html = vpd_plot(data_for_chart)
 
@@ -277,7 +244,7 @@ class InteractiveView(TemplateView):
         start_time = time.time()
         context = super().get_context_data(**kwargs)
 
-        timeframe = self.request.GET.get('timeframe', '1T').lower()
+        timeframe = self.request.GET.get('timeframe', '4h').lower()
         
         metrics_param = self.request.GET.get('metrics', self.request.GET.get('metric', 't'))
         metrics = [m.strip().lower() for m in metrics_param.split(',') if m.strip()] if metrics_param else ['t']
@@ -302,7 +269,7 @@ class InteractiveView(TemplateView):
         
         logger.debug(f"InteractiveView: Time range: {start_date} to {end_date} ({timeframe})")
 
-        df = self._fetch_sensor_data(metrics, start_date, end_date, room_grouping_active)
+        df = self._fetch_sensor_data(metrics, start_date, end_date, room_grouping_active, timeframe)
         
         group_by_column = 'room' if room_grouping_active else 'sensor'
         
@@ -345,51 +312,43 @@ class InteractiveView(TemplateView):
         logger.info(f"InteractiveView: Completed in {query_duration:.3f}s with {plotted_points} points plotted. Excluded: {len(excluded_items_list)} items.")
         return context
     
-    def _fetch_sensor_data(self, metrics, start_date, end_date, room_grouping_active):
+    def _fetch_sensor_data(self, metrics, start_date, end_date, room_grouping_active, timeframe):
         actual_time_window = end_date - start_date
         total_seconds_for_optimal_freq = actual_time_window.total_seconds()
+
+        current_timeframe_for_activity_check = timeframe
+
+        active_sensor_names_list = get_active_sensor_names(
+            timeframe_str=current_timeframe_for_activity_check,
+            end_date=end_date,
+            metrics_list=metrics
+        )
+
+        if not active_sensor_names_list:
+            logger.info("InteractiveView._fetch_sensor_data: No active sensors found based on 5x timeframe rule. Returning empty DataFrame.")
+            return pd.DataFrame()
+        
+        logger.debug(f"InteractiveView._fetch_sensor_data: Active sensors for query ({len(active_sensor_names_list)}): {active_sensor_names_list}")
 
         data_points_qs = DataPoint.objects.filter(
             timestamp__gte=start_date,
             timestamp__lte=end_date,
-            metric__in=metrics
+            metric__in=metrics,
+            sensor__in=active_sensor_names_list
         ).order_by('timestamp')
 
         if not data_points_qs.exists():
-            logger.debug("InteractiveView: No raw data points in time range.")
+            logger.debug("InteractiveView: No raw data points in time range for active sensors.")
             return pd.DataFrame()
         
-        logger.debug(f"InteractiveView: Found {data_points_qs.count()} raw data points in time range initially.")
+        logger.debug(f"InteractiveView: Found {data_points_qs.count()} raw data points for active sensors in time range.")
 
         if room_grouping_active:
-            logger.debug("InteractiveView: Room grouping active. Processing raw data for room averages.")
-            raw_values = list(data_points_qs.values('timestamp', 'sensor', 'metric', 'value'))
-            
-            if not raw_values:
-                return pd.DataFrame()
-            
-            df = pd.DataFrame(raw_values)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-
             sensors_map_qs = Sensor.objects.select_related('room').all()
             sensor_to_room_map_internal = {s.name: s.room.name if s.room else "No Room" for s in sensors_map_qs}
-            df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map_internal.get(s, "No Room"))
-            df = df[df['room'] != "No Room"]
-
-            if df.empty:
-                logger.debug("InteractiveView: DataFrame empty after filtering for sensors with assigned rooms.")
-                return pd.DataFrame()
-
-            grouped_df = df.groupby(['room', 'timestamp', 'metric'])['value'].mean().reset_index()
-            
-            pivot_df = grouped_df.pivot_table(
-                index=['room', 'timestamp'],
-                columns='metric',
-                values='value'
-            ).reset_index()
-            pivot_df.columns.name = None
-            logger.debug(f"InteractiveView: Room grouping - returning pivoted data with shape {pivot_df.shape}")
-            return pivot_df
+            df = process_room_grouped_data(data_points_qs, sensor_to_room_map_internal)
+            logger.debug(f"InteractiveView: Room grouping - returning pivoted data with shape {df.shape if not df.empty else '(empty)'}")
+            return df
         else:
             logger.debug("InteractiveView: Sensor grouping active. Using DataPointDataFrameBuilder.")
             actual_resampling_freq = calculate_optimal_frequency(total_seconds_for_optimal_freq, self.TARGET_POINTS)
@@ -399,14 +358,11 @@ class InteractiveView(TemplateView):
                 start_date=start_date,
                 end_date=end_date,
                 metrics=metrics,
-                pivot_metrics=True
+                pivot_metrics=True,
+                add_room_information=True
             )
-            df = df_builder.build() 
+            df = df_builder.build(datapoint_qs=data_points_qs)
             
-            if not df.empty and 'sensor' in df.columns:
-                sensors_map_qs = Sensor.objects.select_related('room').all()
-                sensor_to_room_map_internal = {s.name: s.room.name if s.room else "No Room" for s in sensors_map_qs}
-                df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map_internal.get(s, "No Room"))
-            logger.debug(f"InteractiveView: Sensor grouping - returning DataFrame with shape {df.shape}")
+            logger.debug(f"InteractiveView: Sensor grouping - returning DataFrame with shape {df.shape if not df.empty else '(empty)'}")
             return df
 

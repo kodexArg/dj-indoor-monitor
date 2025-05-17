@@ -127,7 +127,7 @@ class DataPointViewSet(viewsets.ModelViewSet):
         Filtros/parámetros (query params): `start_date`, `end_date`, `sensors`, `timeframe` (e.g., '1H'), `aggregations` (bool), `metadata`, `include_room`.
         """
         endpoint = "GET /api/data-point/timeframed/"
-        timeframe = request.GET.get('timeframe', '1H')
+        timeframe = request.GET.get('timeframe', '4H')
         start_time = time.time()
         timestamp = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
         endpoints_logger.debug(f"[{timestamp}] ▶️ Iniciando {endpoint} con timeframe={timeframe}")

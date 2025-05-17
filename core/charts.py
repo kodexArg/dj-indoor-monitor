@@ -7,83 +7,11 @@ import pandas as pd
 from plotly.offline import plot
 import plotly.colors as pcolors
 from plotly.subplots import make_subplots
-from .utils import calculate_vpd
+from django.utils import timezone # Ensure timezone is imported
+from .utils import calculate_vpd, METRICS_CFG, INTERACTIVE_CHART_METRIC_NAMES, INTERACTIVE_CHART_BAND_CFG # Removed get_minimum_data_cutoff_date
 
 # Get project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent # This BASE_DIR is used by the module itself.
-
-METRICS_CFG = {
-    't': {
-        'steps': [18, 24, 40],
-        'unit': '°C',
-        'title': 'Temperatura',
-        'color_bars_gradient': [
-            'rgba(135, 206, 235, 0.8)',
-            'rgba(144, 238, 144, 0.6)',
-            'rgba(255, 99, 71, 0.8)',
-        ],
-        'brand_color': '#dc3545',  # Rojo
-    },
-    'h': {
-        'steps': [40, 55, 100],
-        'unit': '%HR',
-        'title': 'Humedad',
-        'color_bars_gradient': [
-            'rgba(255, 198, 109, 0.8)',
-            'rgba(152, 251, 152, 0.6)',
-            'rgba(100, 149, 237, 0.8)',
-        ],
-        'brand_color': '#1f77b4',  # Azul
-    },
-    'l': {
-        'steps': [0, 900, 1000],
-        'unit': 'lum',
-        'title': 'Luz',
-        'color_bars_gradient': [
-            'rgba(105, 105, 105, 0.2)',
-            'rgba(255, 255, 153, 0.6)'
-        ],
-        'brand_color': '#ffc107',  # Amarillo
-    },
-    's': {
-        'steps': [0, 30, 60, 100],
-        'unit': '%H',
-        'title': 'Sustrato',
-        'color_bars_gradient': [
-            'rgba(255, 198, 109, 0.8)',
-            'rgba(152, 251, 152, 0.6)',
-            'rgba(100, 149, 237, 0.8)',
-        ],
-        'brand_color': '#28a745',  # Verde
-    }
-}
-
-# New constants for generate_interactive_multi_metric_chart
-INTERACTIVE_CHART_METRIC_NAMES = {
-    't': 'Temperatura (°C)',
-    'h': 'Humedad (%)',
-    'l': 'Luz (lux)',
-    's': 'Sustrato (%)'
-}
-
-INTERACTIVE_CHART_BAND_CFG = {
-    't': {
-        'steps': [18, 24, 40],
-        'colors': ['rgba(135, 206, 235, 0.2)', 'rgba(144, 238, 144, 0.2)', 'rgba(255, 99, 71, 0.2)']
-    },
-    'h': {
-        'steps': [40, 55, 100],
-        'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
-    },
-    'l': {
-        'steps': [0, 900, 1000],
-        'colors': ['rgba(105, 105, 105, 0.1)', 'rgba(255, 255, 153, 0.2)']
-    },
-    's': {
-        'steps': [0, 30, 60, 100],
-        'colors': ['rgba(255, 198, 109, 0.2)', 'rgba(152, 251, 152, 0.2)', 'rgba(100, 149, 237, 0.2)']
-    }
-}
 
 def gauge_plot(value, metric, sensor, timestamp=None):
     """Genera HTML de gráfico de medidor para una métrica de sensor."""
@@ -192,10 +120,14 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
     """Genera HTML de gráfico de línea para datos de sensor, con bandas de color para rangos óptimos."""
     try:
         if df.empty:
-            logger.warning("DataFrame vacío")
-            return f'<div>No hay datos para {sensor} - {metric}</div>', 0
+            logger.warning(f"sensor_plot: DataFrame vacío para {sensor} - {metric}. No se generará gráfico.")
+            return f'<div>No hay datos para graficar para {sensor} - {metric}</div>', 0
         
         df = df.dropna(subset=['value'])
+        if df.empty: 
+            logger.warning(f"sensor_plot: No hay datos válidos para {sensor} - {metric} después de dropna. No se generará gráfico.")
+            return f'<div>No hay datos válidos para graficar para {sensor} - {metric}</div>', 0
+            
         processed_values = df['value'].tolist()
         processed_timestamps = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S').tolist()
             
@@ -363,7 +295,8 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
 
 def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
     if data_df.empty:
-        return "<div class='no-data-alert'>No hay datos disponibles para este período</div>", 0
+        logger.warning("interactive_plot: DataFrame vacío. No se generará gráfico.")
+        return "<div class='no-data-alert'>No hay datos disponibles para graficar en este período.</div>", 0
     
     colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
     
@@ -417,12 +350,12 @@ def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=
     
     return fig.to_html(include_plotlyjs='cdn', full_html=False), plotted_points
 
-def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, timeframe='1T', start_date=None, end_date=None):
+def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, timeframe='4h', start_date=None, end_date=None):
     if data_df.empty:
-        logger.warning("generate_interactive_multi_metric_chart: Empty DataFrame, returning no data message")
-        return "<div class='no-data-alert'>No hay datos disponibles para este período o los sensores fueron filtrados.</div>", 0
+        logger.warning("generate_interactive_multi_metric_chart: DataFrame vacío. No se generará gráfico.")
+        return "<div class='no-data-alert'>No hay datos disponibles para graficar en este período. Es posible que todos los sensores/salas hayan sido filtrados por falta de datos recientes.</div>", 0
     
-    logger.debug(f"generate_interactive_multi_metric_chart: Processing DataFrame with {len(data_df)} rows for chart generation.")
+    logger.debug(f"generate_interactive_multi_metric_chart: Processing pre-filtered DataFrame with {len(data_df)} rows for chart generation.")
     
     base_colors = pcolors.qualitative.Plotly 
     
