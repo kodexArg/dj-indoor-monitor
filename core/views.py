@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from collections import OrderedDict
 from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot, vpd_plot, calculate_vpd, generate_interactive_multi_metric_chart
+from .charts import gauge_plot, sensor_plot, vpd_plot, generate_interactive_multi_metric_chart
 from .utils import (
     get_timedelta_from_timeframe, 
     create_timeframed_dataframe,
@@ -15,7 +15,8 @@ from .utils import (
     get_start_date, 
     to_bool, 
     calculate_optimal_frequency,
-    filter_dataframe_by_min_points
+    filter_dataframe_by_min_points,
+    calculate_vpd
 )
 import pandas as pd
 import time

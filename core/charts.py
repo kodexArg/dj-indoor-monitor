@@ -7,6 +7,7 @@ import pandas as pd
 from plotly.offline import plot
 import plotly.colors as pcolors
 from plotly.subplots import make_subplots
+from .utils import calculate_vpd
 
 # Get project root directory
 BASE_DIR = Path(__file__).resolve().parent.parent # This BASE_DIR is used by the module itself.
@@ -288,13 +289,6 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
         logger.error(f"Error en lineplot_generator: {str(e)}")
         return f'<div>Error generando el gráfico: {str(e)}</div>', 0
 
-def calculate_vpd(t, h):
-    """Calcula Déficit de Presión de Vapor (VPD) en kPa."""
-    # Fórmula de VPD: svp (presión de vapor de saturación) - vp (presión de vapor actual)
-    svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3)) # Ecuación de Tetens para SVP en kPa
-    vp = svp * (h / 100) # VP actual basada en humedad relativa
-    return svp - vp
-
 def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
     """Genera HTML de gráfico VPD, mostrando puntos de salas contra bandas objetivo de VPD."""
     filtered_data = [
@@ -338,7 +332,7 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
 
     # Agregar puntos de datos (salas) al gráfico
     for room_name, temp, hum in filtered_data:
-        current_vpd = calculate_vpd(temp, hum)
+        current_vpd = calculate_vpd(temp, hum) # This will use the imported calculate_vpd
         fig.add_trace(go.Scatter(
             y=[temp], x=[hum], mode='markers+text',
             marker=dict(size=10, color='black'),
@@ -366,6 +360,62 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10), height=600
     )
     return pio.to_html(fig, include_plotlyjs=True, full_html=False, config={'staticPlot': True})
+
+def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
+    if data_df.empty:
+        return "<div class='no-data-alert'>No hay datos disponibles para este período</div>", 0
+    
+    colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
+    
+    metric_title = {
+        't': 'Temperatura',
+        'h': 'Humedad',
+        'l': 'Luz',
+        's': 'Sustrato'
+    }.get(metric, metric)
+    
+    fig = make_subplots()
+    
+    plot_column = 'room' if by_room else 'sensor'
+    
+    plotted_points = 0
+    
+    for name, group in data_df.groupby(plot_column):
+        if not group.empty and metric in group:
+            plotted_points += len(group)
+            fig.add_trace(
+                go.Scatter(
+                    x=group['timestamp'],
+                    y=group[metric],
+                    mode='lines+markers',
+                    name=name,
+                    line=dict(color=colors.get(metric, '#7F7F7F')),
+                    hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>"
+                )
+            )
+    
+    title_text = f"{metric_title} - {timeframe}"
+    if start_date and end_date:
+        title_text += f" ({start_date.strftime('%d/%m %H:%M')} - {end_date.strftime('%d/%m %H:%M')})"
+    
+    fig.update_layout(
+        title=title_text,
+        xaxis_title='Hora',
+        yaxis_title=metric_title,
+        template='plotly_dark',
+        height=400,
+        margin=dict(l=50, r=50, t=80, b=50),
+        hovermode='closest',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig.to_html(include_plotlyjs='cdn', full_html=False), plotted_points
 
 def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, timeframe='1T', start_date=None, end_date=None):
     if data_df.empty:

@@ -3,6 +3,7 @@ import pandas as pd
 from django.utils import timezone
 from .models import DataPoint, Sensor
 from loguru import logger
+import numpy as np
 
 TIMEFRAME_MAP = {
     '5S': '5S',
@@ -95,8 +96,15 @@ def create_timeframed_dataframe(data_points, timeframe, start_date, end_date):
 def pretty_datetime(date):
     return date.strftime("%d/%m/%Y %H:%M")
 
+def calculate_vpd(t, h):
+    """Calcula Déficit de Presión de Vapor (VPD) en kPa."""
+    # Fórmula de VPD: svp (presión de vapor de saturación) - vp (presión de vapor actual)
+    svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3)) # Ecuación de Tetens para SVP en kPa
+    vp = svp * (h / 100) # VP actual basada en humedad relativa
+    return svp - vp
+
 class DataPointDataFrameBuilder:
-    def __init__(self, timeframe='5S', start_date=None, end_date=None, metrics=None, pivot_metrics=False, use_last=False):
+    def __init__(self, timeframe='1T', start_date=None, end_date=None, metrics=None, pivot_metrics=False, use_last=False):
         self.timeframe = timeframe
         self.end_date = end_date if end_date else timezone.now()
         self.start_date = start_date if start_date else self._get_default_start_date()
@@ -225,65 +233,6 @@ class DataPointDataFrameBuilder:
 
         df_grouped = df.groupby('room')
         return df_grouped
-
-def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    
-    if data_df.empty:
-        return "<div class='no-data-alert'>No hay datos disponibles para este período</div>", 0
-    
-    colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
-    
-    metric_title = {
-        't': 'Temperatura',
-        'h': 'Humedad',
-        'l': 'Luz',
-        's': 'Sustrato'
-    }.get(metric, metric)
-    
-    fig = make_subplots()
-    
-    plot_column = 'room' if by_room else 'sensor'
-    
-    plotted_points = 0
-    
-    for name, group in data_df.groupby(plot_column):
-        if not group.empty and metric in group:
-            plotted_points += len(group)
-            fig.add_trace(
-                go.Scatter(
-                    x=group['timestamp'],
-                    y=group[metric],
-                    mode='lines+markers',
-                    name=name,
-                    line=dict(color=colors.get(metric, '#7F7F7F')),
-                    hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>"
-                )
-            )
-    
-    title_text = f"{metric_title} - {timeframe}"
-    if start_date and end_date:
-        title_text += f" ({start_date.strftime('%d/%m %H:%M')} - {end_date.strftime('%d/%m %H:%M')})"
-    
-    fig.update_layout(
-        title=title_text,
-        xaxis_title='Hora',
-        yaxis_title=metric_title,
-        template='plotly_dark',
-        height=400,
-        margin=dict(l=50, r=50, t=80, b=50),
-        hovermode='closest',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    
-    return fig.to_html(include_plotlyjs='cdn', full_html=False), plotted_points
 
 def calculate_optimal_frequency(total_seconds, target_points):
     seconds_per_point = total_seconds / target_points
