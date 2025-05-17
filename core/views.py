@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from collections import OrderedDict
 from .models import DataPoint, Sensor
-from .charts import gauge_plot, sensor_plot, vpd_plot, generate_interactive_multi_metric_chart
+from .charts import gauge_plot, sensor_plot, vpd_plot, interactive_chart
 from .utils import (
     get_timedelta_from_timeframe, 
     create_timeframed_dataframe,
@@ -299,7 +299,7 @@ class InteractiveView(TemplateView):
             df, group_by_column, metrics, self.MIN_DATA_POINTS_FOR_DISPLAY, logger
         )
 
-        chart_html, plotted_points = generate_interactive_multi_metric_chart(
+        chart_html, plotted_points = interactive_chart(
             df_filtered, metrics, by_room=room_grouping_active, timeframe=timeframe, 
             start_date=start_date, end_date=end_date
         )

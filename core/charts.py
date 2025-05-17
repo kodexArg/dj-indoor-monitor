@@ -7,11 +7,11 @@ import pandas as pd
 from plotly.offline import plot
 import plotly.colors as pcolors
 from plotly.subplots import make_subplots
-from django.utils import timezone # Ensure timezone is imported
-from .utils import calculate_vpd, METRICS_CFG, INTERACTIVE_CHART_METRIC_NAMES, INTERACTIVE_CHART_BAND_CFG # Removed get_minimum_data_cutoff_date
+from django.utils import timezone
+from .utils import calculate_vpd, METRICS_CFG, INTERACTIVE_CHART_METRIC_NAMES, INTERACTIVE_CHART_BAND_CFG
 
 # Get project root directory
-BASE_DIR = Path(__file__).resolve().parent.parent # This BASE_DIR is used by the module itself.
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 def gauge_plot(value, metric, sensor, timestamp=None):
     """Genera HTML de gráfico de medidor para una métrica de sensor."""
@@ -20,13 +20,12 @@ def gauge_plot(value, metric, sensor, timestamp=None):
         return "<div>Invalid metric</div>"
 
     steps = metric_cfg['steps']
-    main_title = f"{metric_cfg['title']} en {metric_cfg['unit']}"
+    main_title = f"{metric_cfg['title']}"
     sensor_name = str(sensor).title()
 
     fig = go.Figure()
     max_value = steps[-1]
 
-    # Generar 'steps' del medidor dinámicamente
     if steps[0] != 0:
         gauge_steps = (
             [{'range': [0, steps[0]], 'color': metric_cfg['color_bars_gradient'][0]}] +
@@ -46,7 +45,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
             'font': {'size': 24,
                      'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
             'suffix': f" {metric_cfg['unit']}",
-            'valueformat': '.1f' if metric != 'l' else '.0f' # Sin decimales para lux
+            'valueformat': '.1f' if metric != 'l' else '.0f'
         },
         gauge={
             'axis': {
@@ -56,7 +55,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
                 'tickfont': {'size': 10,
                              'family': 'Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif'},
                 'tickmode': 'linear',
-                'dtick': max_value / 5 # 5 ticks en el eje
+                'dtick': max_value / 5 
             },
             'bar': {'color': "rgba(150, 150, 150, 0.5)"},
             'bgcolor': "white",
@@ -71,7 +70,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
     ))
 
     if timestamp:
-        timestamp_str = timestamp.strftime('%Y-%m-%d %H:%M')
+        timestamp_str = timezone.localtime(timestamp).strftime('%Y-%m-%d %H:%M')
     else:
         timestamp_str = ""
 
@@ -83,7 +82,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
                  'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
         showlegend=False,
         title={
-            'text': f"<b>{main_title}</b><br><span style='font-size:0.8em;'>sensor {sensor_name}</span>",
+            'text': f"<b>{main_title}</b><br><span style='font-size:0.8em;'>{sensor_name}</span>",
             'y': 0.90,
             'x': 0.5,
             'xanchor': 'center',
@@ -176,17 +175,17 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             plot_bgcolor='white',
             shapes=shapes,
             showlegend=False,
-            height=None, # Permitir autosize
-            width=None,  # Permitir autosize
+            height=None, 
+            width=None, 
             autosize=True,
-            margin=dict(l=50, r=60, t=25, b=25), # Adjusted left margin
+            margin=dict(l=50, r=60, t=25, b=25),
             xaxis={
                 'type': 'date',
                 'fixedrange': True,
                 'tickmode': 'auto',
                 'showgrid': True, 'gridcolor': 'lightgrey', 'gridwidth': 0.5, 'griddash': 'dot',
                 'visible': True,
-                'range': [start_date.isoformat(), end_date.isoformat()] # Fijar rango del eje X
+                'range': [start_date.isoformat(), end_date.isoformat()] 
             },
             yaxis={
                 'fixedrange': True,
@@ -194,16 +193,16 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
                 'tickmode': 'auto',
                 'showgrid': True, 'gridcolor': 'lightgrey', 'gridwidth': 0.5, 'griddash': 'dot',
                 'visible': True,
-                'side': 'right' # Eje Y a la derecha
+                'side': 'right' 
             },
             hovermode='x unified',
             annotations=[
                 {
-                    "x": 0.01, "y": 0.5, "xref": "paper", "yref": "paper", # Adjusted x to be slightly inside
+                    "x": -0.05, "y": 0.5, "xref": "paper", "yref": "paper",
                     "text": f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>{sensor.upper()}</span>",
                     "showarrow": False, "textangle": -90,
-                    "xanchor": "left", "yanchor": "middle", # Ensured xanchor is left
-                    "font": {"size": 13, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
+                    "xanchor": "left", "yanchor": "middle",
+                    "font": {"size": 14, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
                 }
             ]
         )
@@ -212,7 +211,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             fig,
             include_plotlyjs=False,
             full_html=False,
-            config={'responsive': True, 'displayModeBar': False} # Ensure responsive, remove staticPlot if conflicting
+            config={'responsive': True, 'displayModeBar': False}
         ), len(processed_values)
         
     except Exception as e:
@@ -237,16 +236,14 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         ("Flora", 1.2, 1.6, "rgba(255, 200, 150, 0.5)"),
         ("Muy Seco", 1.6, 10.0, "rgba(255, 100, 100, 0.025)")
     ]
-    temperatures = np.linspace(temp_min, temp_max, 200) # Rango de temperaturas para dibujar bandas
+    temperatures = np.linspace(temp_min, temp_max, 200)
 
-    # Función para calcular humedad (h) desde temperatura (t) y VPD
     def calc_hum_from_vpd(t, vpd):
         svp = 0.6108 * np.exp((17.27 * t) / (t + 237.3))
-        h = 100 * (1 - vpd / svp) if svp > 0 else 100 # Evitar división por cero
-        return max(hum_min, min(hum_max, h)) # Limitar humedad a rango visible
+        h = 100 * (1 - vpd / svp) if svp > 0 else 100
+        return max(hum_min, min(hum_max, h))
 
     fig = go.Figure()
-    # Dibujar bandas de VPD en el gráfico
     for band_name, vpd_min_band, vpd_max_band, color in vpd_bands:
         h_upper = [calc_hum_from_vpd(t, vpd_min_band) for t in temperatures]
         h_lower = [calc_hum_from_vpd(t, vpd_max_band) for t in temperatures]
@@ -257,12 +254,11 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         fig.add_trace(go.Scatter(
             x=h_lower, y=temperatures, mode='lines', line=dict(width=0),
             fill='tonexty', fillcolor=color, name=band_name,
-            showlegend=not band_name.startswith("Muy") # No mostrar en leyenda bandas extremas
+            showlegend=not band_name.startswith("Muy")
         ))
 
-    # Agregar puntos de datos (salas) al gráfico
     for room_name, temp, hum in filtered_data:
-        current_vpd = calculate_vpd(temp, hum) # This will use the imported calculate_vpd
+        current_vpd = calculate_vpd(temp, hum)
         fig.add_trace(go.Scatter(
             y=[temp], x=[hum], mode='markers+text',
             marker=dict(size=10, color='black'),
@@ -288,73 +284,14 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
             gridcolor='rgba(200, 200, 200, 0.2)', side='right', tickfont=dict(size=10)
         ),
         plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10),
-        autosize=True # Ensure autosize is enabled
+        autosize=True
     )
     return fig.to_html(include_plotlyjs='cdn', full_html=False, config={'responsive': True, 'displayModeBar': False})
 
-def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
+def interactive_chart(data_df, metrics, by_room=False, timeframe='4h', start_date=None, end_date=None):
     if data_df.empty:
-        logger.warning("interactive_plot: DataFrame vacío. No se generará gráfico.")
-        return "<div class='no-data-alert'>No hay datos disponibles para graficar en este período.</div>", 0
-    
-    colors = {'t': '#FF5733', 'h': '#33A2FF', 'l': '#FFFF33', 's': '#33FF57'}
-    
-    metric_title = {
-        't': 'Temperatura',
-        'h': 'Humedad',
-        'l': 'Luz',
-        's': 'Sustrato'
-    }.get(metric, metric)
-    
-    fig = make_subplots()
-    
-    plot_column = 'room' if by_room else 'sensor'
-    
-    plotted_points = 0
-    
-    for name, group in data_df.groupby(plot_column):
-        if not group.empty and metric in group:
-            plotted_points += len(group)
-            fig.add_trace(
-                go.Scatter(
-                    x=group['timestamp'],
-                    y=group[metric],
-                    mode='lines+markers',
-                    name=name,
-                    line=dict(color=colors.get(metric, '#7F7F7F')),
-                    hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>"
-                )
-            )
-    
-    title_text = f"{metric_title} - {timeframe}"
-    if start_date and end_date:
-        title_text += f" ({start_date.strftime('%d/%m %H:%M')} - {end_date.strftime('%d/%m %H:%M')})"
-    
-    fig.update_layout(
-        title=title_text,
-        xaxis_title='Hora',
-        yaxis_title=metric_title,
-        template='plotly_dark',
-        height=400,
-        margin=dict(l=50, r=50, t=80, b=50),
-        hovermode='closest',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    
-    return fig.to_html(include_plotlyjs='cdn', full_html=False), plotted_points
-
-def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, timeframe='4h', start_date=None, end_date=None):
-    if data_df.empty:
-        logger.warning("generate_interactive_multi_metric_chart: DataFrame vacío. No se generará gráfico.")
+        logger.warning("interactive_chart: DataFrame vacío. No se generará gráfico.")
         return "<div class='no-data-alert'>No hay datos disponibles para graficar en este período. Es posible que todos los sensores/salas hayan sido filtrados por falta de datos recientes.</div>", 0
-    
-    logger.debug(f"generate_interactive_multi_metric_chart: Processing pre-filtered DataFrame with {len(data_df)} rows for chart generation.")
     
     base_colors = pcolors.qualitative.Plotly 
     
@@ -362,19 +299,19 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
         rows=len(metrics), 
         cols=1, 
         shared_xaxes=True, 
-        vertical_spacing=0.08,
+        vertical_spacing=0.04,
     )
     
     group_column = 'room' if by_room else 'sensor'
     if group_column not in data_df.columns:
-        logger.error(f"generate_interactive_multi_metric_chart: Missing '{group_column}' column in DataFrame")
+        logger.error(f"interactive_chart: Missing '{group_column}' column in DataFrame")
         return "<div class='no-data-alert'>Error: Columna de agrupación requerida ausente.</div>", 0
     
     plotted_points = 0
     unique_items = sorted(data_df[group_column].unique())
     color_map = {item_name: base_colors[i % len(base_colors)] for i, item_name in enumerate(unique_items)}
 
-    logger.debug(f"generate_interactive_multi_metric_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
+    logger.debug(f"interactive_chart: Plotting for {len(unique_items)} unique {group_column}s: {unique_items}")
     
     for i, metric_code in enumerate(metrics, 1):
         if metric_code in INTERACTIVE_CHART_BAND_CFG:
@@ -404,7 +341,7 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
                 )
         
         if metric_code not in data_df.columns:
-            logger.warning(f"generate_interactive_multi_metric_chart: Metric '{metric_code}' not in DataFrame columns: {data_df.columns.tolist()}")
+            logger.warning(f"interactive_chart: Metric '{metric_code}' not in DataFrame columns: {data_df.columns.tolist()}")
             continue
             
         for item_name, group_data in data_df.groupby(group_column):
@@ -431,15 +368,21 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
             )
     
     if plotted_points == 0:
-        logger.warning("generate_interactive_multi_metric_chart: No points plotted. DataFrame might be empty or all items filtered.")
+        logger.warning("interactive_chart: No points plotted. DataFrame might be empty or all items filtered.")
         return "<div class='no-data-alert'>No hay datos para mostrar después del filtrado.</div>", 0
     
+    # Determine layout properties based on number of metrics
+    final_chart_title = None
+    final_height = 467 * len(metrics)  # Default for multi-metric
+    bottom_xaxis_title_text = None
+    bottom_xaxis_title_font = None
+
     fig.update_layout(
-        title=None, 
-        height=467 * len(metrics),
+        title=final_chart_title, 
+        height=final_height,
         plot_bgcolor='white',
         paper_bgcolor='white',
-        margin=dict(l=80, r=80, t=50, b=50),
+        margin=dict(l=50, r=50, t=50, b=50), # Adjusted based on user's previous diff
         hovermode='closest',
         legend=dict(
             orientation="h",
@@ -452,6 +395,7 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
         autosize=True,
     )
     
+    # Configure all X-axes (styling, range)
     for i_ax in range(1, len(metrics) + 1):
         fig.update_xaxes(
             range=[start_date, end_date],
@@ -462,7 +406,21 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
             tickfont=dict()
         )
         
+    # Set title specifically for the bottom-most X-axis (visible one due to shared_xaxes)
+    fig.update_xaxes(
+        title_text=bottom_xaxis_title_text,
+        title_font=bottom_xaxis_title_font,
+        row=len(metrics), col=1 # Target the last X-axis
+    )
+    
+    # Configure Y-axes
+    for i_ax in range(1, len(metrics) + 1):
+        metric_code_for_yaxis = metrics[i_ax-1]
+        current_title_text = INTERACTIVE_CHART_METRIC_NAMES.get(metric_code_for_yaxis)
+        
         fig.update_yaxes(
+            title_text=current_title_text,
+            title_standoff=20,
             showgrid=True, 
             gridwidth=1, 
             gridcolor='rgba(211,211,211,0.5)', 
@@ -470,25 +428,15 @@ def generate_interactive_multi_metric_chart(data_df, metrics, by_room=False, tim
             linewidth=1, 
             linecolor='lightgreen', 
             mirror=True,
-            row=i_ax, 
-            col=1,
             tickfont=dict(),
             tickformat=".1f",
             ticks="outside",
             showticklabels=True,
+            row=i_ax, 
+            col=1
         )
-        
-        if metrics[i_ax-1] in INTERACTIVE_CHART_METRIC_NAMES:
-            fig.update_yaxes(
-                title_text=INTERACTIVE_CHART_METRIC_NAMES[metrics[i_ax-1]], 
-                title_standoff=15,
-                row=i_ax, 
-                col=1
-            )
     
-    fig.update_xaxes(title_text=None, row=len(metrics), col=1)
-    
-    logger.debug(f"generate_interactive_multi_metric_chart: Generated chart with {plotted_points} points")
+    logger.debug(f"interactive_chart: Generated chart with {plotted_points} points")
     return fig.to_html(include_plotlyjs='cdn', full_html=False, config={
         'responsive': True,
         'displayModeBar': False,
