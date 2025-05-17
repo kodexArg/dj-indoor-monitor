@@ -76,7 +76,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
 
     fig.update_layout(
         autosize=True,
-        margin=dict(l=25, r=25, t=70, b=0),
+        margin=dict(l=35, r=35, t=70, b=10),
         paper_bgcolor="white",
         font={'color': "#666666",
                  'family': "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
@@ -178,7 +178,15 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             height=None, 
             width=None, 
             autosize=True,
-            margin=dict(l=50, r=60, t=25, b=25),
+            margin=dict(l=50, r=60, t=40, b=25),
+            title={
+                'text': f"<b>{metric_cfg['title']}</b>",
+                'y': 0.95,
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top',
+                'font': {"size": 14, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
+            },
             xaxis={
                 'type': 'date',
                 'fixedrange': True,
@@ -198,8 +206,8 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             hovermode='x unified',
             annotations=[
                 {
-                    "x": -0.05, "y": 0.5, "xref": "paper", "yref": "paper",
-                    "text": f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>{sensor.upper()}</span>",
+                    "x": -0.04, "y": 0.5, "xref": "paper", "yref": "paper",
+                    "text": f"<span style='font-size:0.8em;'>{sensor.upper()}</span>",
                     "showarrow": False, "textangle": -90,
                     "xanchor": "left", "yanchor": "middle",
                     "font": {"size": 14, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
@@ -274,7 +282,7 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
         ))
 
     fig.update_layout(
-        legend=dict(orientation='h', yanchor='top', y=-0.1, xanchor='center', x=0.5),
+        legend=dict(orientation='h', yanchor='bottom', y=1.05, xanchor='center', x=0.5),
         xaxis=dict(
             title='Humedad Relativa (%HR)', range=[hum_min, hum_max], dtick=10,
             gridcolor='rgba(200, 200, 200, 0.2)', side='bottom', tickfont=dict(size=10)
@@ -283,7 +291,7 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
             title='Temperatura (°C)', range=[temp_min, temp_max], dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)', side='right', tickfont=dict(size=10)
         ),
-        plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10),
+        plot_bgcolor='white', margin=dict(l=10, r=10, t=35, b=10),
         autosize=True
     )
     return fig.to_html(include_plotlyjs='cdn', full_html=False, config={'responsive': True, 'displayModeBar': False})
@@ -295,11 +303,12 @@ def interactive_chart(data_df, metrics, by_room=False, timeframe='4h', start_dat
     
     base_colors = pcolors.qualitative.Plotly 
     
+    # We'll add annotations later instead of using subplot_titles
     fig = make_subplots(
         rows=len(metrics), 
         cols=1, 
         shared_xaxes=True, 
-        vertical_spacing=0.04,
+        vertical_spacing=0.1
     )
     
     group_column = 'room' if by_room else 'sensor'
@@ -372,17 +381,15 @@ def interactive_chart(data_df, metrics, by_room=False, timeframe='4h', start_dat
         return "<div class='no-data-alert'>No hay datos para mostrar después del filtrado.</div>", 0
     
     # Determine layout properties based on number of metrics
-    final_chart_title = None
     final_height = 467 * len(metrics)  # Default for multi-metric
     bottom_xaxis_title_text = None
     bottom_xaxis_title_font = None
 
     fig.update_layout(
-        title=final_chart_title, 
         height=final_height,
         plot_bgcolor='white',
         paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=50, b=50), # Adjusted based on user's previous diff
+        margin=dict(l=35, r=35, t=35, b=35),
         hovermode='closest',
         legend=dict(
             orientation="h",
@@ -392,10 +399,9 @@ def interactive_chart(data_df, metrics, by_room=False, timeframe='4h', start_dat
             x=0.5,
             traceorder="normal"
         ),
-        autosize=True,
+        autosize=True
     )
     
-    # Configure all X-axes (styling, range)
     for i_ax in range(1, len(metrics) + 1):
         fig.update_xaxes(
             range=[start_date, end_date],
@@ -406,21 +412,29 @@ def interactive_chart(data_df, metrics, by_room=False, timeframe='4h', start_dat
             tickfont=dict()
         )
         
-    # Set title specifically for the bottom-most X-axis (visible one due to shared_xaxes)
     fig.update_xaxes(
         title_text=bottom_xaxis_title_text,
         title_font=bottom_xaxis_title_font,
-        row=len(metrics), col=1 # Target the last X-axis
+        row=len(metrics), col=1 
     )
     
-    # Configure Y-axes
     for i_ax in range(1, len(metrics) + 1):
-        metric_code_for_yaxis = metrics[i_ax-1]
-        current_title_text = INTERACTIVE_CHART_METRIC_NAMES.get(metric_code_for_yaxis)
+        metric_code = metrics[i_ax-1]
+        metric_name = INTERACTIVE_CHART_METRIC_NAMES.get(metric_code, metric_code.upper())
+        
+        y_domain = fig.layout[f'yaxis{i_ax}'].domain
+        y_pos = y_domain[1] + 0.01
+        
+        fig.add_annotation(
+            text=f"<b>{metric_name}</b>",
+            x=0.5, y=y_pos,
+            xref='paper', yref='paper',
+            showarrow=False,
+            font={"size": 14, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"},
+            xanchor='center', yanchor='bottom'
+        )
         
         fig.update_yaxes(
-            title_text=current_title_text,
-            title_standoff=20,
             showgrid=True, 
             gridwidth=1, 
             gridcolor='rgba(211,211,211,0.5)', 

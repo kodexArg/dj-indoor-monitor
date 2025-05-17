@@ -148,10 +148,69 @@
   height: 100%;
 }
 
-/* @media (min-width: 769px) {
+/* Interactive chart container */
+#chart {
+  width: 100%;
+  background-color: #fff;
+  height: auto;
+}
+
+#chart::before {
+  display: none;
+}
+
+#chart > div:first-child,
+#chart > .plotly-graph-div {
+  position: relative;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 467px;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  /* Sensor container for mobile */
   .sensor-container {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    height: auto;
+    min-height: 250px;
   }
-} Removed this rule */
+  
+  .sensor-container::before {
+    display: none;
+  }
+  
+  .sensor-container > div:first-child,
+  .sensor-container > .plotly-graph-div {
+    position: relative;
+    height: 250px !important;
+  }
+  
+  /* VPD container for mobile */
+  .vpd-container {
+    height: auto;
+    min-height: 300px;
+  }
+  
+  .vpd-container::before {
+    display: none;
+  }
+  
+  .vpd-container > div:first-child,
+  .vpd-container > .plotly-graph-div {
+    position: relative;
+    height: 300px !important;
+  }
+  
+  /* Interactive chart container for mobile */
+  #chart {
+    height: auto;
+  }
+  
+  #chart > div:first-child,
+  #chart > .plotly-graph-div {
+    position: relative;
+    height: auto !important;
+    min-height: 350px;
+  }
+}
 
