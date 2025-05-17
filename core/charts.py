@@ -134,32 +134,31 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
         
         fig = go.Figure()
         
-        # Añadir bandas de fondo si están configuradas
         if "steps" in metric_cfg:
             steps = metric_cfg["steps"]
             colors = metric_cfg["color_bars_gradient"]
             shapes = []
-            if steps[0] != 0: # Banda inicial si el primer step no es 0
+            if steps[0] != 0:
                 shapes.append({
                     "type": "rect", "xref": "paper", "yref": "y",
                     "x0": 0, "x1": 1, "y0": 0, "y1": steps[0],
                     "fillcolor": colors[0] if len(colors) > 0 else 'rgba(200,200,200,0.2)',
                     "opacity": 0.07, "line": {"width": 0},
                 })
-            for i in range(1, len(steps)): # Bandas restantes
+            for i in range(1, len(steps)):
                 fillcolor = colors[i] if i < len(colors) else 'rgba(200,200,200,0.2)'
                 shapes.append({
                     "type": "rect", "xref": "paper", "yref": "y",
                     "x0": 0, "x1": 1, "y0": steps[i-1], "y1": steps[i],
                     "fillcolor": fillcolor, "opacity": 0.07, "line": {"width": 0},
                 })
-            # Ajustar rango Y para mejor visualización de bandas
+            
             min_y = (0 + steps[0]) / 2 
             max_y = steps[-1] * 1.05 if len(steps) > 1 else steps[0] * 1.5
             y_range = [min_y, max_y]
         else:
             shapes = []
-            y_range = None # Rango Y automático si no hay bandas
+            y_range = None
         
         fig.add_trace(
             go.Scatter(
@@ -180,7 +179,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             height=None, # Permitir autosize
             width=None,  # Permitir autosize
             autosize=True,
-            margin=dict(l=60, r=60, t=25, b=25), # Adjusted margins for more internal padding
+            margin=dict(l=50, r=60, t=25, b=25), # Adjusted left margin
             xaxis={
                 'type': 'date',
                 'fixedrange': True,
@@ -200,11 +199,11 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             hovermode='x unified',
             annotations=[
                 {
-                    "x": -0.1, "y": 0.5, "xref": "paper", "yref": "paper",
+                    "x": 0.01, "y": 0.5, "xref": "paper", "yref": "paper", # Adjusted x to be slightly inside
                     "text": f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>{sensor.upper()}</span>",
                     "showarrow": False, "textangle": -90,
-                    "xanchor": "left", "yanchor": "middle",
-                    "font": {"size": 13, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"} # Adjusted font size
+                    "xanchor": "left", "yanchor": "middle", # Ensured xanchor is left
+                    "font": {"size": 13, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
                 }
             ]
         )
