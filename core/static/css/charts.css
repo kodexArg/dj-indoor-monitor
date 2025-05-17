@@ -11,7 +11,7 @@
   max-width: auto;
   gap: 1rem;
   padding: 1rem;
-  align-items: center; /* Agregado para centrar verticalmente */
+  align-items: center;
 }
 
 .sensors-grid {
@@ -23,41 +23,35 @@
   flex-flow: row wrap;
   justify-content: flex-start;
   align-content: flex-start;
-  margin: 0; 
-  width: auto; 
+  margin: 0;
+  width: 100%;
 }
 
-/* Gauge specific styles */
+/* General chart container styles */
 .chart-container {
   position: relative;
-  width: auto;
-  height: auto;
-  max-width: none;
+  width: 100%;
   border: 1px solid var(--brand-green-light);
   border-radius: 8px;
   background-color: var(--brand-bg);
   box-shadow: 0 2px 8px var(--shadow-green-10);
   margin-top: 1rem;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+/* Ensure Plotly's output div inside chart-container fills it */
+.chart-container > div:first-child,
+.chart-container > .plotly-graph-div {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .gauge-container {
-  flex: 0 0 auto;
-  height: 190px;
+  flex: 0 0 200px;
   width: 200px;
+  height: 190px;
   position: relative;
   background-color: #fff;
-}
-
-.gauge-container > * {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,16 +66,17 @@
 /* Sensor chart containers */
 .sensor-container {
   background-color: #fff;
-
+  width: 100%;
 }
 
 .sensor-container::before {
   content: "";
   display: block;
-  padding-bottom: 33.33%;
+  padding-bottom: 40%;
 }
 
-.sensor-container > * {
+.sensor-container > div:first-child,
+.sensor-container > .plotly-graph-div {
   position: absolute;
   top: 0;
   left: 0;
@@ -99,6 +94,11 @@
   justify-content: center;
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 1;
 }
 
 .loading-spinner {
@@ -117,37 +117,41 @@
 /* Asegurar que los mensajes de error se centren */
 .gauge-container p,
 .sensor-container p {
-  position: relative; /* sobrescribir posicionamiento absoluto */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   margin: 0;
+  z-index: 1;
 }
 
 /* vpd specific styles */
 .vpd-container {
-  position: relative;
-  width: auto;
-  height: auto;
-  max-width: none;
-  border: 1px solid var(--brand-green-light);
-  border-radius: 8px;
-  background-color: var(--brand-bg);
-  box-shadow: 0 2px 8px var(--shadow-green-10);
-  margin-top: 1rem;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
   background-color: #fff;
 }
 
-/* .vpd-container > * {
+/* Aspect ratio for VPD. E.g., 4:3 */
+.vpd-container::before {
+  content: "";
+  display: block;
+  padding-bottom: 75%;
+}
+
+.vpd-container > div:first-child,
+.vpd-container > .plotly-graph-div {
   position: absolute;
   top: 0;
   left: 0;
-  width: auto;
-  height: auto;
-} */
+  width: 100%;
+  height: 100%;
+}
+
+/* @media (min-width: 769px) {
+  .sensor-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+} Removed this rule */
 

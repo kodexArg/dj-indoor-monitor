@@ -76,8 +76,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
         timestamp_str = ""
 
     fig.update_layout(
-        height=180,
-        width=200,
+        autosize=True,
         margin=dict(l=25, r=25, t=70, b=0),
         paper_bgcolor="white",
         font={'color': "#666666",
@@ -113,7 +112,7 @@ def gauge_plot(value, metric, sensor, timestamp=None):
         fig,
         full_html=False,
         include_plotlyjs=False,
-        config={'staticPlot': True, 'displayModeBar': False}
+        config={'responsive': True, 'displayModeBar': False}
     )
 
 def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
@@ -181,7 +180,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             height=None, # Permitir autosize
             width=None,  # Permitir autosize
             autosize=True,
-            margin=dict(l=90, r=20, t=20, b=20),
+            margin=dict(l=60, r=60, t=25, b=25), # Adjusted margins for more internal padding
             xaxis={
                 'type': 'date',
                 'fixedrange': True,
@@ -205,7 +204,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
                     "text": f"<b>{metric_cfg['title']}</b><br><span style='font-size:0.8em;'>{sensor.upper()}</span>",
                     "showarrow": False, "textangle": -90,
                     "xanchor": "left", "yanchor": "middle",
-                    "font": {"size": 16, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"}
+                    "font": {"size": 13, "color": "#5f9b62", "family": "Raleway, HelveticaNeue, Helvetica Neue, Helvetica, Arial, sans-serif"} # Adjusted font size
                 }
             ]
         )
@@ -214,7 +213,7 @@ def sensor_plot(df, sensor, metric, timeframe, start_date, end_date):
             fig,
             include_plotlyjs=False,
             full_html=False,
-            config={'staticPlot': True, 'displayModeBar': False, 'responsive': True}
+            config={'responsive': True, 'displayModeBar': False} # Ensure responsive, remove staticPlot if conflicting
         ), len(processed_values)
         
     except Exception as e:
@@ -289,9 +288,10 @@ def vpd_plot(data, temp_min=10, temp_max=40, hum_min=20, hum_max=80):
             title='Temperatura (°C)', range=[temp_min, temp_max], dtick=5,
             gridcolor='rgba(200, 200, 200, 0.2)', side='right', tickfont=dict(size=10)
         ),
-        plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10), height=600
+        plot_bgcolor='white', margin=dict(l=10, r=10, t=10, b=10),
+        autosize=True # Ensure autosize is enabled
     )
-    return pio.to_html(fig, include_plotlyjs=True, full_html=False, config={'staticPlot': True})
+    return fig.to_html(include_plotlyjs='cdn', full_html=False, config={'responsive': True, 'displayModeBar': False})
 
 def interactive_plot(data_df, metric, by_room=False, timeframe='1h', start_date=None, end_date=None):
     if data_df.empty:
