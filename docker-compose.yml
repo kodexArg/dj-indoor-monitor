@@ -3,6 +3,14 @@ services:
     image: timescale/timescaledb:2.11.1-pg14
     container_name: db
     restart: always
+    command: [
+      "postgres",
+      "-c", "shared_buffers=512MB",
+      "-c", "work_mem=64MB",
+      "-c", "maintenance_work_mem=256MB",
+      "-c", "effective_cache_size=2GB",
+      "-c", "max_connections=200"
+    ]
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
