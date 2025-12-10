@@ -17,17 +17,31 @@ Esta guía describe cómo configurar y ejecutar el proyecto en un entorno local 
     ```
 
 2.  **Configurar Variables de Entorno**:
-    Crear un archivo `.env` en la raíz del proyecto basándose en un ejemplo (si existe) o definiendo las siguientes claves críticas:
+    Crear un archivo `.env` en la raíz del proyecto. Para este entorno específico, donde la base de datos se encuentra en un servidor remoto (`192.168.6.11`) pero la aplicación corre localmente, la configuración debe ser similar a:
     ```ini
-    DEBUG=True
-    SECRET_KEY=tu_clave_secreta_desarrollo
-    DB_NAME=postgres
-    DB_USER=postgres
-    DB_PASSWORD=postgres
-    DB_HOST=db
-    DB_PORT=5432
-    ALLOWED_HOSTS=localhost,127.0.0.1
+    # Django
+    DJANGO_SECRET_KEY="tu_clave_secreta"
+    DJANGO_DEBUG=True
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+    
+    # Base de Datos (Conexión Remota)
+    DB_ENGINE=django.db.backends.postgresql
+    DB_NAME=dj_db
+    DB_USER=kodex_user
+    DB_PASSWORD=kodex_pass_do_not_use_in_production
+    DB_HOST=192.168.6.11
+    DB_LOCAL=192.168.6.11
+    
+    # Configuración Regional
+    DJANGO_TIMEZONE=America/Argentina/Buenos_Aires
+    
+    # Seguridad (Local)
+    BEHIND_SSL_PROXY=False
+    CSRF_COOKIE_SECURE=False
+    SESSION_COOKIE_SECURE=False
     ```
+
+    > **Nota**: `DB_LOCAL` es utilizado por el comando `runserver` para conectar a la base de datos. Asegúrate de tener conectividad con `192.168.6.11` desde tu máquina.
 
 ## Ejecución con Docker (Recomendado)
 

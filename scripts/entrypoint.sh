@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-until PGPASSWORD=$DB_PASSWORD psql -h "db" -U "$DB_USER" -d "$DB_NAME" -c '\q'; do
+until PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c '\q'; do
   echo "Waiting for PostgreSQL..."
   sleep 1
 done
