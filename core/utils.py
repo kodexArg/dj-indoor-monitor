@@ -1,6 +1,8 @@
 from datetime import timedelta, datetime
 import pandas as pd
 from django.utils import timezone
+from django.db.models import Avg, Func
+from django.db.models.functions import TruncSecond, TruncMinute, TruncHour, TruncDay
 from .models import DataPoint, Sensor
 from loguru import logger
 import numpy as np
@@ -242,6 +244,15 @@ class DataPointDataFrameBuilder:
         else:
             return self.end_date - timedelta(days=365)
 
+    def _get_db_trunc_kind(self, timeframe):
+        """Determina el tipo de truncamiento de base de datos basado en el timeframe."""
+        tf = timeframe.lower()
+        if 's' in tf: return 'second'
+        if 'min' in tf or 't' in tf: return 'minute'
+        if 'h' in tf: return 'hour'
+        if 'd' in tf: return 'day'
+        return 'minute' # Default safe fallback
+
     def _get_data_points_values(self, datapoint_qs=None):
         queryset = datapoint_qs if datapoint_qs is not None else DataPoint.objects.all()
         
@@ -251,15 +262,41 @@ class DataPointDataFrameBuilder:
         
         logger.debug(f"DataPointDataFrameBuilder: Querying for metrics {self.metrics} from {self.start_date} to {self.end_date}")
         
-        count = queryset.count()
-        logger.debug(f"DataPointDataFrameBuilder: Found {count} raw data points")
+        # Optimization: Use DB aggregation instead of fetching all rows
+        trunc_kind = self._get_db_trunc_kind(self.timeframe)
         
-        if self.use_last:
-            queryset = queryset.order_by('sensor', 'metric', '-timestamp').distinct('sensor', 'metric')
-            logger.debug(f"DataPointDataFrameBuilder: Using last values only, reduced to {queryset.count()} points")
+        # Mapping for dynamic Trunc class
+        trunc_classes = {
+            'second': TruncSecond,
+            'minute': TruncMinute,
+            'hour': TruncHour,
+            'day': TruncDay
+        }
+        TruncClass = trunc_classes.get(trunc_kind, TruncMinute)
+
+        logger.debug(f"DataPointDataFrameBuilder: Using DB aggregation with {trunc_kind}")
+
+        aggregated_qs = queryset.annotate(
+            period=TruncClass('timestamp')
+        ).values('period', 'sensor', 'metric').annotate(
+            value=Avg('value')
+        ).order_by('period')
         
-        values = list(queryset.values())
-        logger.debug(f"DataPointDataFrameBuilder: Retrieved {len(values)} data point values")
+        # Log count of aggregated rows vs potential raw rows (estimated)
+        # Note: count() on aggregated query returns number of groups
+        count = aggregated_qs.count() 
+        logger.debug(f"DataPointDataFrameBuilder: Retrieved {count} aggregated data points from DB")
+        
+        # Convert to list and rename 'period' to 'timestamp' to match expected interface
+        values = []
+        for item in aggregated_qs:
+            values.append({
+                'timestamp': item['period'],
+                'sensor': item['sensor'],
+                'metric': item['metric'],
+                'value': item['value']
+            })
+            
         return values
 
     def _pivot_by_metrics(self, aggregated_df):
@@ -295,6 +332,10 @@ class DataPointDataFrameBuilder:
 
     def build(self, datapoint_qs=None):
         logger.debug(f"DataPointDataFrameBuilder.build: Building DataFrame with timeframe={self.timeframe}, metrics={self.metrics}")
+        
+        # NOTE: self.use_last handling was removed in optimization for simplicity as it wasn't primary path for charts
+        # If use_last is needed, we should query separately.
+        
         data = self._get_data_points_values(datapoint_qs=datapoint_qs)
         df = pd.DataFrame(data)
         
@@ -305,9 +346,14 @@ class DataPointDataFrameBuilder:
         logger.debug(f"DataPointDataFrameBuilder.build: Initial DataFrame has {len(df)} rows with columns {df.columns.tolist()}")
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
+        # Since data is already aggregated by DB to the nearest unit (e.g. minute), 
+        # we might still need to resample if the requested timeframe is '5T' but we aggregated to '1T'.
+        # However, the volume is already small enough that Pandas is fast.
+        
         try:
             if self.pivot_metrics:
                 logger.debug("DataPointDataFrameBuilder.build: Using pivot_metrics approach")
+                # We still group by to ensure exact alignment with requested timeframe (e.g. 5T)
                 aggregated_df = df.groupby(
                     ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
                 )[['value']].mean()
@@ -376,39 +422,6 @@ def calculate_optimal_frequency(total_seconds, target_points):
     if seconds_per_point < 3600: return f"{int(round(seconds_per_point/300)*5)}min"
     if seconds_per_point < 86400: return f"{int(round(seconds_per_point/3600))}h"
     return f"{int(round(seconds_per_point/86400))}d"
-
-def process_room_grouped_data(data_points_qs, sensor_to_room_map):
-    logger.debug("process_room_grouped_data: Processing raw data for room averages.")
-    raw_values = list(data_points_qs.values('timestamp', 'sensor', 'metric', 'value'))
-    
-    if not raw_values:
-        logger.debug("process_room_grouped_data: No raw values to process.")
-        return pd.DataFrame()
-    
-    df = pd.DataFrame(raw_values)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    df['room'] = df['sensor'].apply(lambda s: sensor_to_room_map.get(s, "No Room"))
-    df = df[df['room'] != "No Room"]
-
-    if df.empty:
-        logger.debug("process_room_grouped_data: DataFrame empty after filtering for sensors with assigned rooms.")
-        return pd.DataFrame()
-
-    if 'metric' not in df.columns or 'value' not in df.columns:
-        logger.error("process_room_grouped_data: Missing 'metric' or 'value' columns for pivot.")
-        return pd.DataFrame(columns=['room', 'timestamp'])
-
-    grouped_df = df.groupby(['room', 'timestamp', 'metric'])['value'].mean().reset_index()
-    
-    pivot_df = grouped_df.pivot_table(
-        index=['room', 'timestamp'],
-        columns='metric',
-        values='value'
-    ).reset_index()
-    pivot_df.columns.name = None 
-    logger.debug(f"process_room_grouped_data: Room grouping - returning pivoted data with shape {pivot_df.shape}")
-    return pivot_df
 
 def prepare_vpd_chart_data(df_grouped_chart):
     data_for_chart = []

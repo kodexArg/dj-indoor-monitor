@@ -17,7 +17,6 @@ from .utils import (
     calculate_optimal_frequency,
     filter_dataframe_by_min_points,
     calculate_vpd,
-    process_room_grouped_data,
     prepare_sensors_view_data,
     prepare_gauges_view_data,
     get_active_sensor_names
@@ -365,26 +364,39 @@ class InteractiveView(TemplateView):
         
         logger.debug(f"InteractiveView: Found {data_points_qs.count()} raw data points for active sensors in time range.")
 
-        if room_grouping_active:
-            sensors_map_qs = Sensor.objects.select_related('room').all()
-            sensor_to_room_map_internal = {s.name: s.room.name if s.room else "No Room" for s in sensors_map_qs}
-            df = process_room_grouped_data(data_points_qs, sensor_to_room_map_internal)
-            logger.debug(f"InteractiveView: Room grouping - returning pivoted data with shape {df.shape if not df.empty else '(empty)'}")
+        # Calculate optimal frequency once
+        actual_resampling_freq = calculate_optimal_frequency(total_seconds_for_optimal_freq, self.TARGET_POINTS)
+        logger.debug(f"InteractiveView: Using optimal frequency {actual_resampling_freq} for visualization")
+
+        # Unified Builder approach for both Room and Sensor grouping
+        # This uses the optimized DB aggregation under the hood.
+        df_builder = DataPointDataFrameBuilder(
+            timeframe=actual_resampling_freq, 
+            start_date=start_date,
+            end_date=end_date,
+            metrics=metrics,
+            pivot_metrics=True,
+            add_room_information=True
+        )
+        df = df_builder.build(datapoint_qs=data_points_qs)
+        
+        if df.empty:
             return df
+
+        if room_grouping_active:
+            logger.debug("InteractiveView: Room grouping active. Aggregating sensor data by room.")
+            # df has columns like ['timestamp', 'sensor', 'room', 't', 'h']
+            # We need to group by ['room', 'timestamp'] and average the metrics.
+            
+            # Identify metric columns (exclude non-numeric/grouping columns)
+            group_cols = ['room', 'timestamp']
+            
+            # Group and mean
+            df_room = df.groupby(group_cols).mean(numeric_only=True).reset_index()
+            
+            logger.debug(f"InteractiveView: Room grouping - returning aggregated data with shape {df_room.shape}")
+            return df_room
         else:
-            logger.debug("InteractiveView: Sensor grouping active. Using DataPointDataFrameBuilder.")
-            actual_resampling_freq = calculate_optimal_frequency(total_seconds_for_optimal_freq, self.TARGET_POINTS)
-            
-            df_builder = DataPointDataFrameBuilder(
-                timeframe=actual_resampling_freq, 
-                start_date=start_date,
-                end_date=end_date,
-                metrics=metrics,
-                pivot_metrics=True,
-                add_room_information=True
-            )
-            df = df_builder.build(datapoint_qs=data_points_qs)
-            
-            logger.debug(f"InteractiveView: Sensor grouping - returning DataFrame with shape {df.shape if not df.empty else '(empty)'}")
+            logger.debug(f"InteractiveView: Sensor grouping - returning DataFrame with shape {df.shape}")
             return df
 
