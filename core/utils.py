@@ -369,10 +369,12 @@ class DataPointDataFrameBuilder:
                 df = df.reset_index()
             else:
                 logger.debug("DataPointDataFrameBuilder.build: Using standard groupby approach")
+                # Fix: Include 'metric' in groupby to avoid aggregating string column 'metric' with mean
+                # and to keep the data properly structured.
                 agg_func = 'last' if self.use_last else 'mean'
                 aggregated_df = df.groupby(
-                    ['sensor', pd.Grouper(key='timestamp', freq=self.timeframe)]
-                )[['value', 'metric']].agg(agg_func)
+                    ['sensor', 'metric', pd.Grouper(key='timestamp', freq=self.timeframe)]
+                )[['value']].agg(agg_func)
                 df = aggregated_df.reset_index()
             
             if df.empty:

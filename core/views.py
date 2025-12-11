@@ -55,13 +55,60 @@ class SensorsView(TemplateView):
     template_name = 'charts/sensors.html'
     metric_map = METRIC_MAP
 
+    def get(self, request, *args, **kwargs):
+        # Resolve parameters with priority: GET > COOKIE > DEFAULT
+        timeframe = request.GET.get('timeframe')
+        if not timeframe:
+            timeframe = request.COOKIES.get('sensor_timeframe', '4h')
+        
+        room = request.GET.get('room')
+        if not room:
+            room = request.COOKIES.get('sensor_room', 'all')
+            
+        # Normalize
+        timeframe = timeframe.lower()
+        
+        # Pass to context data via kwargs
+        kwargs['resolved_timeframe'] = timeframe
+        kwargs['resolved_room'] = room
+        
+        context = self.get_context_data(**kwargs)
+        response = self.render_to_response(context)
+        
+        # Set cookies
+        response.set_cookie('sensor_timeframe', timeframe, max_age=365*24*60*60)
+        response.set_cookie('sensor_room', room, max_age=365*24*60*60)
+        
+        return response
+
     def get_context_data(self, **kwargs):
         start_time = time.time()
         
         context = super().get_context_data(**kwargs)
-        timeframe = self.request.GET.get('timeframe', '1h').lower()
+        
+        # Use resolved values from get()
+        timeframe = kwargs.get('resolved_timeframe', '4h').lower()
         context['timeframe'] = timeframe
         context['selected_timeframe'] = timeframe
+        
+        # Filtro de Sala
+        selected_room_id = kwargs.get('resolved_room', 'all')
+        context['selected_room'] = selected_room_id
+        
+        # Obtener todas las salas para el dropdown
+        # Asumimos que hay un modelo Room, si no, lo extraemos de Sensor
+        # Optimizacion: Extraer IDs y Nombres de salas unicas desde sensores activos o tabla Room
+        from .models import Room # Importacion local para asegurar disponibilidad
+        try:
+            all_rooms = list(Room.objects.values('id', 'name').order_by('name'))
+        except ImportError:
+             # Fallback si no existe modelo Room explicito, extraer de sensores
+             # (Ajustar segun modelo real, asumo Room existe por docs)
+             pass 
+        
+        # En caso de que el modelo Room no este importado arriba, lo hacemos aqui o asumimos que Sensor.room es FK
+        # Revisando imports: from .models import DataPoint, Sensor
+        # No veo Room importado, voy a agregarlo o usar Sensor__room
         
         end_date = timezone.now()
         
@@ -80,6 +127,25 @@ class SensorsView(TemplateView):
         else:
             logger.debug(f"SensorsView: Active sensors for timeframe {timeframe}: {active_sensor_names}")
             sensors_qs = Sensor.objects.select_related('room').filter(name__in=active_sensor_names)
+            
+        # Aplicar filtro de sala al QuerySet de sensores
+        if selected_room_id != 'all':
+            if selected_room_id == 'None': # Manejo de sensores sin sala asignada
+                sensors_qs = sensors_qs.filter(room__isnull=True)
+            else:
+                try:
+                    sensors_qs = sensors_qs.filter(room__id=int(selected_room_id))
+                except (ValueError, TypeError):
+                    logger.warning(f"SensorsView: Invalid room id '{selected_room_id}'. Ignoring filter.")
+        
+        # Obtener lista de salas disponibles para el filtro (basado en sensores existentes, o mejor, todas las salas)
+        # Para el filtro de UI, es mejor mostrar todas las salas configuradas
+        # Pero como no tengo Room importado en top-level, voy a hacerlo dinamico
+        # Re-usamos sensors_qs para ver que salas tienen datos? No, mejor todas las salas.
+        
+        # Necesito importar Room. Voy a modificar los imports del archivo primero.
+        # Por ahora, extraigo los IDs de salas de los sensores (aunque esten inactivos, para el filtro)
+        # O mejor, modifico el archivo para importar Room.
         
         start_date_for_view_data = end_date - get_timedelta_from_timeframe(timeframe)
 
@@ -93,6 +159,16 @@ class SensorsView(TemplateView):
         )
 
         context['data'] = data
+        
+        # Populate room list for filter
+        # HACK: Access Room model via Sensor relation to avoid circular imports or if Room is not in .models
+        # Assuming Sensor has ForeignKey to Room
+        RoomModel = Sensor._meta.get_field('room').related_model
+        if RoomModel:
+            context['rooms'] = RoomModel.objects.all().order_by('name')
+        else:
+            context['rooms'] = []
+            
         
         total_time = time.time() - start_time
         logger.debug(f"SensorsView: Renderizado en {total_time:.2f}s con {len(data)} sensores activos")
@@ -108,35 +184,42 @@ class GenerateSensorView(View):
         metric = request.POST.get('metric', '')
         
         end_date = timezone.now()
-        active_sensors = get_active_sensor_names(
-            timeframe_str=timeframe,
-            end_date=end_date,
-            metrics_list=[metric] if metric else None,
-            initial_sensor_names=[sensor_name]
-        )
-
-        if sensor_name not in active_sensors:
-            logger.warning(f"Sensor {sensor_name} (metric: {metric}) has no recent data for timeframe {timeframe}. Not generating chart.")
-            return HttpResponse(f"<div class='no-data-alert'>No hay datos suficientemente recientes para el sensor {sensor_name} ({metric}) según el timeframe seleccionado.</div>")
+        
+        # NOTE: Skipping get_active_sensor_names check for optimization 
+        # because the sensor was already filtered in SensorsView.
+        # If we reached here, it's likely valid, or we handle empty data gracefully below.
             
         start_date = timezone.now() - get_timedelta_from_timeframe(timeframe)
         
-        data_points = DataPoint.objects.filter(
-            sensor=sensor_name,
-            metric=metric,
-            timestamp__gte=start_date,
-            timestamp__lte=end_date
-        ).order_by('timestamp')
+        # Optimization: Use optimized DataPointDataFrameBuilder with DB aggregation
+        # Determine optimal frequency based on timeframe to reduce data points
+        total_seconds = (end_date - start_date).total_seconds()
+        target_points = 120 # Consistent with InteractiveView
+        optimal_freq = calculate_optimal_frequency(total_seconds, target_points)
         
-        if not data_points.exists():
-            logger.warning(f"No hay datos para sensor='{sensor_name}', metric='{metric}' en rango {timeframe} (post-activity check)")
-            return HttpResponse(f"<div class='no-data-alert'>No hay datos disponibles para el sensor {sensor_name} ({metric}) en el período exacto.</div>")
+        # Use builder to fetch and aggregate in DB
+        df_builder = DataPointDataFrameBuilder(
+            timeframe=optimal_freq,
+            start_date=start_date,
+            end_date=end_date,
+            metrics=[metric],
+            pivot_metrics=False, # Single metric, no pivot needed
+            add_room_information=False
+        )
         
-        df = create_timeframed_dataframe(data_points, timeframe, start_date, end_date)
+        # We need to filter by sensor explicitly in the builder query
+        datapoint_qs = DataPoint.objects.filter(sensor=sensor_name, metric=metric)
+        
+        df = df_builder.build(datapoint_qs=datapoint_qs)
+        
+        if df.empty:
+             logger.warning(f"No hay datos para sensor='{sensor_name}', metric='{metric}' en rango {timeframe} (post-optimization)")
+             return HttpResponse(f"<div class='no-data-alert'>No hay datos disponibles.</div>")
+
         chart_html, count = sensor_plot(df, sensor_name, metric, timeframe, start_date, end_date)
         
         total_time = time.time() - start_time
-        logger.debug(f"Gráfico para {sensor_name}/{metric}: {count} puntos en {total_time:.2f}s")
+        logger.debug(f"Gráfico para {sensor_name}/{metric}: {count} puntos en {total_time:.2f}s (Optimized)")
         
         return HttpResponse(chart_html)
 

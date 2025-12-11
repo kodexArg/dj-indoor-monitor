@@ -1,3 +1,8 @@
+/* Toggle buttons styles */
+#room-filter {
+  margin-left: 20px;
+}
+
 /* Wrappers para las diferentes vistas de gráficos */
 .sensors-wrapper,
 .gauges-wrapper {
