@@ -177,7 +177,7 @@
   /* Sensor container for mobile */
   .sensor-container {
     height: auto;
-    min-height: 250px;
+    min-height: 50vh;
   }
   
   .sensor-container::before {
@@ -187,13 +187,13 @@
   .sensor-container > div:first-child,
   .sensor-container > .plotly-graph-div {
     position: relative;
-    height: 250px !important;
+    height: 50vh !important;
   }
   
   /* VPD container for mobile */
   .vpd-container {
     height: auto;
-    min-height: 300px;
+    min-height: 50vh;
   }
   
   .vpd-container::before {
@@ -203,19 +203,25 @@
   .vpd-container > div:first-child,
   .vpd-container > .plotly-graph-div {
     position: relative;
-    height: 300px !important;
+    height: 50vh !important;
   }
   
   /* Interactive chart container for mobile */
   #chart {
-    height: auto;
+    height: 80dvh;
+    min-height: 500px;
   }
   
   #chart > div:first-child,
   #chart > .plotly-graph-div {
     position: relative;
-    height: auto !important;
-    min-height: 350px;
+    height: 100% !important;
+  }
+
+  /* Ensure debug info is at the bottom */
+  #debug-info {
+    margin-top: 2rem;
+    padding-bottom: 2rem;
   }
 }
 
