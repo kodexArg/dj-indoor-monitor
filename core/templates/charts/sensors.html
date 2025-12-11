@@ -25,7 +25,7 @@
             </div>
             
             <div id="room-filter" class="button-cluster">
-                 <select onchange="window.location.href='{% url 'sensors' %}?timeframe={{ timeframe }}&room=' + this.value" class="button" style="height: 38px; padding: 0 30px 0 10px; background-color: transparent; border: 1px solid #bbb; color: #555; width: 250px; font-size: 11px; font-weight: 600; letter-spacing: .1rem; text-transform: uppercase;">
+                 <select onchange="window.location.href='{% url 'sensors' %}?timeframe={{ timeframe }}&room=' + this.value" class="room-select">
                     <option value="all" {% if selected_room == 'all' %}selected{% endif %}>Todas las Salas</option>
                     {% for room in rooms %}
                         <option value="{{ room.id }}" {% if selected_room|stringformat:"s" == room.id|stringformat:"s" %}selected{% endif %}>{{ room.name }}</option>

@@ -29,7 +29,9 @@
   --shadow-green-10: rgba(111, 191, 115, 0.1);
 }
 
-/* Estilos generales y de layout */
+/* =========================================
+   General Layout & Body
+   ========================================= */
 body {
   overflow-y: auto;
   background-color: var(--brand-bg);
@@ -60,7 +62,9 @@ body::-webkit-scrollbar-track {
   }
 }
 
-/* Cabecera y Navbar */
+/* =========================================
+   Header & Navbar
+   ========================================= */
 .header-container {
   display: flex;
   align-items: center;
@@ -148,10 +152,10 @@ body::-webkit-scrollbar-track {
 }
 
 .nav-button.active {
-    box-shadow: 0 0 6px 1px var(--brand-green-dark-50);
-    border-radius: 8px;
-    color: var(--brand-green-dark);
-    border: 1px solid var(--brand-green); /* Added border */
+  box-shadow: 0 0 6px 1px var(--brand-green-dark-50);
+  border-radius: 8px;
+  color: var(--brand-green-dark);
+  border: 1px solid var(--brand-green);
 }
 
 .nav-button.active img {
@@ -159,35 +163,51 @@ body::-webkit-scrollbar-track {
 }
 
 .nav-button.active small {
-    color: var(--brand-green-dark);
+  color: var(--brand-green-dark);
 }
 
-/* Footer */
-.footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: var(--brand-green-light);
-  color: var(--brand-gray-dark);
-  text-align: center;
-  padding: 0;
-  margin-left: auto;
-  margin-right: auto;
-  font-size: 1.1em;
+@media screen and (max-width: 768px) {
+  .subtitle-pre,
+  .header-center {
+    display: none;
+  }
+
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* =========================================
+   Headings & Text Content
+   ========================================= */
+h1 {
+  font-size: 1.4em;
   font-weight: bold;
-  line-height: 2em;
-  height: 2em;
-}
-
-.footer-text {
-  font-size: 0.8em;
-  color: var(--brand-gray);
-  font-style: italic;
-}
-
-.footer-text a {
   color: var(--brand-green);
+  margin-bottom: 1.4rem;
+}
+
+h2 {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--brand-green);
+  margin-bottom: 1.2rem;
+  padding-top: 2.5rem;
+}
+
+h3 {
+  font-size: 1em;
+  font-weight: bold;
+  color: var(--brand-green-dark);
+  margin-bottom: 1rem;
+  padding-top: 2rem;
 }
 
 .text-content {
@@ -216,69 +236,232 @@ body::-webkit-scrollbar-track {
   }
 }
 
-.htmx-indicator {
-  display: none;
+/* =========================================
+   Buttons & Controls
+   ========================================= */
+.button-group {
+  margin: 10px 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center; /* Ensure vertical alignment */
 }
 
-.htmx-request .htmx-indicator {
-  display: block;
+.button-cluster {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  /* Make clusters cohesive blocks */
+  flex-wrap: nowrap;
+  /* Reset container styles */
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
-.htmx-request.htmx-indicator {
-  display: block;
+/* Containers for specific button groups - Simplified: rely on .button-cluster */
+#toggle-buttons-timeframe,
+#toggle-buttons-metric,
+#toggle-buttons-online {
+  /* Inherits display:flex from .button-cluster if applied, or defaults */
 }
 
-.progress-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
+.vertical-separator {
+  border-left: 1px solid var(--brand-gray-light);
+  height: 30px;
+  margin: 0 6px;
+}
+
+/* Base button styles for .button-group context */
+.button-group .button {
+  font-size: 1.2rem;
+  border: 1px solid var(--brand-green-light);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--brand-gray-dark);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 300;
+  margin: 0; /* Removing individual margins, using gap instead */
+  box-sizing: border-box; /* Critical for consistent sizing */
+  
+  /* Flex centering for content */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Button States */
+.button-group .button:hover {
+  background-color: var(--brand-green-light);
+  border-color: var(--brand-green);
+  color: var(--brand-gray-dark);
+}
+
+.button-group .button.active {
+  background-color: var(--brand-green-light);
+  color: var(--brand-green-dark);
+  border-color: var(--brand-green);
+  font-weight: 600;
+}
+
+.button-group .button[disabled] {
+  background-color: transparent;
+  color: var(--brand-green-light);
+  border-color: var(--brand-green-light);
+  cursor: not-allowed;
+  opacity: 0.7;
+  font-weight: 300;
+}
+
+/* Specific Button Variants */
+
+/* 1. Square Timeframe Buttons (44px) */
+#toggle-buttons-timeframe .button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+}
+
+/* 2. Rectangular Metric/Online Buttons (80x44px - Height matched to timeframe) */
+#toggle-buttons-metric .button,
+#toggle-buttons-online .button {
+  width: 80px;
+  height: 44px; /* Increased from 40px to 44px to match timeframe buttons */
+  padding: 0;
+  margin: 0;
+}
+
+/* 3. Room Select (Matches Timeframe Buttons - 44px) */
+#room-filter .room-select {
+  width: 250px;
+  height: 44px; /* Matches timeframe buttons height */
+  line-height: normal; /* Let flexbox handle alignment */
+  box-sizing: border-box; /* Include padding/border in height */
+  padding: 0 30px 0 15px;
+  margin: 0;
+  
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--brand-gray-dark);
+  border: 1px solid var(--brand-green-light);
+  background-color: transparent;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  /* Custom arrow */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+/* Reusing hover/focus states from .button-group .button where possible */
+#room-filter .room-select:hover {
+  background-color: var(--brand-green-light);
+  border-color: var(--brand-green);
+  color: var(--brand-gray-dark);
+}
+
+#room-filter .room-select:focus {
+  outline: none;
+  border-color: var(--brand-green);
+}
+
+#room-filter .room-select option {
+  background-color: var(--brand-bg);
+  color: var(--brand-gray-dark);
+}
+
+/* =========================================
+   Charts & Tables
+   ========================================= */
+.room-title-wrapper {
+  background-color: var(--brand-green-light);
+  border-radius: 25px;
   width: 100%;
-  height: 12px;
-  background: linear-gradient(
-    to right,
-    var(--brand-bg),
-    var(--brand-green-light),
-    var(--brand-green),
-    var(--brand-green-dark),
-    var(--brand-green),
-    var(--brand-green-light),
-    var(--brand-bg)
-  );
-  background-size: 200% 100%;
-  animation: loading-gradient 2s ease infinite;
-  z-index: 9999;
-}
-
-@keyframes loading-gradient {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-@media screen and (max-width: 768px) {
-  .subtitle-pre,
-  .header-center {
-    display: none;
-  }
-
-  .header-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.1rem;
-  }
-
-  .header-right {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-.math-block {
-  overflow-x: auto;
-  padding: 1rem 0;
   text-align: center;
-  font-size: 1.2em;
+  display: table;
+  padding: 0.5rem;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
 }
 
+.room-title {
+  color: var(--brand-green-dark);
+  display: table-cell;
+  vertical-align: middle;
+  padding: 0;
+}
+
+#chart-content {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+#chart-content .chart-container {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#chart .plotly,
+#chart .plotly .main-svg,
+#chart .js-plotly-plot,
+#chart .plot-container,
+#chart {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#chart {
+  display: block !important;
+  overflow: hidden !important;
+}
+
+#chart .plotly {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.ytitle {
+  font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 14px !important;
+  color: var(--brand-green-dark) !important;
+  font-weight: bold !important;
+}
+
+.ytick text {
+  font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  visibility: visible !important;
+}
+
+.plot-container .plot-area {
+  margin: 0 10px !important;
+}
+
+@media (max-width: 768px) {
+  #chart-content .chart-container {
+    padding: 0 5px !important;
+  }
+}
+
+/* =========================================
+   Tables (Sensors)
+   ========================================= */
 .sensor-table-container {
   margin: 0;
   display: flex;
@@ -321,7 +504,7 @@ body::-webkit-scrollbar-track {
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
-sensor-table tbody tr:nth-child(even) {
+.sensor-table tbody tr:nth-child(even) {
   background-color: var(--brand-green-light);
 }
 
@@ -345,200 +528,75 @@ sensor-table tbody tr:nth-child(even) {
   padding: 4px 8px;
 }
 
-h3 {
-  font-size: 1em;
-  font-weight: bold;
-  color: var(--brand-green-dark);
-  margin-bottom: 1rem;
-  padding-top: 2rem;
+/* =========================================
+   Utilities & Misc
+   ========================================= */
+.htmx-indicator {
+  display: none;
 }
 
-h2 {
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: block;
+}
+
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  background: linear-gradient(
+    to right,
+    var(--brand-bg),
+    var(--brand-green-light),
+    var(--brand-green),
+    var(--brand-green-dark),
+    var(--brand-green),
+    var(--brand-green-light),
+    var(--brand-bg)
+  );
+  background-size: 200% 100%;
+  animation: loading-gradient 2s ease infinite;
+  z-index: 9999;
+}
+
+@keyframes loading-gradient {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.math-block {
+  overflow-x: auto;
+  padding: 1rem 0;
+  text-align: center;
   font-size: 1.2em;
-  font-weight: bold;
-  color: var(--brand-green);
-  margin-bottom: 1.2rem;
-  padding-top: 2.5rem;
 }
 
-h1 {
-  font-size: 1.4em;
-  font-weight: bold;
-  color: var(--brand-green);
-  margin-bottom: 1.4rem;
-}
-
-.button-group {
-  margin: 10px 0;
-  display: flex;
-  gap: 6px; /* Reduced gap between buttons */
-  flex-wrap: wrap; /* Permite saltar de línea si es necesario */
-}
-
-#toggle-buttons-timeframe {
-  display: flex;
-  flex-wrap: nowrap; /* Mantiene los botones en una línea */
-  flex-shrink: 0; /* Evita que los botones se compriman */
-}
-
-#toggle-buttons-metric,
-#toggle-buttons-online {
-  display: flex;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
-}
-
-.vertical-separator {
-  border-left: 1px solid var(--brand-gray-light);
-  height: 30px;
-  margin: 0 6px; /* Match the new gap */
-}
-
-/* Base button styles */
-.button-group .button {
-  font-size: 1.2rem; /* Slightly larger font */
-  border: 1px solid var(--brand-green-light);  /* Changed: lighter border */
-  border-radius: 4px;
-  background-color: transparent;  /* Changed: transparent background */
-  color: var(--brand-gray-dark);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: 300;  /* Added: thin font */
-  margin: 2px;  /* Added: small margin for separation */
-}
-
-/* Square timeframe buttons */
-#toggle-buttons-timeframe .button {
-  width: 44px; /* Slightly smaller square */
-  height: 44px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Rectangular metric and online buttons */
-#toggle-buttons-metric .button,
-#toggle-buttons-online .button,
-.button-cluster .button {  /* Agregado selector para todos los botones en button-cluster */
-  width: 80px;
-  height: 40px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Button states */
-.button-group .button:hover {
+/* Footer alignment fix */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
   background-color: var(--brand-green-light);
-  border-color: var(--brand-green);
   color: var(--brand-gray-dark);
-}
-
-.button-group .button.active {
-  background-color: var(--brand-green-light);  /* Cambio: fondo más claro */
-  color: var(--brand-green-dark);
-  border-color: var(--brand-green);
-  font-weight: 600;  /* Added: bold font */
-}
-
-.button-group .button[disabled] {
-  background-color: transparent;  /* Changed: transparent */
-  color: var(--brand-green-light);  /* Changed: lighter text */
-  border-color: var(--brand-green-light);  /* Changed: lighter border */
-  cursor: not-allowed;
-  opacity: 0.7;
-  font-weight: 300;  /* Added: thin font */
-}
-
-/* Consistency styles for interactive chart buttons */
-#toggle-buttons .button {
-  height: 36px;
-  line-height: 36px;
-  padding: 0 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  border-radius: 4px;
-  margin: 3px;
-  font-weight: 500;
-}
-
-#toggle-buttons .button-cluster {
-  display: flex;
-  align-items: center;
-}
-
-.room-title-wrapper {
-    background-color: var(--brand-green-light);
-    border-radius: 25px;
-    width: 100%;
-    text-align: center;
-    display: table;
-    padding: 0.5rem;
-    margin-top: 3rem;
-    margin-bottom: 1rem;
-}
-
-.room-title {
-    color: var(--brand-green-dark);
-
-    display: table-cell;
-    vertical-align: middle;
-    padding: 0;
-}
-
-#chart-content {
-  width: 100%;
+  text-align: center;
   padding: 0;
-  margin: 0;
-}
-#chart-content .chart-container {
-  padding-left: 0;
-  padding-right: 0;
-  margin-left: 0;
-  margin-right: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-#chart .plotly {
-    width: 100% !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-}
-#chart .plotly .main-svg {
-    width: 100% !important;
-}
-#chart .js-plotly-plot,
-#chart .plot-container {
-    width: 100% !important;
-}
-#chart {
-    width: 100% !important;
-    display: block !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-}
-.ytitle {
-    font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-    font-size: 14px !important;
-    color: var(--brand-green-dark) !important;
-    font-weight: bold !important;
-}
-.ytick text {
-    font-family: "Raleway", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-    font-size: 11px !important;
-    visibility: visible !important;
-}
-.plot-container .plot-area {
-    margin: 0 10px !important;
-}
-@media (max-width: 768px) {
-  #chart-content .chart-container {
-    padding: 0 5px !important;
-  }
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 1.1em;
+  font-weight: bold;
+  line-height: 2em;
+  height: 2em;
 }
 
+.footer-text {
+  font-size: 0.8em;
+  color: var(--brand-gray);
+  font-style: italic;
+}
 
+.footer-text a {
+  color: var(--brand-green);
+}
