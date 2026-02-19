@@ -29,6 +29,11 @@ jobs:
         # For now, we skip modifying .env automatically to avoid overwriting secrets.
         run: echo "Environment check skipped (managing .env manually)"
 
+      - name: Debug Environment
+        run: |
+          echo "DB_NAME is: $DB_NAME"
+          env | sort
+
       - name: Deploy with Docker Compose
         run: |
           docker compose down
