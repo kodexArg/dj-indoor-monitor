@@ -38,6 +38,7 @@ services:
       - frontend
     ports:
       - "80:80"
+      - "8000:80"
 
   webapp:
     build:

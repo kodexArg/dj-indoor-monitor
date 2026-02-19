@@ -86,6 +86,7 @@ SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE') == 'True'  # Cookie d
 CSRF_TRUSTED_ORIGINS = [
     f'https://{DOMAIN}',  # Acepta CSRF desde HTTPS
     f'http://{DOMAIN}',   # Acepta CSRF desde HTTP (desarrollo)
+    f'http://{DOMAIN}:8000', # Acepta CSRF desde HTTP en puerto 8000
     'http://localhost:8000',  # Para desarrollo local
     'http://127.0.0.1:8000',  # Para desarrollo local
 ]
