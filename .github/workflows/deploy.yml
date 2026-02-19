@@ -31,7 +31,9 @@ jobs:
 
       - name: Deploy with Docker Compose
         run: |
-          docker compose down # Optional: ensures clean slate if needed, but 'up -d' usually handles updates
+          # Source profile to get the system env vars we configured
+          source $HOME/.bashrc
+          docker compose down
           docker compose up -d --build --remove-orphans
 
       - name: Cleanup
