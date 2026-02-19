@@ -251,4 +251,4 @@ Contribuciones mediante Pull Request.
 1. Haz un fork del repositorio.
 2. Crea una nueva rama (`git checkout -b feature/nueva-funcionalidad`).
 3. Realiza tus cambios y haz commit (`git commit -am 'Agrega nueva funcionalidad'`).
-4. Sube tus cambios a la rama (`
+4. Sube tus cambios a la rama (` 
