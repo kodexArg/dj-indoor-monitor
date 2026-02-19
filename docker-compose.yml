@@ -38,6 +38,8 @@ services:
       dockerfile: Dockerfile
     container_name: webapp
     restart: always
+    expose:
+      - "8000"
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
