@@ -3,21 +3,13 @@ services:
     image: timescale/timescaledb:2.11.1-pg14
     container_name: db
     restart: always
-    command: [
-      "postgres",
-      "-c", "shared_buffers=512MB",
-      "-c", "work_mem=64MB",
-      "-c", "maintenance_work_mem=256MB",
-      "-c", "effective_cache_size=2GB",
-      "-c", "max_connections=200"
-    ]
+    command: [ "postgres", "-c", "shared_buffers=512MB", "-c", "work_mem=64MB", "-c", "maintenance_work_mem=256MB", "-c", "effective_cache_size=2GB", "-c", "max_connections=200" ]
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_HOST_AUTH_METHOD: trust
-    env_file:
-      - .env
+
     volumes:
       - postgres:/var/lib/postgresql/data
     networks:
@@ -47,9 +39,25 @@ services:
     container_name: webapp
     restart: always
     environment:
-      DJANGO_SETTINGS_MODULE: project.settings
-    env_file:
-      - .env
+      - DJANGO_SETTINGS_MODULE=project.settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+      - DJANGO_DEFAULT_LANGUAGE_CODE=${DJANGO_DEFAULT_LANGUAGE_CODE}
+      - DJANGO_TIMEZONE=${DJANGO_TIMEZONE}
+      - DB_ENGINE=${DB_ENGINE}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DOMAIN=${DOMAIN}
+      - IGNORE_SENSORS=${IGNORE_SENSORS}
+      - DJANGO_LOG_LEVEL=${DJANGO_LOG_LEVEL}
+      - DJANGO_LOGURU_LEVEL=${DJANGO_LOGURU_LEVEL}
+      - BEHIND_SSL_PROXY=${BEHIND_SSL_PROXY}
+      - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}
     volumes:
       - ./staticfiles:/app/staticfiles
     depends_on:
@@ -68,6 +76,7 @@ services:
 volumes:
   postgres:
   staticfiles:
+
 
 networks:
   backend:
