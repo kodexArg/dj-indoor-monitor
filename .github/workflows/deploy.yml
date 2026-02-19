@@ -1,0 +1,39 @@
+name: Deploy to On-Premise Server
+
+on:
+  push:
+    branches:
+      - on-premise
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    env:
+      # Define environment variables if needed, or rely on .env file on server
+      # Ideally, critical secrets remain on the server in .env
+      branch: on-premise
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Pull latest changes
+        run: |
+          git fetch origin ${{ env.branch }}
+          git reset --hard origin/${{ env.branch }}
+
+      - name: Update environment configuration
+        # This step is optional if .env is static, but ensures any new example vars are available.
+        # It does NOT overwrite existing .env values, just appends missing ones if using a tool like
+        # python-dotenv, but simpler is to just rely on the existing .env or update manually.
+        # For now, we skip modifying .env automatically to avoid overwriting secrets.
+        run: echo "Environment check skipped (managing .env manually)"
+
+      - name: Deploy with Docker Compose
+        run: |
+          docker-compose down # Optional: ensures clean slate if needed, but 'up -d' usually handles updates
+          docker-compose up -d --build --remove-orphans
+
+      - name: Cleanup
+        run: |
+          docker system prune -f
