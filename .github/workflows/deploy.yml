@@ -31,8 +31,8 @@ jobs:
 
       - name: Deploy with Docker Compose
         run: |
-          docker-compose down # Optional: ensures clean slate if needed, but 'up -d' usually handles updates
-          docker-compose up -d --build --remove-orphans
+          docker compose down # Optional: ensures clean slate if needed, but 'up -d' usually handles updates
+          docker compose up -d --build --remove-orphans
 
       - name: Cleanup
         run: |
