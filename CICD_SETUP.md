@@ -55,7 +55,7 @@ El workflow está configurado para dispararse **solo cuando hay cambios en la ra
    git push -u origin on-premise
    ```
 
-2. A partir de ahora, cada vez que hagas un merge o push a esta rama, el servidor descargará los cambios y ejecutará `docker-compose up -d --build` automáticamente.
+2. A partir de ahora, cada vez que hagas un merge o push a esta rama, el servidor descargará los cambios y ejecutará `docker compose up -d --build` automáticamente.
 
 ## 4. Troubleshooting
 
