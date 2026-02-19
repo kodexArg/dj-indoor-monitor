@@ -1,16 +1,15 @@
-# Frontend
+# 4. Interfaces: Frontend e Interactividad
 
 El frontend del proyecto se caracteriza por su ligereza y eficiencia, delegando la mayor parte de la lógica de renderizado al servidor (Django) y utilizando librerías minimalistas para la interactividad y el estilo.
 
-## Tecnologías y Librerías
+## 4.1. Tecnologías y Librerías
 
 *   **HTML5 Semántico**: Base de la estructura de las páginas.
 *   **Skeleton CSS**: Un boilerplate CSS extremadamente ligero que proporciona una rejilla (grid) responsiva y estilos básicos limpios. Se complementa con `Normalize.css` para consistencia entre navegadores.
 *   **HTMX**: Motor de interactividad. Se utiliza para realizar peticiones asíncronas al servidor y actualizar partes del DOM (gráficos, tablas) sin recargar la página completa. Esto proporciona una experiencia de usuario fluida (tipo SPA) sin la complejidad de JavaScript del lado del cliente.
-*   **Plotly.js**: Librería de gráficos utilizada para renderizar las visualizaciones de datos. Aunque los datos y la configuración del gráfico se preparan en el backend, Plotly.js se encarga del dibujo interactivo en el navegador.
-*   **Luxon**: Librería para el manejo y formateo de fechas y horas en JavaScript.
+*   **Plotly.js**: Librería de gráficos utilizada para renderizar las visualizaciones de datos. Aunque los datos y la configuración del gráfico se preparan en el backend (Python), Plotly.js se encarga del dibujo interactivo en el navegador.
 
-## Estructura de Plantillas (Templates)
+## 4.2. Estructura de Plantillas (Templates)
 
 El proyecto utiliza el sistema de plantillas de Django con herencia:
 
@@ -24,7 +23,7 @@ El proyecto utiliza el sistema de plantillas de Django con herencia:
     *   `vpd.html`: Visualización del Déficit de Presión de Vapor.
     *   `gauges.html`: Panel de medidores tipo "gauge".
 
-## Organización de Archivos Estáticos
+## 4.3. Organización de Archivos Estáticos
 
 Los recursos estáticos se encuentran en `core/static/` y se organizan en:
 
@@ -32,7 +31,7 @@ Los recursos estáticos se encuentran en `core/static/` y se organizan en:
 *   `js/`: Scripts de terceros (`htmx.min.js`, `plotly.min.js`) y scripts propios (`gauges.js`, `charts.js`) que manejan inicializaciones específicas.
 *   `images/` e `icons/`: Recursos gráficos y logotipos.
 
-## Flujo de Interacción Típico
+## 4.4. Flujo de Interacción Típico
 
 1.  El usuario carga una página (e.g., `/charts/interactive/`).
 2.  Django renderiza la plantilla base y el contenido inicial.

@@ -1,8 +1,8 @@
-# Modelo de Datos
+# 2. Modelo de Dominio y Base de Datos
 
 Este documento describe el esquema de la base de datos PostgreSQL utilizada en el proyecto. El modelo está diseñado para almacenar configuraciones del sitio, estructura física (habitaciones y sensores) y datos de series temporales de alta frecuencia.
 
-## Diagrama Entidad-Relación (Conceptual)
+## 2.1. Diagrama Entidad-Relación (Conceptual)
 
 ```ascii
 +----------------+       +--------------+       +--------------+
@@ -24,7 +24,7 @@ Este documento describe el esquema de la base de datos PostgreSQL utilizada en e
 +--------------------+
 ```
 
-## Descripción de Entidades
+## 2.2. Entidades de Dominio
 
 ### Room (Habitación)
 Representa una ubicación física o lógica donde se agrupan los sensores.
@@ -42,7 +42,7 @@ Representa un dispositivo físico instalado en una habitación específica.
 Almacena las lecturas individuales de los sensores. Esta tabla está optimizada para series temporales y consultas de agregación.
 - **Campos**:
     - `timestamp`: Fecha y hora de la lectura. Indexado para búsquedas por rango de tiempo.
-    - `sensor`: Nombre del sensor (CharField). **Nota**: No es una ForeignKey directa al modelo `Sensor` para optimizar la ingestión masiva y desacoplar la escritura de datos de la existencia previa de la entidad sensor.
+    - `sensor`: Nombre del sensor (CharField). **Nota Técnica**: No es una ForeignKey directa al modelo `Sensor` para optimizar la ingestión masiva y desacoplar la escritura de datos de la existencia previa de la entidad sensor.
     - `metric`: Identificador del tipo de medición (e.g., 't' para temperatura, 'h' para humedad).
     - `value`: Valor numérico de la medición (Float).
 - **Índices**:
